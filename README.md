@@ -46,20 +46,20 @@ Your Project
 Install the tool globally using the .NET CLI. Once installed, the `ai-bridge` command is available in any terminal window.
 
 ```bash
-dotnet tool install --global Arpan.AIBridge
+dotnet tool install --global Tools.AIBridge
 ```
-*(Note: If installing locally during development, use `dotnet tool install --global --add-source ./bin/Release/ Arpan.AIBridge`).*
+*(Note: If installing locally during development, use `dotnet tool install --global --add-source ./bin/Release/ Tools.AIBridge`).*
 
 ### Uninstallation
 To remove the global tool from your machine:
 ```bash
-dotnet tool uninstall --global Arpan.AIBridge
+dotnet tool uninstall --global Tools.AIBridge
 ```
 
 ### Updating the Tool
 To update the tool to the latest version from NuGet:
 ```bash
-dotnet tool update --global Arpan.AIBridge
+dotnet tool update --global Tools.AIBridge
 ```
 
 ---
