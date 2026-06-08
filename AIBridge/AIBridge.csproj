@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- NuGet Package Properties -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>ai-bridge</ToolCommandName>
+    <PackageId>Arpan.AIBridge</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Arpan</Authors>
+    <Description>A lightweight, language-agnostic CLI tool for packing project source code into AI-readable context and applying AI-generated code changes back to your codebase.</Description>
+    <PackageTags>ai;chatgpt;claude;gemini;cli;tool;pack;apply;context</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/arpanvgm/ai-bridge</RepositoryUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\"/>
+  </ItemGroup>
+
+</Project>

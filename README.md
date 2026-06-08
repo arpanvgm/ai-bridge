@@ -1,0 +1,180 @@
+# AI Bridge — Usage Guide
+
+A no-agent, no-extension workflow for applying AI-generated code changes to any project directly from your browser using the `ai-bridge` .NET Global Tool.
+
+Works with **any language or technology** — .NET, Node.js, Python, React, or any project with a sensible folder structure.
+
+---
+
+## The Big Picture
+
+```text
+Your Project
+    │
+    ▼
+[1] ai-bridge pack  ──►  aiArtifacts/*-context.txt
+                                    │
+                                    ▼
+                         [2] Paste into Browser AI
+                             (ChatGPT / Claude / Gemini)
+                                    │
+                             Ask for changes
+                                    │
+                                    ▼
+                         [3] Save AI response
+                             ──► aiArtifacts/ai-response.xml
+                                    │
+                                    ▼
+                         [4] ai-bridge apply
+                                    │
+                                    ▼
+                             Code lands in your project ✅
+```
+
+---
+
+## Prerequisites
+
+- **.NET 10 SDK** installed on your machine.
+- **Git** installed and on your PATH (the target project must be a git repo)
+- A browser AI account: [ChatGPT](https://chatgpt.com), [Claude](https://claude.ai), or [Gemini](https://gemini.google.com)
+
+---
+
+## Installation
+
+Install the tool globally using the .NET CLI. Once installed, the `ai-bridge` command is available in any terminal window.
+
+```bash
+dotnet tool install --global Arpan.AIBridge
+```
+*(Note: If installing locally during development, use `dotnet tool install --global --add-source ./bin/Release/ Arpan.AIBridge`).*
+
+### Uninstallation
+To remove the global tool from your machine:
+```bash
+dotnet tool uninstall --global Arpan.AIBridge
+```
+
+### Updating the Tool
+To update the tool to the latest version from NuGet:
+```bash
+dotnet tool update --global Arpan.AIBridge
+```
+
+---
+
+## Step 0 — Initialize AI Workspace (Optional)
+
+If you want to configure which files to hide from the AI *before* you pack your code, run the init command:
+
+```bash
+ai-bridge init
+```
+This automatically creates a default `.aiignore` file and patches your `.gitignore` so your AI context files never accidentally get committed. You can edit the `.aiignore` file to add custom files and folders you want to exclude.
+
+---
+
+## Step 1 — Pack Your Project Context
+
+Open your terminal, navigate to your project directory, and run the `pack` command to compile your project's source code into AI-readable context files.
+
+```bash
+cd D:\Code\Github\you\your-project
+ai-bridge pack
+```
+
+**Output:** One `*-context.txt` file per project layer, saved to `aiArtifacts\`:
+
+```text
+aiArtifacts\
+    YourApp.WebApi-context.txt
+    YourApp.DataProvider-context.txt
+    YourApp.SharedContracts-context.txt
+    YourApp-Solution-context.txt
+```
+
+> **Tip:** You don't always need to upload all files. If you're only changing the API layer, just upload `YourApp.WebApi-context.txt`.
+
+---
+
+## Step 2 — Give Context to the AI
+
+1. Open your browser AI (ChatGPT, Claude, or Gemini).
+2. **Set the System Prompt** — paste the contents of `ai-system-prompt.md` into the system / custom instructions area. You only need to do this once per chat session.
+3. **Upload the context file(s)** — attach the relevant `*-context.txt` file(s) from `aiArtifacts\`.
+4. **Describe what you want** — ask the AI to add a feature, fix a bug, refactor code, delete files, etc.
+
+---
+
+## Step 3 — Save the AI Response
+
+The AI will respond with a valid XML document (wrapped in `<ai-response>` with CDATA sections). Save it as `ai-response.xml` in the `aiArtifacts\` folder.
+
+### Option A — Copy & Paste (Works with all AI tools)
+1. Select the entire AI response text in the browser.
+2. Copy it (`Ctrl+C`).
+3. Open Notepad (or any editor), paste, and save as:
+   ```text
+   aiArtifacts\ai-response.xml
+   ```
+
+### Option B — Download (ChatGPT with Code Interpreter)
+Ask ChatGPT directly:
+> *"Save your response to a file called ai-response.xml and give me a download link."*
+
+ChatGPT will generate a downloadable file. Place it in `aiArtifacts\`.
+
+---
+
+## Step 4 — Apply the AI Response
+
+Inside your project directory, run the `apply` command to apply the changes.
+
+```bash
+ai-bridge apply
+```
+
+### What the tool does
+1. **Phase 1** — Applies `<file>` blocks (creates or overwrites full files).
+2. **Phase 2** — Applies `<patch>` blocks (targeted search-and-replace).
+3. **Phase 3** — Applies `<delete>` blocks (removes files).
+4. **Phase 4** — Cleans up any folders left empty after deletions.
+5. **Prints a summary** of all changes made.
+
+### After the run
+- If some patches failed → paths are saved to `aiArtifacts\failed-patches.txt`. Go back to the AI and ask:
+  > *"Some patches failed for these files. Please give me full `<file>` blocks instead: [paste failed-patches.txt contents]"*
+
+---
+
+## System Prompt
+
+The system prompt tells the AI exactly what format to use in its responses.
+
+**Where to paste it:**
+- **ChatGPT**: Settings → Personalization → Custom Instructions (top box)
+- **Claude**: Start a new Project → Project Instructions
+- **Gemini**: System instructions (in Gemini Advanced / API settings)
+
+The full system prompt text is in:
+```text
+ai-system-prompt.md
+```
+Open the file and copy everything from the **`▼ COPY FROM HERE ▼`** marker to the end of the file.
+
+---
+
+## What it generates in your project
+
+When you run `ai-bridge pack` in your project folder, it creates an `aiArtifacts` folder. This folder is strictly for AI working files and will automatically be added to your `.gitignore`.
+
+```text
+YourProjectRoot\
+└── aiArtifacts\                ← Auto-created, gitignored
+    ├── *-context.txt           ← Output of ai-bridge pack
+    ├── ai-response.xml         ← AI response you paste/download here (valid XML)
+    └── failed-patches.txt      ← Created only when patches fail
+```
+
+> **Note:** If you don't have an `.aiignore` file, the tool will automatically create a default one for you.
