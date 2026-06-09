@@ -178,3 +178,27 @@ YourProjectRoot\
 ```
 
 > **Note:** If you don't have an `.aiignore` file, the tool will automatically create a default one for you.
+
+
+## Troubleshooting
+
+### `ai-bridge` is not recognized as a command
+
+**Symptom:**
+```
+ai-bridge: The term 'ai-bridge' is not recognized as the name of a cmdlet, function, script file, or executable program.
+```
+
+**Cause:** .NET global tools are installed to `%USERPROFILE%\.dotnet\tools`, which should be on your `PATH`. This entry can go missing after a Windows Update, .NET SDK update, or environment refresh — even though the tool itself is still installed and intact.
+
+**Fix:** Run the following in PowerShell to permanently restore the entry to your user PATH:
+```powershell
+[System.Environment]::SetEnvironmentVariable(
+    "PATH",
+    ([System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::User) + ";$env:USERPROFILE\.dotnet\tools"),
+    [System.EnvironmentVariableTarget]::User
+)
+```
+Then **restart your terminal**. The command should work again.
+
+---
