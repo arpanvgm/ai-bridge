@@ -38,7 +38,7 @@ namespace AIBridge
         private static readonly HashSet<string> ExcludeFileNames = new(StringComparer.OrdinalIgnoreCase)
         {
             "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
-            ".DS_Store", "Thumbs.db", ".gitignore"
+            ".DS_Store", "Thumbs.db", ".gitignore", ".aiignore"
         };
 
         // AI Bridge folders that should never be packed (regardless of git or fallback)
