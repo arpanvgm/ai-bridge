@@ -13,11 +13,6 @@ namespace AIBridge
 
             switch (command)
             {
-                case "init":
-                    ConsoleHelper.Info("Initializing AI Bridge workspace...");
-                    Packer.Init();
-                    break;
-
                 case "pack":
                     ConsoleHelper.Info("Packing AI context...");
                     Packer.Run();
@@ -33,8 +28,7 @@ namespace AIBridge
                 default:
                     Console.WriteLine("Usage: ai-bridge [command]");
                     Console.WriteLine("Commands:");
-                    Console.WriteLine("  init                - Creates default .aiignore, patches .gitignore, and sets up aiSkills/.");
-                    Console.WriteLine("  pack                - Packs source files into text context for AI.");
+                    Console.WriteLine("  pack                - Packs source files into text context for AI (auto-initializes on first run).");
                     Console.WriteLine("  apply [options]     - Applies ai-response.xml patches to the codebase.");
                     Console.WriteLine();
                     Console.WriteLine("Apply Options:");

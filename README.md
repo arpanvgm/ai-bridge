@@ -36,7 +36,7 @@ Your Project
 ## Prerequisites
 
 - **.NET 10 SDK** installed on your machine.
-- **Git** installed and on your PATH (the target project must be a git repo)
+- **Git** installed and on your PATH (the target project must be a git repo). AI Bridge uses `git ls-files` to automatically respect your `.gitignore` rules.
 - A browser AI account: [ChatGPT](https://chatgpt.com), [Claude](https://claude.ai), or [Gemini](https://gemini.google.com)
 
 ---
@@ -81,32 +81,22 @@ Root-level files (e.g., `docker-compose.yml`, `README.md`) are always packed int
 
 ---
 
-## Step 0 — Initialize AI Workspace
-
-Open your terminal, navigate to the **root of your solution/project**, and run:
-
-```bash
-cd D:\Code\Github\you\your-project
-ai-bridge init
-```
-
-This creates everything you need to get started:
-- `.aiignore` — controls which files are excluded from packing.
-- `aiArtifacts/` — working folder for context files and AI responses (auto-added to `.gitignore`).
-- `aiSkills/ai-system-prompt.md` — the system prompt you'll paste into your browser AI (see [System Prompt](#system-prompt) section below).
-
-> **Note:** This step also runs automatically the first time you use `ai-bridge pack`. The `aiSkills/` folder is designed to be committed to your repo so your team shares the same AI instructions.
-
----
 
 ## Step 1 — Pack Your Project Context
 
-Open your terminal, navigate to your project directory, and run the `pack` command to compile your project's source code into AI-readable context files.
+Open your terminal, navigate to your project directory, and run the `pack` command. On first run, it auto-initializes your workspace (creates `.aiignore`, `aiSkills/`, `aiArtifacts/`, patches `.gitignore`).
 
 ```bash
 cd D:\Code\Github\you\your-project
 ai-bridge pack
 ```
+
+**What it does:**
+1. **Auto-initializes** on first run — creates `.aiignore`, `aiSkills/ai-system-prompt.md`, and `aiArtifacts/`.
+2. **Uses `git ls-files`** to determine which files to include — automatically respects all `.gitignore` rules (nested, negation, global).
+3. **Filters out binary files** (images, fonts, executables, archives, etc.) so only source code and config are packed.
+4. **Applies `.aiignore` rules** for any additional exclusions you define.
+5. **Groups files by project** based on ecosystem detection.
 
 **Output:** One `*-context.txt` file per project layer, saved to `aiArtifacts\`:
 
@@ -119,6 +109,18 @@ aiArtifacts\
 ```
 
 > **Tip:** You don't always need to upload all files. If you're only changing the API layer, just upload `YourApp.WebApi-context.txt`.
+
+### File Filtering
+
+AI Bridge uses a layered approach to decide which files to pack:
+
+| Layer | What it does |
+|-------|-------------|
+| `.gitignore` | Files ignored by git are automatically excluded (via `git ls-files`) |
+| Binary blocklist | Images, fonts, executables, archives, media, etc. are always skipped |
+| `.aiignore` | Your additional exclusions (e.g., `TestResults/`, `*.g.cs`) |
+
+> **Fallback:** If git is not available, AI Bridge uses built-in exclusion rules (common folders like `bin/`, `obj/`, `node_modules/`, etc.).
 
 ---
 
@@ -201,7 +203,7 @@ ai-bridge apply --force
 
 ## System Prompt
 
-The AI needs a system prompt so it responds in the correct XML format that `ai-bridge apply` understands. After running `ai-bridge init`, you'll find the system prompt at:
+The AI needs a system prompt so it responds in the correct XML format that `ai-bridge apply` understands. After running `ai-bridge pack`, you'll find the system prompt at:
 
 ```text
 aiSkills/ai-system-prompt.md
@@ -219,10 +221,11 @@ aiSkills/ai-system-prompt.md
 
 ## What it generates in your project
 
-When you run `ai-bridge init` or `ai-bridge pack`, it sets up two folders:
+When you run `ai-bridge pack`, it sets up two folders:
 
 ```text
 YourProjectRoot\
+├── .aiignore                   ← Additional ignore rules (works alongside .gitignore)
 ├── aiSkills\                   ← Committed to git (team-shared)
 │   └── ai-system-prompt.md    ← System prompt for your browser AI
 └── aiArtifacts\                ← Auto-created, gitignored
