@@ -48,7 +48,7 @@ Install the tool globally using the .NET CLI. Once installed, the `ai-bridge` co
 ```bash
 dotnet tool install --global Tools.AIBridge
 ```
-*(Note: If installing locally during development, use `dotnet tool install --global --add-source ./bin/Release/ Tools.AIBridge`).*
+*(Note: If installing locally during development, use `dotnet tool install --global --add-source ./AIBridge/bin/Release/ Tools.AIBridge`).*
 
 ### Uninstallation
 To remove the global tool from your machine:

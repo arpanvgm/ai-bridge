@@ -19,8 +19,7 @@ Open `AIBridge/AIBridge.csproj` and increment the `<Version>` tag.
 Open your terminal, navigate to the `AIBridge` directory, and run the pack command:
 
 ```bash
-cd AIBridge
-dotnet pack
+dotnet pack .\AIBridge
 ```
 
 This will compile the tool and generate a new `.nupkg` file in the `bin/Release` directory.
@@ -44,7 +43,7 @@ From the `AIBridge` directory, run the `dotnet nuget push` command using the `.n
 Replace `YOUR_API_KEY` with your actual NuGet API Key, and ensure the version number in the filename matches the version you packed.
 
 ```bash
-dotnet nuget push .\bin\Release\Tools.AIBridge.1.0.1.nupkg --api-key YOUR_API_KEY --source https://api.nuget.org/v3/index.json
+dotnet nuget push .\AIBridge\bin\Release\Tools.AIBridge.1.0.1.nupkg --api-key YOUR_API_KEY --source https://api.nuget.org/v3/index.json
 ```
 
 ---
