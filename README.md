@@ -81,20 +81,21 @@ Root-level files (e.g., `docker-compose.yml`, `README.md`) are always packed int
 
 ---
 
-## Step 0 — Initialize AI Workspace (Optional)
+## Step 0 — Initialize AI Workspace
 
-If you want to configure which files to hide from the AI *before* you pack your code, run the init command:
+Open your terminal, navigate to the **root of your solution/project**, and run:
 
 ```bash
+cd D:\Code\Github\you\your-project
 ai-bridge init
 ```
 
-This automatically:
-- Creates a default `.aiignore` file (controls which files are excluded from packing).
-- Patches your `.gitignore` so AI working files never get committed.
-- Creates `aiSkills/ai-system-prompt.md` — the system prompt you paste into your browser AI.
+This creates everything you need to get started:
+- `.aiignore` — controls which files are excluded from packing.
+- `aiArtifacts/` — working folder for context files and AI responses (auto-added to `.gitignore`).
+- `aiSkills/ai-system-prompt.md` — the system prompt you'll paste into your browser AI (see [System Prompt](#system-prompt) section below).
 
-> **Tip:** The `aiSkills/` folder is designed to be committed to your repo so your team shares the same AI instructions.
+> **Note:** This step also runs automatically the first time you use `ai-bridge pack`. The `aiSkills/` folder is designed to be committed to your repo so your team shares the same AI instructions.
 
 ---
 
@@ -200,18 +201,19 @@ ai-bridge apply --force
 
 ## System Prompt
 
-The system prompt tells the AI exactly what format to use in its responses.
+The AI needs a system prompt so it responds in the correct XML format that `ai-bridge apply` understands. After running `ai-bridge init`, you'll find the system prompt at:
 
-**Where to paste it:**
-- **ChatGPT**: Settings → Personalization → Custom Instructions (top box)
-- **Claude**: Start a new Project → Project Instructions
-- **Gemini**: System instructions (in Gemini Advanced / API settings)
-
-The full system prompt text is in:
 ```text
-ai-system-prompt.md
+aiSkills/ai-system-prompt.md
 ```
-Open the file and copy everything from the **`▼ COPY FROM HERE ▼`** marker to the end of the file.
+
+**Setup (one-time per AI chat session):**
+1. Open `aiSkills/ai-system-prompt.md` in any text editor.
+2. Copy everything from the **`▼ COPY FROM HERE ▼`** marker to the end of the file.
+3. Paste it into your browser AI's system instructions:
+   - **ChatGPT**: Settings → Personalization → Custom Instructions (top box)
+   - **Claude**: Start a new Project → Project Instructions
+   - **Gemini**: System instructions (in Gemini Advanced / API settings)
 
 ---
 
