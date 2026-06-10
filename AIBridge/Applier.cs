@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -10,7 +11,7 @@ namespace AIBridge
 {
     public static class Applier
     {
-        public static void Run()
+        public static void Run(bool dryRun = false, bool force = false)
         {
             var projectPath = Environment.CurrentDirectory;
             var artifactsDir = Path.Combine(projectPath, "aiArtifacts");
@@ -19,7 +20,7 @@ namespace AIBridge
 
             if (!File.Exists(inputFile))
             {
-                Console.WriteLine($"Error: Cannot find '{inputFile}'.");
+                ConsoleHelper.Error($"Error: Cannot find '{inputFile}'.");
                 return;
             }
 
@@ -36,12 +37,52 @@ namespace AIBridge
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error: '{inputFile}' is not valid XML. {ex.Message}");
+                ConsoleHelper.Error($"Error: '{inputFile}' is not valid XML. {ex.Message}");
                 return;
+            }
+
+            // Collect all target file paths from the response
+            var targetFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (XmlNode node in xml.SelectNodes("//file")!)
+            {
+                var p = node.Attributes?["path"]?.Value.Trim();
+                if (!string.IsNullOrEmpty(p)) targetFiles.Add(p.Replace('/', Path.DirectorySeparatorChar));
+            }
+            foreach (XmlNode node in xml.SelectNodes("//patch")!)
+            {
+                var p = node.Attributes?["file"]?.Value.Trim();
+                if (!string.IsNullOrEmpty(p)) targetFiles.Add(p.Replace('/', Path.DirectorySeparatorChar));
+            }
+            foreach (XmlNode node in xml.SelectNodes("//delete")!)
+            {
+                var p = node.Attributes?["path"]?.Value.Trim();
+                if (!string.IsNullOrEmpty(p)) targetFiles.Add(p.Replace('/', Path.DirectorySeparatorChar));
+            }
+
+            // Smart safety net: check for uncommitted changes in target files only
+            if (!force && !dryRun)
+            {
+                var conflicts = GetUncommittedConflicts(projectPath, targetFiles);
+                if (conflicts.Count > 0)
+                {
+                    ConsoleHelper.Warning("⚠ These files have uncommitted changes and will be overwritten:");
+                    foreach (var conflict in conflicts)
+                    {
+                        ConsoleHelper.Warning($"   - {conflict}");
+                    }
+                    ConsoleHelper.Warning("\nRun 'ai-bridge apply --force' to apply anyway, or commit/stash your changes first.");
+                    return;
+                }
+            }
+
+            if (dryRun)
+            {
+                ConsoleHelper.Info("\n--- DRY RUN (no files will be modified) ---\n");
             }
 
             int countFullFiles = 0, countPatchOk = 0, countPatchFailed = 0, countDeleted = 0;
             var failedFiles = new List<string>();
+            var failedPatchNodes = new List<XmlNode>();
 
             // 1. Full Files
             foreach (XmlNode node in xml.SelectNodes("//file")!)
@@ -50,11 +91,19 @@ namespace AIBridge
                 if (string.IsNullOrEmpty(relPath)) continue;
 
                 var absPath = Path.Combine(projectPath, relPath.Replace('/', Path.DirectorySeparatorChar));
-                Directory.CreateDirectory(Path.GetDirectoryName(absPath)!);
 
+                if (dryRun)
+                {
+                    var action = File.Exists(absPath) ? "OVERWRITE" : "CREATE";
+                    ConsoleHelper.Info($"  {action}: {relPath}");
+                    countFullFiles++;
+                    continue;
+                }
+
+                Directory.CreateDirectory(Path.GetDirectoryName(absPath)!);
                 var newContent = node.InnerText.Trim('\r', '\n') + "\r\n";
                 File.WriteAllText(absPath, newContent, Encoding.UTF8);
-                Console.WriteLine($"Created/Overwritten: {relPath}");
+                ConsoleHelper.Success($"Created/Overwritten: {relPath}");
                 countFullFiles++;
             }
 
@@ -68,10 +117,18 @@ namespace AIBridge
                 var searchNode = node.SelectSingleNode("search");
                 var replaceNode = node.SelectSingleNode("replace");
 
+                if (dryRun)
+                {
+                    ConsoleHelper.Info($"  PATCH: {relPath}");
+                    countPatchOk++;
+                    continue;
+                }
+
                 if (!File.Exists(absPath) || searchNode == null || replaceNode == null)
                 {
-                    Console.WriteLine($"Patch failed: File not found or invalid XML -> {relPath}");
+                    ConsoleHelper.Error($"Patch failed: File not found or invalid XML -> {relPath}");
                     failedFiles.Add(relPath);
+                    failedPatchNodes.Add(node);
                     countPatchFailed++;
                     continue;
                 }
@@ -82,15 +139,24 @@ namespace AIBridge
 
                 if (targetContent.Contains(search))
                 {
+                    // Exact match
                     var updated = targetContent.Replace(search, replace);
                     File.WriteAllText(absPath, updated, Encoding.UTF8);
-                    Console.WriteLine($"Patched: {relPath}");
+                    ConsoleHelper.Success($"Patched: {relPath}");
+                    countPatchOk++;
+                }
+                else if (TryFuzzyPatch(targetContent, search, replace, out var fuzzyResult))
+                {
+                    // Fuzzy match (whitespace-normalized)
+                    File.WriteAllText(absPath, fuzzyResult, Encoding.UTF8);
+                    ConsoleHelper.Warning($"Patched (fuzzy): {relPath}");
                     countPatchOk++;
                 }
                 else
                 {
-                    Console.WriteLine($"Patch failed: Match not found -> {relPath}");
+                    ConsoleHelper.Error($"Patch failed: Match not found -> {relPath}");
                     failedFiles.Add(relPath);
+                    failedPatchNodes.Add(node);
                     countPatchFailed++;
                 }
             }
@@ -102,30 +168,168 @@ namespace AIBridge
                 if (string.IsNullOrEmpty(relPath)) continue;
 
                 var absPath = Path.Combine(projectPath, relPath.Replace('/', Path.DirectorySeparatorChar));
+
+                if (dryRun)
+                {
+                    ConsoleHelper.Info($"  DELETE: {relPath}");
+                    countDeleted++;
+                    continue;
+                }
+
                 if (File.Exists(absPath))
                 {
                     File.Delete(absPath);
-                    Console.WriteLine($"Deleted: {relPath}");
+                    ConsoleHelper.Success($"Deleted: {relPath}");
                     countDeleted++;
                 }
             }
 
             // 4. Clean up empty folders after deletions
-            if (countDeleted > 0)
+            if (countDeleted > 0 && !dryRun)
             {
                 CleanEmptyFolders(projectPath);
             }
 
             // Summary
-            Console.WriteLine($"\nSummary: {countFullFiles} written, {countPatchOk} patched, {countDeleted} deleted.");
-            if (countPatchFailed > 0)
+            if (dryRun)
             {
-                Console.WriteLine($"Failed patches: {countPatchFailed}. Check {failedLogFile}");
-                File.WriteAllLines(failedLogFile, failedFiles.Distinct());
+                ConsoleHelper.Info($"\nDry run complete: {countFullFiles} file(s), {countPatchOk} patch(es), {countDeleted} delete(s).");
+                ConsoleHelper.Info("No files were modified. Run 'ai-bridge apply' to apply for real.");
+            }
+            else
+            {
+                ConsoleHelper.Info($"\nSummary: {countFullFiles} written, {countPatchOk} patched, {countDeleted} deleted.");
+
+                if (countPatchFailed > 0)
+                {
+                    // Write failed file paths for quick reference
+                    ConsoleHelper.Error($"Failed patches: {countPatchFailed}. Check {failedLogFile}");
+                    File.WriteAllLines(failedLogFile, failedFiles.Distinct());
+
+                    // Rebuild ai-response.xml with ONLY failed patch blocks
+                    RebuildResponseWithFailedPatches(inputFile, failedPatchNodes);
+                    ConsoleHelper.Warning($"⚠ ai-response.xml now contains only the {countPatchFailed} failed patch(es). Fix and re-run 'ai-bridge apply'.");
+                }
+                else
+                {
+                    File.WriteAllText(inputFile, "<!-- Paste the AI response XML here -->\n");
+                    ConsoleHelper.Success("✅ Cleared ai-response.xml to prevent accidental re-application.");
+                }
+            }
+        }
+
+        private static List<string> GetUncommittedConflicts(string projectPath, HashSet<string> targetFiles)
+        {
+            var conflicts = new List<string>();
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "git",
+                    Arguments = "status --porcelain",
+                    WorkingDirectory = projectPath,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using var process = Process.Start(psi);
+                if (process == null) return conflicts;
+
+                var output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+
+                if (process.ExitCode != 0) return conflicts;
+
+                foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    // git status --porcelain format: "XY filename" (first 3 chars are status + space)
+                    if (line.Length < 4) continue;
+                    var filePath = line.Substring(3).Trim().Trim('"').Replace('/', Path.DirectorySeparatorChar);
+
+                    if (targetFiles.Contains(filePath))
+                    {
+                        conflicts.Add(filePath);
+                    }
+                }
+            }
+            catch
+            {
+                // If git is not available, skip the check silently
             }
 
-            File.WriteAllText(inputFile, "<!-- Paste the AI response XML here -->\n");
-            Console.WriteLine("✅ Cleared ai-response.xml to prevent accidental re-application.");
+            return conflicts;
+        }
+
+        private static bool TryFuzzyPatch(string fileContent, string search, string replace, out string result)
+        {
+            result = fileContent;
+
+            // Normalize whitespace: collapse runs of spaces/tabs to single space, trim each line
+            var normalizedFile = NormalizeWhitespace(fileContent);
+            var normalizedSearch = NormalizeWhitespace(search);
+
+            if (!normalizedFile.Contains(normalizedSearch))
+            {
+                return false;
+            }
+
+            // Find the matching region by line-by-line comparison
+            var fileLines = fileContent.Split('\n');
+            var searchLines = search.Split('\n')
+                .Select(l => l.TrimEnd())
+                .Where(l => !string.IsNullOrEmpty(l))
+                .ToArray();
+
+            if (searchLines.Length == 0) return false;
+
+            var normalizedSearchLines = searchLines.Select(NormalizeLineWhitespace).ToArray();
+
+            // Find the starting line index in the file
+            for (int i = 0; i <= fileLines.Length - normalizedSearchLines.Length; i++)
+            {
+                bool match = true;
+                for (int j = 0; j < normalizedSearchLines.Length; j++)
+                {
+                    if (NormalizeLineWhitespace(fileLines[i + j].TrimEnd()) != normalizedSearchLines[j])
+                    {
+                        match = false;
+                        break;
+                    }
+                }
+
+                if (match)
+                {
+                    // Replace the matched range with the replacement text
+                    var before = string.Join('\n', fileLines.Take(i));
+                    var after = string.Join('\n', fileLines.Skip(i + normalizedSearchLines.Length));
+
+                    if (before.Length > 0) before += '\n';
+                    if (after.Length > 0) replace += '\n';
+
+                    result = before + replace + after;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static void RebuildResponseWithFailedPatches(string inputFile, List<XmlNode> failedPatchNodes)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("<ai-response>");
+            sb.AppendLine();
+
+            foreach (var node in failedPatchNodes)
+            {
+                sb.AppendLine(node.OuterXml);
+                sb.AppendLine();
+            }
+
+            sb.AppendLine("</ai-response>");
+            File.WriteAllText(inputFile, sb.ToString(), Encoding.UTF8);
         }
 
         private static void CleanEmptyFolders(string rootPath)
@@ -136,12 +340,14 @@ namespace AIBridge
                 if (!Directory.EnumerateFileSystemEntries(dir).Any())
                 {
                     Directory.Delete(dir);
-                    Console.WriteLine($"Removed empty folder: {Path.GetRelativePath(rootPath, dir)}");
+                    ConsoleHelper.Info($"Removed empty folder: {Path.GetRelativePath(rootPath, dir)}");
                 }
             }
         }
 
         private static string Normalize(string text) => text.Replace("\r\n", "\n").Replace("\r", "\n");
         private static string TrimCDATA(string text) => Regex.Replace(Regex.Replace(text, @"^\r?\n", ""), @"\r?\n[ \t]*$", "");
+        private static string NormalizeWhitespace(string text) => Regex.Replace(text, @"[ \t]+", " ").Trim();
+        private static string NormalizeLineWhitespace(string line) => Regex.Replace(line, @"[ \t]+", " ").Trim();
     }
 }

@@ -64,6 +64,23 @@ dotnet tool update --global Tools.AIBridge
 
 ---
 
+## Supported Ecosystems
+
+AI Bridge automatically detects your project type and groups files intelligently:
+
+| Ecosystem | Detected By | Grouping |
+|-----------|-------------|----------|
+| .NET | `.csproj` files | One context file per project |
+| Node.js | `package.json` in subfolders | One context file per package |
+| Python | `pyproject.toml` | One context file per package |
+| Go | `go.mod` | One context file per module |
+| Rust | `Cargo.toml` | One context file per crate |
+| Other | (fallback) | One context file per top-level folder |
+
+Root-level files (e.g., `docker-compose.yml`, `README.md`) are always packed into a `*-Solution-context.txt` file.
+
+---
+
 ## Step 0 — Initialize AI Workspace (Optional)
 
 If you want to configure which files to hide from the AI *before* you pack your code, run the init command:
@@ -71,7 +88,13 @@ If you want to configure which files to hide from the AI *before* you pack your 
 ```bash
 ai-bridge init
 ```
-This automatically creates a default `.aiignore` file and patches your `.gitignore` so your AI context files never accidentally get committed. You can edit the `.aiignore` file to add custom files and folders you want to exclude.
+
+This automatically:
+- Creates a default `.aiignore` file (controls which files are excluded from packing).
+- Patches your `.gitignore` so AI working files never get committed.
+- Creates `aiSkills/ai-system-prompt.md` — the system prompt you paste into your browser AI.
+
+> **Tip:** The `aiSkills/` folder is designed to be committed to your repo so your team shares the same AI instructions.
 
 ---
 
@@ -146,6 +169,33 @@ ai-bridge apply
 - If some patches failed → paths are saved to `aiArtifacts\failed-patches.txt`. Go back to the AI and ask:
   > *"Some patches failed for these files. Please give me full `<file>` blocks instead: [paste failed-patches.txt contents]"*
 
+### Apply Options
+
+| Flag | Description |
+|------|-------------|
+| `--dry-run` | Preview what changes would be made without modifying any files. |
+| `--force` | Apply even if target files have uncommitted changes. |
+
+**Dry-run example:**
+~~~bash
+ai-bridge apply --dry-run
+~~~
+Output:
+~~~text
+  CREATE: MyApp/Services/NewService.cs
+  OVERWRITE: MyApp/Controllers/OrderController.cs
+  PATCH: MyApp/Models/Order.cs
+  DELETE: MyApp/Services/OldService.cs
+
+Dry run complete: 2 file(s), 1 patch(es), 1 delete(s).
+No files were modified. Run 'ai-bridge apply' to apply for real.
+~~~
+
+**Safety check:** If any target files have uncommitted changes, `apply` will warn you and abort. Use `--force` to override:
+~~~bash
+ai-bridge apply --force
+~~~
+
 ---
 
 ## System Prompt
@@ -167,18 +217,19 @@ Open the file and copy everything from the **`▼ COPY FROM HERE ▼`** marker t
 
 ## What it generates in your project
 
-When you run `ai-bridge pack` in your project folder, it creates an `aiArtifacts` folder. This folder is strictly for AI working files and will automatically be added to your `.gitignore`.
+When you run `ai-bridge init` or `ai-bridge pack`, it sets up two folders:
 
 ```text
 YourProjectRoot\
+├── aiSkills\                   ← Committed to git (team-shared)
+│   └── ai-system-prompt.md    ← System prompt for your browser AI
 └── aiArtifacts\                ← Auto-created, gitignored
     ├── *-context.txt           ← Output of ai-bridge pack
-    ├── ai-response.xml         ← AI response you paste/download here (valid XML)
+    ├── ai-response.xml         ← AI response you paste/download here
     └── failed-patches.txt      ← Created only when patches fail
 ```
 
-> **Note:** If you don't have an `.aiignore` file, the tool will automatically create a default one for you.
-
+---
 
 ## Troubleshooting
 
