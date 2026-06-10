@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -9,44 +10,60 @@ namespace AIBridge
 {
     public static class Packer
     {
-        private static readonly HashSet<string> DotNetExtensions = new(StringComparer.OrdinalIgnoreCase)
+        // Binary/non-text extensions to always exclude from packing
+        private static readonly HashSet<string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase)
         {
-            ".cs", ".csproj", ".props", ".targets", ".json", ".config", ".xml", ".xaml",
-            ".cshtml", ".razor", ".html", ".css", ".scss", ".js", ".ts",
-            ".fs", ".vb", ".resx", ".sql", ".ps1", ".cmd", ".sh", ".yml", ".yaml", ".ini", ".env", ".md"
+            // Images
+            ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".svg", ".webp", ".tiff", ".tif", ".raw",
+            // Fonts
+            ".woff", ".woff2", ".ttf", ".eot", ".otf",
+            // Compiled/binary
+            ".exe", ".dll", ".pdb", ".so", ".dylib", ".o", ".a", ".lib",
+            ".class", ".jar", ".war", ".pyc", ".pyo", ".wasm",
+            // Archives
+            ".zip", ".tar", ".gz", ".rar", ".7z", ".bz2", ".xz", ".nupkg",
+            // Media
+            ".mp3", ".mp4", ".avi", ".mov", ".wav", ".flac", ".ogg", ".webm", ".mkv",
+            // Documents (binary formats)
+            ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+            // Database
+            ".db", ".sqlite", ".sqlite3", ".mdb",
+            // Certificates & keys
+            ".snk", ".pfx", ".p12", ".cer", ".pem",
+            // Other binary
+            ".bin", ".dat", ".cache", ".coverage"
         };
 
-        private static readonly HashSet<string> NodeExtensions = new(StringComparer.OrdinalIgnoreCase)
+        // Specific filenames to always exclude (large or not useful for AI context)
+        private static readonly HashSet<string> ExcludeFileNames = new(StringComparer.OrdinalIgnoreCase)
         {
-            ".js", ".ts", ".jsx", ".tsx", ".mjs", ".cjs", ".json", ".html", ".css", ".scss", ".sass", ".less",
-            ".vue", ".svelte", ".astro", ".yaml", ".yml", ".md", ".env", ".graphql", ".gql"
+            "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
+            ".DS_Store", "Thumbs.db", ".gitignore"
         };
 
-        private static readonly HashSet<string> PythonExtensions = new(StringComparer.OrdinalIgnoreCase)
+        // AI Bridge folders that should never be packed (regardless of git or fallback)
+        private static readonly string[] AlwaysExcludePrefixes = new[]
         {
-            ".py", ".pyi", ".pyx", ".toml", ".cfg", ".ini", ".yaml", ".yml", ".md", ".env",
-            ".txt", ".json", ".html", ".css", ".js"
+            "aiSkills/", "aiArtifacts/"
         };
 
-        private static readonly HashSet<string> GoExtensions = new(StringComparer.OrdinalIgnoreCase)
+        // Hardcoded folder patterns for fallback when git is not available
+        private static readonly List<string> FallbackExcludeFolders = new()
         {
-            ".go", ".mod", ".sum", ".yaml", ".yml", ".md", ".env", ".json", ".toml"
+            @"[\\/]\.git[\\/]", @"[\\/]\.vs[\\/]", @"[\\/]\.idea[\\/]", @"[\\/]\.vscode[\\/]",
+            @"[\\/]bin[\\/]", @"[\\/]obj[\\/]", @"[\\/]node_modules[\\/]",
+            @"[\\/]dist[\\/]", @"[\\/]out[\\/]", @"[\\/]build[\\/]",
+            @"[\\/]packages[\\/]", @"[\\/]TestResults[\\/]",
+            @"[\\/]aiSkills[\\/]", @"[\\/]aiArtifacts[\\/]",
+            @"[\\/]__pycache__[\\/]", @"[\\/]\.mypy_cache[\\/]",
+            @"[\\/]target[\\/]", @"[\\/]vendor[\\/]"
         };
 
-        private static readonly HashSet<string> RustExtensions = new(StringComparer.OrdinalIgnoreCase)
+        // Hardcoded file patterns for fallback when git is not available
+        private static readonly List<string> FallbackExcludeFilePatterns = new()
         {
-            ".rs", ".toml", ".yaml", ".yml", ".md", ".env", ".json"
-        };
-
-        private static readonly HashSet<string> FallbackExtensions = new(StringComparer.OrdinalIgnoreCase)
-        {
-            ".cs", ".csproj", ".props", ".targets", ".json", ".config", ".xml", ".xaml",
-            ".cshtml", ".razor", ".html", ".css", ".scss", ".sass", ".less",
-            ".js", ".ts", ".jsx", ".tsx", ".mjs", ".cjs", ".vue", ".svelte",
-            ".py", ".pyi", ".go", ".mod", ".rs", ".toml",
-            ".fs", ".vb", ".resx", ".sql", ".ps1", ".cmd", ".sh",
-            ".yml", ".yaml", ".ini", ".env", ".md", ".txt",
-            ".graphql", ".gql", ".astro"
+            @"\.g\.cs$", @"\.g\.i\.cs$", @"\.designer\.cs$", @"AssemblyInfo\.cs$",
+            @"\.user$", @"\.suo$", @"\.log$", @"\.tmp$"
         };
 
         public static void Init()
@@ -78,7 +95,7 @@ namespace AIBridge
             var aiIgnorePath = Path.Combine(projectPath, ".aiignore");
             if (!File.Exists(aiIgnorePath))
             {
-                var defaultIgnore = "# Folders should end with /\nbin/\nobj/\n.vs/\n.git/\nnode_modules/\ndist/\nout/\nTestResults/\n*.g.cs\n*.log\n*.tmp\n";
+                var defaultIgnore = "# Additional ignore rules for AI Bridge packing (works alongside .gitignore)\n# Folders should end with /\naiSkills/\nTestResults/\n*.g.cs\n*.log\n*.tmp\n";
                 File.WriteAllText(aiIgnorePath, defaultIgnore);
                 ConsoleHelper.Success("✅ Created default .aiignore file.");
             }
@@ -117,7 +134,7 @@ namespace AIBridge
             }
         }
 
-        private static (List<ProjectInfo> projects, HashSet<string> extensions, string ecosystem) DetectProjects(string projectPath)
+        private static (List<ProjectInfo> projects, string ecosystem) DetectProjects(string projectPath)
         {
             // 1. Try .NET (.csproj)
             var csprojFiles = Directory.GetFiles(projectPath, "*.csproj", SearchOption.AllDirectories);
@@ -130,7 +147,7 @@ namespace AIBridge
                     .OrderByDescending(p => p.DirectoryPrefix.Length)
                     .ToList();
                 ConsoleHelper.Info("Detected ecosystem: .NET (found .csproj files)");
-                return (projects, DotNetExtensions, "dotnet");
+                return (projects, "dotnet");
             }
 
             // 2. Try Node.js (package.json in subfolders)
@@ -146,7 +163,7 @@ namespace AIBridge
                     .OrderByDescending(p => p.DirectoryPrefix.Length)
                     .ToList();
                 ConsoleHelper.Info("Detected ecosystem: Node.js (found package.json in subfolders)");
-                return (projects, NodeExtensions, "node");
+                return (projects, "node");
             }
 
             // 3. Try Python (pyproject.toml)
@@ -160,7 +177,7 @@ namespace AIBridge
                     .OrderByDescending(p => p.DirectoryPrefix.Length)
                     .ToList();
                 ConsoleHelper.Info("Detected ecosystem: Python (found pyproject.toml)");
-                return (projects, PythonExtensions, "python");
+                return (projects, "python");
             }
 
             // 4. Try Go (go.mod)
@@ -174,7 +191,7 @@ namespace AIBridge
                     .OrderByDescending(p => p.DirectoryPrefix.Length)
                     .ToList();
                 ConsoleHelper.Info("Detected ecosystem: Go (found go.mod)");
-                return (projects, GoExtensions, "go");
+                return (projects, "go");
             }
 
             // 5. Try Rust (Cargo.toml)
@@ -188,7 +205,7 @@ namespace AIBridge
                     .OrderByDescending(p => p.DirectoryPrefix.Length)
                     .ToList();
                 ConsoleHelper.Info("Detected ecosystem: Rust (found Cargo.toml)");
-                return (projects, RustExtensions, "rust");
+                return (projects, "rust");
             }
 
             // 6. Fallback: group by top-level folders
@@ -206,7 +223,45 @@ namespace AIBridge
                 .ToList();
 
             ConsoleHelper.Info("No specific ecosystem detected — grouping by top-level folders.");
-            return (topLevelDirs, FallbackExtensions, "generic");
+            return (topLevelDirs, "generic");
+        }
+
+        /// <summary>
+        /// Uses git to get the list of all tracked and untracked-but-not-ignored files.
+        /// Returns null if git is not available or the directory is not a git repository.
+        /// </summary>
+        private static List<string>? GetGitTrackedFiles(string projectPath)
+        {
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "git",
+                    Arguments = "ls-files --cached --others --exclude-standard",
+                    WorkingDirectory = projectPath,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+
+                using var process = Process.Start(psi);
+                if (process == null) return null;
+
+                var output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+
+                if (process.ExitCode != 0) return null;
+
+                return output
+                    .Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(f => Path.GetFullPath(Path.Combine(projectPath, f)))
+                    .ToList();
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         public static void Run()
@@ -217,97 +272,99 @@ namespace AIBridge
             var aiIgnorePath = Path.Combine(projectPath, ".aiignore");
 
             var rootFolderName = new DirectoryInfo(projectPath).Name;
-            var (detectedProjects, includeExtensions, ecosystem) = DetectProjects(projectPath);
-
-            // Convert to the format used by the rest of the method
+            var (detectedProjects, ecosystem) = DetectProjects(projectPath);
             var projects = detectedProjects;
 
-            var includeSpecificFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                "appsettings.json", "appsettings.Development.json", "nuget.config", "Dockerfile", ".dockerignore",
-                "package.json", "tsconfig.json", "vite.config.ts", "vite.config.js", "next.config.js", "next.config.mjs",
-                "webpack.config.js", "babel.config.js", ".babelrc", "jest.config.js", "jest.config.ts",
-                "pyproject.toml", "setup.py", "setup.cfg", "requirements.txt", "Pipfile",
-                "go.mod", "go.sum", "Cargo.toml", "Cargo.lock",
-                "Makefile", "Rakefile", "Gemfile", "pom.xml", "build.gradle"
-            };
+            // --- Step 1: Get file list (git-aware or fallback) ---
+            var gitFiles = GetGitTrackedFiles(projectPath);
+            string[] allFiles;
 
-            var solutionIncludeExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            if (gitFiles != null)
             {
-                ".sln", ".slnx", ".props", ".targets"
-            };
-            var solutionSpecificFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                ConsoleHelper.Info("Using git to determine file list (respects .gitignore)...");
+                allFiles = gitFiles.ToArray();
+            }
+            else
             {
-                "global.json", "nuget.config", "Directory.Build.props", "Directory.Build.targets",
-                ".editorconfig", "docker-compose.yml", "docker-compose.yaml", "docker-compose.dcproj",
-                "package.json", "tsconfig.json", "pyproject.toml", "go.mod", "Cargo.toml",
-                "Makefile", "Dockerfile", ".dockerignore", "README.md", "LICENSE"
-            };
+                ConsoleHelper.Warning("⚠ Git not available — using built-in exclusion rules...");
+                var rawFiles = Directory.GetFiles(projectPath, "*.*", SearchOption.AllDirectories);
 
-            var excludeFolders = new List<string>
-            {
-                @"[\\\/]aiSkills[\\\/]",
-                @"[\\\/]aiArtifacts[\\\/]",
-                @"[\\\/]bin[\\\/]", @"[\\\/]obj[\\\/]", @"[\\\/]\.vs[\\\/]", @"[\\\/]\.git[\\\/]",
-                @"[\\\/]packages[\\\/]", @"[\\\/]node_modules[\\\/]", @"[\\\/]TestResults[\\\/]",
-                @"[\\\/]\.idea[\\\/]", @"[\\\/]dist[\\\/]", @"[\\\/]out[\\\/]", @"[\\\/]build[\\\/]"
-            };
+                allFiles = rawFiles
+                    .Where(f =>
+                    {
+                        var paddedPath = "/" + Path.GetRelativePath(projectPath, f).Replace("\\", "/") + "/";
+                        return !FallbackExcludeFolders.Any(pattern =>
+                            Regex.IsMatch(paddedPath, pattern, RegexOptions.IgnoreCase));
+                    })
+                    .Where(f =>
+                    {
+                        var fileName = Path.GetFileName(f);
+                        return !FallbackExcludeFilePatterns.Any(pattern =>
+                            Regex.IsMatch(fileName, pattern, RegexOptions.IgnoreCase));
+                    })
+                    .ToArray();
+            }
 
-            var excludeFilePatterns = new List<string>
-            {
-                @"\.g\.cs$", @"\.g\.i\.cs$", @"\.designer\.cs$", @"AssemblyInfo\.cs$",
-                @"\.user$", @"\.suo$", @"\.log$", @"\.tmp$", @"package-lock\.json$", @"yarn\.lock$"
-            };
+            // --- Step 2: Build .aiignore rules ---
+            var aiIgnoreExcludeFolders = new List<string>();
+            var aiIgnoreExcludeFilePatterns = new List<string>();
 
             if (File.Exists(aiIgnorePath))
             {
-                ConsoleHelper.Info(" Loading global ignore rules from .aiignore...");
-                foreach (var line in File.ReadAllLines(aiIgnorePath).Select(l => l.Trim()).Where(l => !string.IsNullOrWhiteSpace(l) && !l.StartsWith("#")))
+                ConsoleHelper.Info("Loading additional ignore rules from .aiignore...");
+                foreach (var line in File.ReadAllLines(aiIgnorePath)
+                    .Select(l => l.Trim())
+                    .Where(l => !string.IsNullOrWhiteSpace(l) && !l.StartsWith("#")))
                 {
                     var rule = line.Replace("\\", "/");
                     bool isFolder = rule.EndsWith("/");
                     if (isFolder) rule = rule.TrimEnd('/');
 
                     var regexRule = Regex.Escape(rule).Replace(@"\*", ".*").Replace(@"\?", ".");
-                    if (isFolder) excludeFolders.Add($@"[\\\/]{regexRule}[\\\/]");
-                    else excludeFilePatterns.Add($@"^{regexRule}$");
+                    if (isFolder) aiIgnoreExcludeFolders.Add($@"[\\/]{regexRule}[\\/]");
+                    else aiIgnoreExcludeFilePatterns.Add($@"^{regexRule}$");
                 }
             }
 
+            // --- Step 3: Filter and pack files ---
             var outputData = new Dictionary<string, StringBuilder>();
             var outputFileCounts = new Dictionary<string, int>();
             int warningCount = 0;
 
-            var allFiles = Directory.GetFiles(projectPath, "*.*", SearchOption.AllDirectories);
             foreach (var file in allFiles.OrderBy(f => f))
             {
                 var relativePath = Path.GetRelativePath(projectPath, file).Replace("\\", "/");
                 var fileName = Path.GetFileName(file);
                 var extension = Path.GetExtension(file);
-                var fileWithPaddedSlashes = "/" + relativePath + "/";
 
-                if (excludeFolders.Any(f => Regex.IsMatch(fileWithPaddedSlashes, f, RegexOptions.IgnoreCase))) continue;
-                if (fileName == ".gitignore") continue;
-                if (excludeFilePatterns.Any(p => Regex.IsMatch(fileName, p, RegexOptions.IgnoreCase))) continue;
+                // Always exclude AI Bridge's own folders
+                if (AlwaysExcludePrefixes.Any(prefix => relativePath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+                    continue;
 
+                // Skip binary/non-text files
+                if (BinaryExtensions.Contains(extension)) continue;
+
+                // Skip excluded file names
+                if (ExcludeFileNames.Contains(fileName)) continue;
+
+                // Apply .aiignore rules
+                if (aiIgnoreExcludeFolders.Count > 0 || aiIgnoreExcludeFilePatterns.Count > 0)
+                {
+                    var paddedPath = "/" + relativePath + "/";
+                    if (aiIgnoreExcludeFolders.Any(f => Regex.IsMatch(paddedPath, f, RegexOptions.IgnoreCase))) continue;
+                    if (aiIgnoreExcludeFilePatterns.Any(p => Regex.IsMatch(fileName, p, RegexOptions.IgnoreCase))) continue;
+                }
+
+                // Determine project grouping
                 string projectName = "Solution";
-                bool isProjectFile = false;
-
                 foreach (var proj in projects)
                 {
                     if (file.StartsWith(proj.DirectoryPrefix, StringComparison.OrdinalIgnoreCase))
                     {
                         projectName = proj.Name;
-                        isProjectFile = true;
                         break;
                     }
                 }
-
-                bool include = isProjectFile
-                    ? (includeExtensions.Contains(extension) || includeSpecificFiles.Contains(fileName))
-                    : (solutionIncludeExtensions.Contains(extension) || solutionSpecificFiles.Contains(fileName));
-
-                if (!include) continue;
 
                 try
                 {
@@ -331,6 +388,7 @@ namespace AIBridge
                 }
             }
 
+            // --- Step 4: Write output files ---
             foreach (var key in outputData.Keys)
             {
                 var outName = key == "Solution" ? $"{rootFolderName}-Solution-context.txt" : $"{key}-context.txt";
