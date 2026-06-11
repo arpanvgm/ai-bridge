@@ -22,7 +22,8 @@ namespace AIBridge
                     ConsoleHelper.Info("Applying AI code changes...");
                     bool dryRun = flags.Contains("--dry-run");
                     bool force = flags.Contains("--force");
-                    Applier.Run(dryRun, force);
+                    bool watch = flags.Contains("--watch");
+                    Applier.Run(dryRun, force, watch);
                     break;
 
                 default:
@@ -34,6 +35,7 @@ namespace AIBridge
                     Console.WriteLine("Apply Options:");
                     Console.WriteLine("  --dry-run           - Preview changes without modifying files.");
                     Console.WriteLine("  --force             - Apply even if there are uncommitted changes in target files.");
+                    Console.WriteLine("  --watch             - Keep running and auto-apply when ai-response.xml is saved.");
                     break;
             }
         }

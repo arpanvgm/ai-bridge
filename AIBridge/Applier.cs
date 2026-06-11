@@ -11,7 +11,57 @@ namespace AIBridge
 {
     public static class Applier
     {
-        public static void Run(bool dryRun = false, bool force = false)
+        public static void Run(bool dryRun = false, bool force = false, bool watch = false)
+        {
+            if (watch)
+            {
+                ConsoleHelper.Info("Starting watch mode for ai-response.xml...");
+                ApplyInternal(dryRun, force);
+
+                var watchDir = Path.Combine(Environment.CurrentDirectory, "aiArtifacts");
+                if (!Directory.Exists(watchDir)) Directory.CreateDirectory(watchDir);
+
+                using var watcher = new FileSystemWatcher(watchDir)
+                {
+                    Filter = "ai-response.xml",
+                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.CreationTime,
+                    EnableRaisingEvents = true
+                };
+
+                DateTime lastRun = DateTime.MinValue;
+
+                void OnChanged(object s, FileSystemEventArgs e)
+                {
+                    if ((DateTime.Now - lastRun).TotalMilliseconds < 1000) return;
+                    lastRun = DateTime.Now;
+
+                    System.Threading.Thread.Sleep(500); // debounce file lock
+                    Console.WriteLine();
+                    ConsoleHelper.Info("Change detected in ai-response.xml. Applying...");
+                    ApplyInternal(dryRun, force);
+                    ConsoleHelper.Info("\nWaiting for next change... (Press Ctrl+C to exit)");
+                }
+
+                watcher.Changed += OnChanged;
+                watcher.Created += OnChanged;
+
+                ConsoleHelper.Info("\nWaiting for next change... (Press Ctrl+C to exit)");
+
+                var resetEvent = new System.Threading.ManualResetEvent(false);
+                Console.CancelKeyPress += (s, e) =>
+                {
+                    e.Cancel = true;
+                    resetEvent.Set();
+                };
+                resetEvent.WaitOne();
+            }
+            else
+            {
+                ApplyInternal(dryRun, force);
+            }
+        }
+
+        private static void ApplyInternal(bool dryRun, bool force)
         {
             var projectPath = Environment.CurrentDirectory;
             var artifactsDir = Path.Combine(projectPath, "aiArtifacts");
@@ -39,6 +89,25 @@ namespace AIBridge
             {
                 ConsoleHelper.Error($"Error: '{inputFile}' is not valid XML. {ex.Message}");
                 return;
+            }
+
+            var root = xml.DocumentElement;
+            if (root == null || root.Name != "ai-response")
+            {
+                ConsoleHelper.Error("Error: Root element must be <ai-response>.");
+                return;
+            }
+
+            foreach (XmlNode node in root.ChildNodes)
+            {
+                if (node.NodeType == XmlNodeType.Element)
+                {
+                    if (node.Name != "file" && node.Name != "patch" && node.Name != "delete")
+                    {
+                        ConsoleHelper.Error($"Error: Unknown element '<{node.Name}>' found. Only <file>, <patch>, and <delete> are allowed.");
+                        return;
+                    }
+                }
             }
 
             // Collect all target file paths from the response
