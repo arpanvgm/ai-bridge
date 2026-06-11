@@ -120,6 +120,8 @@ AI Bridge uses a layered approach to decide which files to pack:
 | Binary blocklist | Images, fonts, executables, archives, media, etc. are always skipped |
 | `.aiignore` | Your additional exclusions (e.g., `TestResults/`, `*.g.cs`) |
 
+> **Tip:** If the packed context includes files you don't need, add your own rules to `.aiignore` and run `ai-bridge pack` again to regenerate the context files.
+
 > **Fallback:** If git is not available, AI Bridge uses built-in exclusion rules (common folders like `bin/`, `obj/`, `node_modules/`, etc.).
 
 ---
