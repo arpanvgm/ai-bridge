@@ -137,7 +137,12 @@ AI Bridge uses a layered approach to decide which files to pack:
 
 ## Step 3 — Save the AI Response
 
-The AI will respond with a valid XML document (wrapped in `<ai-response>` with CDATA sections). Save it as `ai-response.xml` in the `aiArtifacts\` folder.
+The AI will respond with a valid XML document. AI Bridge performs **strict validation** on this file:
+- The root element must be `<ai-response>`.
+- Only `<file>`, `<patch>`, and `<delete>` are allowed as child elements.
+- Conversational text outside these tags is ignored, but invalid tags will cause an error.
+
+Save this response as `ai-response.xml` in the `aiArtifacts\` folder.
 
 ### Option A — Copy & Paste (Works with all AI tools)
 1. Select the entire AI response text in the browser.
@@ -178,8 +183,15 @@ ai-bridge apply
 
 | Flag | Description |
 |------|-------------|
+| `--watch` | Continuous mode. Applies current changes, then monitors `ai-response.xml` and auto-applies whenever you save it. |
 | `--dry-run` | Preview what changes would be made without modifying any files. |
 | `--force` | Apply even if target files have uncommitted changes. |
+
+**Continuous Watch Mode (Recommended workflow):**
+~~~bash
+ai-bridge apply --watch
+~~~
+*Leave this running in a separate terminal. Every time you paste an AI response into `ai-response.xml` and save, your code is updated automatically.*
 
 **Dry-run example:**
 ~~~bash
