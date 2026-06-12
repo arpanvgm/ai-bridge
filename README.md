@@ -185,7 +185,6 @@ ai-bridge apply
 |------|-------------|
 | `--watch` | Continuous mode. Applies current changes, then monitors `ai-response.xml` and auto-applies whenever you save it. |
 | `--dry-run` | Preview what changes would be made without modifying any files. |
-| `--force` | Apply even if target files have uncommitted changes. |
 
 **Continuous Watch Mode (Recommended workflow):**
 ~~~bash
@@ -206,11 +205,6 @@ Output:
 
 Dry run complete: 2 file(s), 1 patch(es), 1 delete(s).
 No files were modified. Run 'ai-bridge apply' to apply for real.
-~~~
-
-**Safety check:** If any target files have uncommitted changes, `apply` will warn you and abort. Use `--force` to override:
-~~~bash
-ai-bridge apply --force
 ~~~
 
 ---

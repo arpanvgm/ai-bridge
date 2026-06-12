@@ -11,12 +11,12 @@ namespace AIBridge
 {
     public static class Applier
     {
-        public static void Run(bool dryRun = false, bool force = false, bool watch = false)
+        public static void Run(bool dryRun = false, bool watch = false)
         {
             if (watch)
             {
                 ConsoleHelper.Info("Starting watch mode for ai-response.xml...");
-                ApplyInternal(dryRun, force);
+                ApplyInternal(dryRun);
 
                 var watchDir = Path.Combine(Environment.CurrentDirectory, "aiArtifacts");
                 if (!Directory.Exists(watchDir)) Directory.CreateDirectory(watchDir);
@@ -38,7 +38,7 @@ namespace AIBridge
                     System.Threading.Thread.Sleep(500); // debounce file lock
                     Console.WriteLine();
                     ConsoleHelper.Info("Change detected in ai-response.xml. Applying...");
-                    ApplyInternal(dryRun, force);
+                    ApplyInternal(dryRun);
                     ConsoleHelper.Info("\nWaiting for next change... (Press Ctrl+C to exit)");
                 }
 
@@ -57,11 +57,11 @@ namespace AIBridge
             }
             else
             {
-                ApplyInternal(dryRun, force);
+                ApplyInternal(dryRun);
             }
         }
 
-        private static void ApplyInternal(bool dryRun, bool force)
+        private static void ApplyInternal(bool dryRun)
         {
             var projectPath = Environment.CurrentDirectory;
             var artifactsDir = Path.Combine(projectPath, "aiArtifacts");
@@ -126,22 +126,6 @@ namespace AIBridge
             {
                 var p = node.Attributes?["path"]?.Value.Trim();
                 if (!string.IsNullOrEmpty(p)) targetFiles.Add(p.Replace('/', Path.DirectorySeparatorChar));
-            }
-
-            // Smart safety net: check for uncommitted changes in target files only
-            if (!force && !dryRun)
-            {
-                var conflicts = GetUncommittedConflicts(projectPath, targetFiles);
-                if (conflicts.Count > 0)
-                {
-                    ConsoleHelper.Warning("⚠ These files have uncommitted changes and will be overwritten:");
-                    foreach (var conflict in conflicts)
-                    {
-                        ConsoleHelper.Warning($"   - {conflict}");
-                    }
-                    ConsoleHelper.Warning("\nRun 'ai-bridge apply --force' to apply anyway, or commit/stash your changes first.");
-                    return;
-                }
             }
 
             if (dryRun)
@@ -285,50 +269,6 @@ namespace AIBridge
                     ConsoleHelper.Success("✅ Cleared ai-response.xml to prevent accidental re-application.");
                 }
             }
-        }
-
-        private static List<string> GetUncommittedConflicts(string projectPath, HashSet<string> targetFiles)
-        {
-            var conflicts = new List<string>();
-            try
-            {
-                var psi = new ProcessStartInfo
-                {
-                    FileName = "git",
-                    Arguments = "status --porcelain",
-                    WorkingDirectory = projectPath,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-
-                using var process = Process.Start(psi);
-                if (process == null) return conflicts;
-
-                var output = process.StandardOutput.ReadToEnd();
-                process.WaitForExit();
-
-                if (process.ExitCode != 0) return conflicts;
-
-                foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-                {
-                    // git status --porcelain format: "XY filename" (first 3 chars are status + space)
-                    if (line.Length < 4) continue;
-                    var filePath = line.Substring(3).Trim().Trim('"').Replace('/', Path.DirectorySeparatorChar);
-
-                    if (targetFiles.Contains(filePath))
-                    {
-                        conflicts.Add(filePath);
-                    }
-                }
-            }
-            catch
-            {
-                // If git is not available, skip the check silently
-            }
-
-            return conflicts;
         }
 
         private static bool TryFuzzyPatch(string fileContent, string search, string replace, out string result)
