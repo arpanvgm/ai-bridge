@@ -14,11 +14,23 @@ namespace AIBridge
             switch (command)
             {
                 case "pack":
+                    if (flags.Count > 0)
+                    {
+                        ConsoleHelper.Error($"Error: Unknown arguments for 'pack': {string.Join(", ", flags)}");
+                        return;
+                    }
                     ConsoleHelper.Info("Packing AI context...");
                     Packer.Run();
                     break;
 
                 case "apply":
+                    var allowedApplyFlags = new[] { "--dry-run", "--watch" };
+                    var invalidApplyFlags = flags.Except(allowedApplyFlags).ToList();
+                    if (invalidApplyFlags.Count > 0)
+                    {
+                        ConsoleHelper.Error($"Error: Unknown arguments for 'apply': {string.Join(", ", invalidApplyFlags)}");
+                        return;
+                    }
                     ConsoleHelper.Info("Applying AI code changes...");
                     bool dryRun = flags.Contains("--dry-run");
                     bool watch = flags.Contains("--watch");
