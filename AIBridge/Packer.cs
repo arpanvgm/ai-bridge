@@ -112,25 +112,28 @@ namespace AIBridge
             }
 
             var systemPromptPath = Path.Combine(skillsDir, "ai-system-prompt.md");
-            if (!File.Exists(systemPromptPath))
+            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+            using var stream = assembly.GetManifestResourceStream("AIBridge.Resources.ai-system-prompt.md");
+            if (stream != null)
             {
-                var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-                using var stream = assembly.GetManifestResourceStream("AIBridge.Resources.ai-system-prompt.md");
-                if (stream != null)
+                using var reader = new StreamReader(stream);
+                var promptContent = reader.ReadToEnd();
+                
+                bool existed = File.Exists(systemPromptPath);
+                File.WriteAllText(systemPromptPath, promptContent, Encoding.UTF8);
+                
+                if (existed)
                 {
-                    using var reader = new StreamReader(stream);
-                    var promptContent = reader.ReadToEnd();
-                    File.WriteAllText(systemPromptPath, promptContent, Encoding.UTF8);
-                    ConsoleHelper.Success("✅ Created aiSkills/ai-system-prompt.md (system prompt for your AI).");
+                    ConsoleHelper.Success("✅ Updated aiSkills/ai-system-prompt.md to latest version.");
                 }
                 else
                 {
-                    ConsoleHelper.Warning("⚠ Could not extract embedded system prompt resource.");
+                    ConsoleHelper.Success("✅ Created aiSkills/ai-system-prompt.md (system prompt for your AI).");
                 }
             }
             else
             {
-                ConsoleHelper.Info("ℹ aiSkills/ai-system-prompt.md already exists.");
+                ConsoleHelper.Warning("⚠ Could not extract embedded system prompt resource.");
             }
         }
 
