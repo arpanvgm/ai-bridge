@@ -34,7 +34,9 @@ bld/
 .vs/
 
 # Visual Studio Code
-.vscode/
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
 
 # ReSharper / JetBrains IDEs
 _ReSharper*/
