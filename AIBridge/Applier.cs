@@ -11,12 +11,19 @@ namespace AIBridge
 {
     public static class Applier
     {
-        public static void Run(bool dryRun = false, bool watch = false)
+        public static void Run(bool dryRun = false, bool watch = false, bool paste = false)
         {
             if (watch)
             {
+                if (paste)
+                {
+                    ConsoleHelper.Warning("Ignoring --watch flag because --paste was used.");
+                    ApplyInternal(dryRun, paste);
+                    return;
+                }
+
                 ConsoleHelper.Info("Starting watch mode for ai-response.xml...");
-                ApplyInternal(dryRun);
+                ApplyInternal(dryRun, paste);
 
                 var watchDir = Path.Combine(Environment.CurrentDirectory, "aiArtifacts");
                 if (!Directory.Exists(watchDir)) Directory.CreateDirectory(watchDir);
@@ -38,7 +45,7 @@ namespace AIBridge
                     System.Threading.Thread.Sleep(500); // debounce file lock
                     Console.WriteLine();
                     ConsoleHelper.Info("Change detected in ai-response.xml. Applying...");
-                    ApplyInternal(dryRun);
+                    ApplyInternal(dryRun, paste);
                     ConsoleHelper.Info("\nWaiting for next change... (Press Ctrl+C to exit)");
                 }
 
@@ -57,26 +64,41 @@ namespace AIBridge
             }
             else
             {
-                ApplyInternal(dryRun);
+                ApplyInternal(dryRun, paste);
             }
         }
 
-        private static void ApplyInternal(bool dryRun)
+        private static void ApplyInternal(bool dryRun, bool paste)
         {
             var projectPath = Environment.CurrentDirectory;
             var artifactsDir = Path.Combine(projectPath, "aiArtifacts");
             var inputFile = Path.Combine(artifactsDir, "ai-response.xml");
             var failedLogFile = Path.Combine(artifactsDir, "failed-patches.txt");
 
-            if (!File.Exists(inputFile))
+            string rawContent;
+
+            if (paste)
             {
-                ConsoleHelper.Error($"Error: Cannot find '{inputFile}'.");
-                return;
+                rawContent = TextCopy.ClipboardService.GetText() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(rawContent))
+                {
+                    ConsoleHelper.Error("Error: Clipboard is empty.");
+                    return;
+                }
+                ConsoleHelper.Info("Read AI response from clipboard.");
+            }
+            else
+            {
+                if (!File.Exists(inputFile))
+                {
+                    ConsoleHelper.Error($"Error: Cannot find '{inputFile}'.");
+                    return;
+                }
+                rawContent = File.ReadAllText(inputFile);
             }
 
             if (File.Exists(failedLogFile)) File.Delete(failedLogFile);
 
-            var rawContent = File.ReadAllText(inputFile);
             rawContent = Regex.Replace(rawContent, @"(?m)^```[a-zA-Z]*\s*$", "");
             rawContent = Regex.Replace(rawContent, @"(?m)^```\s*$", "");
 
@@ -265,8 +287,11 @@ namespace AIBridge
                 }
                 else
                 {
-                    File.WriteAllText(inputFile, "<!-- Paste the AI response XML here -->\n");
-                    ConsoleHelper.Success("✅ Cleared ai-response.xml to prevent accidental re-application.");
+                    if (!paste)
+                    {
+                        File.WriteAllText(inputFile, "<!-- Paste the AI response XML here -->\n");
+                        ConsoleHelper.Success("✅ Cleared ai-response.xml to prevent accidental re-application.");
+                    }
                 }
             }
         }

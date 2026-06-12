@@ -20,13 +20,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="..\README.md" Pack="true" PackagePath="\"/>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="Resources\ai-system-prompt.md">
       <LogicalName>AIBridge.Resources.ai-system-prompt.md</LogicalName>
     </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="TextCopy" Version="6.2.1" />
   </ItemGroup>
 
 </Project>
