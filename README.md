@@ -219,7 +219,7 @@ aiSkills/ai-system-prompt.md
 
 **Setup (one-time per AI chat session):**
 1. Open `aiSkills/ai-system-prompt.md` in any text editor.
-2. Copy everything from the **`▼ COPY FROM HERE ▼`** marker to the end of the file.
+2. Copy the entire contents of the file.
 3. Paste it into your browser AI's system instructions:
    - **ChatGPT**: Settings → Personalization → Custom Instructions (top box)
    - **Claude**: Start a new Project → Project Instructions
