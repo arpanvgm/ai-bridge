@@ -36,7 +36,7 @@ This makes the response a valid XML file that can be opened in VS Code with full
 ### Format 2 — Smart Patch: `<patch>`
 
 ```xml
-<patch file="Relative/Path/From/ProjectRoot/FileName.cs">
+<patch path="Relative/Path/From/ProjectRoot/FileName.cs">
   <search><![CDATA[
 EXACT VERBATIM LINES COPIED FROM THE FILE RIGHT NOW
   ]]></search>
@@ -178,7 +178,7 @@ namespace SectorAnalysis.SharedContracts.Models;
 public record SectorDto(string Code, string Name, decimal Weight);
 ]]></file>
 
-  <patch file="SectorAnalysis.WebApi/Controllers/SectorsController.cs">
+  <patch path="SectorAnalysis.WebApi/Controllers/SectorsController.cs">
     <search><![CDATA[
         [HttpGet]
         public IActionResult GetAll()
