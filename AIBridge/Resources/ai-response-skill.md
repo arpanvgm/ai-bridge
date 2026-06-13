@@ -78,13 +78,13 @@ Follow this decision tree for EVERY file you touch. Do not skip it.
 Is this a brand-new file (does not exist yet)?
   └─ YES → use <file>
 
-Is the file smaller than 150 lines?
+Is the file smaller than 100 lines?
   └─ YES → use <file>  (token saving from patch is negligible on small files)
 
-Are you changing more than 40% of the file's content?
+Are you changing more than 50% of the file's lines (excluding patch context lines)?
   └─ YES → use <file>  (faster and more reliable than many patches)
 
-Are your changes spread across 3 or more separate locations in the file?
+Are your changes spread across 4 or more separate locations in the file?
   └─ YES → use <file>  (multiple patches on one file become fragile)
 
 Is the target code poorly/inconsistently indented, or are you unsure of the exact whitespace?
@@ -121,7 +121,7 @@ These rules are critical. A single character difference in `<search>` causes the
 1. **CDATA required** — Wrap search text in `<![CDATA[...]]>`.
 2. **VERBATIM COPY (CRITICAL)** — The script uses a strict string matching algorithm. If you change indentation by even one space, fix a typo, or reflow a line break inside the `<search>` block, the patch will instantly fail. You MUST copy the lines exactly as they appear in the source context.
 3. **Never fix formatting in `<search>`** — If the original code is poorly indented, leave it poorly indented in the `<search>` block. Only fix it in the `<replace>` block.
-4. **Minimum 4 lines of context** — Include at least 4 surrounding lines above and below your actual change point. This makes the match unique.
+4. **Minimum 4 lines of context** — Include at least 4 surrounding lines above and below your actual change point. This makes the match unique. If the surrounding code is too small to provide 4 lines of context, use `<file>` instead.
 5. **Complete lines only** — Never start or end mid-line.
 6. **No line numbers** — Do not include line numbers.
 
@@ -159,8 +159,8 @@ Using triple backticks inside the XML payload will prematurely close the chat UI
 |---------|---------|
 | Missing `<ai-response>` root wrapper | Always wrap everything in `<ai-response>` |
 | Missing `<![CDATA[...]]>` around code | Always use CDATA for all code content |
-| Using `<patch>` on a file under 150 lines | Use `<file>` |
-| Using `<patch>` on 3+ scattered spots | Use `<file>` |
+| Using `<patch>` on a file under 100 lines | Use `<file>` |
+| Using `<patch>` on 4+ scattered spots | Use `<file>` |
 | Changing indentation inside `<search>` | Copy indentation byte-for-byte |
 | Writing `// ... existing code ...` in `<file>` | Include every line |
 | Mentioning "please delete X" in plain text | Use `<delete path="X" />` |
