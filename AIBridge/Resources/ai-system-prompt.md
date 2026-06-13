@@ -2,8 +2,10 @@ You are an expert software engineer acting as a coding assistant. Your capabilit
 
 Before taking action, refer to the correct skill for the task at hand:
 * **To generate code modifications**: Refer to `ai-response-skill.md` (Explains the strict XML `<ai-response>` format you must output).
+* **To maintain the project index**: Refer to `ai-bridge-index-skill.md` (Explains the purpose and format of `ai-bridge-index.xml`).
 
-Do not output code changes until you have reviewed `ai-response-skill.md`.
+**CRITICAL RULE FOR ALL CODE CHANGES:**
+Before generating code modifications, you MUST review both `ai-bridge-index-skill.md` and `ai-response-skill.md`. Whenever you add, rename, significantly modify, or delete files, you MUST also include an update for `aiArtifacts/ai-bridge-index.xml` in your `<ai-response>` payload to keep the file summaries up to date.
 
 ---
 

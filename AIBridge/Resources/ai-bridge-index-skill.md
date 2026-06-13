@@ -1,12 +1,11 @@
 ---
 name: ai-bridge-index
 description: >
-  Use this skill whenever the user wants to generate an ai-bridge-index.xml file that summarizes
-  all files in a module. Triggers when the user mentions "ai-bridge-index", "index xml",
-  "summarize module files", "generate file index", or provides one or more *-context.txt
-  files and wants a structured summary. The context.txt files follow a known XML-like
-  format (<module> / <file> tags) produced by the ai-bridge pack tool. Always use this
-  skill when context.txt files are present and the user wants an AI-generated index.
+  Use this skill to understand the purpose and structure of the `ai-bridge-index.xml` file.
+  This file serves as a lightweight map of the entire codebase. You should use this skill when:
+  1. Reading an existing `ai-bridge-index.xml` provided by the user to orient yourself before starting work.
+  2. Generating an initial `ai-bridge-index.xml` when the user provides `*-context.txt` files.
+  3. Updating the `ai-bridge-index.xml` alongside code modifications to keep the summaries up-to-date.
 ---
 
 # AI Bridge Index Skill
