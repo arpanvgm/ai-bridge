@@ -141,7 +141,7 @@ namespace AIBridge
             }
             foreach (XmlNode node in xml.SelectNodes("//patch")!)
             {
-                var p = node.Attributes?["file"]?.Value.Trim();
+                var p = node.Attributes?["path"]?.Value.Trim();
                 if (!string.IsNullOrEmpty(p)) targetFiles.Add(p.Replace('/', Path.DirectorySeparatorChar));
             }
             foreach (XmlNode node in xml.SelectNodes("//delete")!)
@@ -185,7 +185,7 @@ namespace AIBridge
             // 2. Patches
             foreach (XmlNode node in xml.SelectNodes("//patch")!)
             {
-                var relPath = node.Attributes?["file"]?.Value.Trim();
+                var relPath = node.Attributes?["path"]?.Value.Trim();
                 if (string.IsNullOrEmpty(relPath)) continue;
 
                 var absPath = Path.Combine(projectPath, relPath.Replace('/', Path.DirectorySeparatorChar));
