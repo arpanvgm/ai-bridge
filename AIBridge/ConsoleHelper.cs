@@ -29,7 +29,7 @@ namespace AIBridge
             Console.WriteLine(message);
         }
 
-        private static void WriteColored(string message, ConsoleColor color)
+        public static void WriteColored(string message, ConsoleColor color)
         {
             var previous = Console.ForegroundColor;
             Console.ForegroundColor = color;

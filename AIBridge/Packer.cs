@@ -388,6 +388,8 @@ namespace AIBridge
 
                     outputData[projectName].Append(block);
                     outputFileCounts[projectName]++;
+
+                    ConsoleHelper.WriteColored($"  Packed: {relativePath}", ConsoleColor.Blue);
                 }
                 catch (Exception ex)
                 {
