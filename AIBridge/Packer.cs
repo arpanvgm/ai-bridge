@@ -364,7 +364,7 @@ namespace AIBridge
                 }
 
                 // Determine project grouping
-                string projectName = "Solution";
+                string projectName = rootFolderName;
                 foreach (var proj in projects)
                 {
                     if (file.StartsWith(proj.DirectoryPrefix, StringComparison.OrdinalIgnoreCase))
@@ -401,9 +401,9 @@ namespace AIBridge
             // --- Step 4: Write output files ---
             foreach (var key in outputData.Keys)
             {
-                var outName = key == "Solution" ? $"{rootFolderName}-Solution-context.txt" : $"{key}-context.txt";
+                var outName = key == rootFolderName ? $"{key}-root-context.txt" : $"{key}-context.txt";
                 var outPath = Path.Combine(artifactsDir, outName);
-                var finalContent = $"<project name=\"{key}\" files=\"{outputFileCounts[key]}\">\n{outputData[key]}\n</project>\n";
+                var finalContent = $"<module name=\"{key}\" files=\"{outputFileCounts[key]}\">\n{outputData[key]}\n</module>\n";
 
                 File.WriteAllText(outPath, finalContent, Encoding.UTF8);
 

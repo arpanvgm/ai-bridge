@@ -12,18 +12,18 @@ Do not output code changes until you have reviewed `ai-response-skill.md`.
 The user will upload one or more `*-context.txt` files. Each file has this structure:
 
 ```
-<project name="SectorAnalysis.WebApi" files="12">
+<module name="SectorAnalysis.WebApi" files="12">
 <file path="SectorAnalysis.WebApi/Controllers/SectorsController.cs" lines="85">
 // full source code of the file
 </file>
 <file path="SectorAnalysis.WebApi/Program.cs" lines="42">
 // full source code of the file
 </file>
-</project>
+</module>
 ```
 
 Key things to note:
-- The `<project name="...">` tells you which project layer you are reading (e.g. WebApi, DataProvider, SharedContracts).
-- File `path` attributes use **forward slashes** and are **relative to the project root** with no leading `./`.
-- The path **always includes the project folder as the first segment**: `SectorAnalysis.WebApi/Controllers/SectorsController.cs` — NOT `Controllers/SectorsController.cs`.
-- **Copy the path exactly as shown in the context file** when writing your `<file>`, `<patch>`, and `<delete>` blocks. Do not strip the project folder prefix just because you know which project you are in.
+- The `<module name="...">` tells you which module layer you are reading (e.g. WebApi, DataProvider, SharedContracts).
+- File `path` attributes use **forward slashes** and are **relative to the workspace root** with no leading `./`.
+- The path **always includes the module folder as the first segment**: `SectorAnalysis.WebApi/Controllers/SectorsController.cs` — NOT `Controllers/SectorsController.cs`.
+- **Copy the path exactly as shown in the context file** when writing your `<file>`, `<patch>`, and `<delete>` blocks. Do not strip the module folder prefix just because you know which module you are in.

@@ -28,7 +28,7 @@ This makes the response a valid XML file that can be opened in VS Code with full
 ### Format 1 — Full File: `<file>`
 
 ```xml
-<file path="Relative/Path/From/ProjectRoot/FileName.cs"><![CDATA[
+<file path="Relative/Path/From/WorkspaceRoot/FileName.cs"><![CDATA[
 // Complete file contents — every single line, nothing omitted
 ]]></file>
 ```
@@ -36,7 +36,7 @@ This makes the response a valid XML file that can be opened in VS Code with full
 ### Format 2 — Smart Patch: `<patch>`
 
 ```xml
-<patch path="Relative/Path/From/ProjectRoot/FileName.cs">
+<patch path="Relative/Path/From/WorkspaceRoot/FileName.cs">
   <search><![CDATA[
 EXACT VERBATIM LINES COPIED FROM THE FILE RIGHT NOW
   ]]></search>
@@ -49,7 +49,7 @@ THE NEW LINES THAT REPLACE THE SEARCH BLOCK
 ### Format 3 — File Deletion: `<delete>`
 
 ```xml
-<delete path="Relative/Path/From/ProjectRoot/OldFile.cs" />
+<delete path="Relative/Path/From/WorkspaceRoot/OldFile.cs" />
 ```
 
 > After all deletions are processed, the script automatically removes any folders that are left empty — you do not need to do anything extra.
@@ -108,7 +108,7 @@ All of the above are NO?
 1. **CDATA required** — Always wrap file contents in `<![CDATA[...]]>`.
 2. **Complete content only** — Output every single line. Never write `// ... rest of file` or any shortcut. The script overwrites the file completely — truncated output destroys real code.
 3. **No commentary inside the block** — Only valid source code inside CDATA.
-4. **Path format** — Forward slashes, relative to project root, exact casing:
+4. **Path format** — Forward slashes, relative to workspace root, exact casing:
    `SectorAnalysis.WebApi/Controllers/SectorsController.cs`
 
 ---
@@ -222,7 +222,7 @@ Before you output anything, answer these questions:
 3. For every `<file>` block: does it contain the **complete file** with zero truncation?
 4. For every `<patch>` block: is the `<search>` text a **character-for-character copy** from the source context (including all original whitespace and indentation)?
 5. Did I follow the **decision tree** to choose the right format for each file?
-6. Are all paths in **forward-slash format**, relative to the project root?
+6. Are all paths in **forward-slash format**, relative to the workspace root?
 7. Is the entire payload wrapped in EXACTLY ONE ````xml ```` block?
 8. Did I use `~~~` instead of backticks for code blocks inside markdown files?
 
