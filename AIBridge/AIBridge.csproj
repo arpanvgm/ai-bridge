@@ -10,7 +10,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>ai-bridge</ToolCommandName>
     <PackageId>Tools.AIBridge</PackageId>
-    <Version>1.0.4</Version>
+    <Version>1.0.5</Version>
     <Authors>Arpan</Authors>
     <Description>A lightweight, language-agnostic CLI tool for packing project source code into AI-readable context and applying AI-generated code changes back to your codebase.</Description>
     <PackageTags>ai;chatgpt;claude;gemini;cli;tool;pack;apply;context</PackageTags>
