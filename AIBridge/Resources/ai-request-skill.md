@@ -14,8 +14,8 @@ To request file contents, you MUST output a strict XML block. The `ai-bridge` to
 
 ```xml
 <ai-request>
-  <read path="Relative/Path/To/File1.cs" />
-  <read path="Relative/Path/To/File2.cs" />
+  <file path="Relative/Path/To/File1.cs" />
+  <file path="Relative/Path/To/File2.cs" />
 </ai-request>
 ```
 
@@ -36,7 +36,7 @@ I need to see the current Controllers and the User model to implement this.
 
 ```xml
 <ai-request>
-  <read path="WebApi/Controllers/UserController.cs" />
-  <read path="Shared/Models/UserProfile.cs" />
+  <file path="WebApi/Controllers/UserController.cs" />
+  <file path="Shared/Models/UserProfile.cs" />
 </ai-request>
 ```
