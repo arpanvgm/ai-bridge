@@ -38,8 +38,19 @@
         {
             "label": "☁️ publish nuget",
             "type": "shell",
-            "command": "dotnet nuget push ${workspaceFolder}/AIBridge/bin/Release/*.nupkg --source https://api.nuget.org/v3/index.json --api-key YOUR_API_KEY_HERE",
+            "command": "dotnet nuget push ${workspaceFolder}/AIBridge/bin/Release/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${input:nugetKey}",
+            "windows": {
+                "command": "dotnet nuget push \"${workspaceFolder}\\AIBridge\\bin\\Release\\*.nupkg\" --source https://api.nuget.org/v3/index.json --api-key ${input:nugetKey}"
+            },
             "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "nugetKey",
+            "type": "promptString",
+            "description": "Enter your NuGet API Key",
+            "password": true
         }
     ]
 }

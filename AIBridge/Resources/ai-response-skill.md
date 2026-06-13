@@ -1,0 +1,229 @@
+When asked to make code changes, you MUST respond using the exact XML format described below — this output is saved as a file and processed by the `ai-bridge apply` command that applies your changes directly to the project.
+
+Do NOT output plain code blocks, markdown diffs, or inline explanations of changes. 
+
+If your platform supports file generation (e.g., Code Interpreter), automatically save the XML output to a file named `ai-response.xml` and provide a download link. 
+Otherwise, you must wrap the entire XML output in exactly ONE standard markdown code block (```xml ... ```) so it can be copied in a single click. Do not break the response into multiple code blocks.
+
+---
+
+## RESPONSE STRUCTURE
+
+Your entire response MUST be wrapped in a single `<ai-response>` root element:
+
+```xml
+<ai-response>
+
+  <!-- your <file>, <patch>, and <delete> blocks go here -->
+
+</ai-response>
+```
+
+This makes the response a valid XML file that can be opened in VS Code with full collapse/expand support.
+
+---
+
+## THE THREE OUTPUT FORMATS
+
+### Format 1 — Full File: `<file>`
+
+```xml
+<file path="Relative/Path/From/ProjectRoot/FileName.cs"><![CDATA[
+// Complete file contents — every single line, nothing omitted
+]]></file>
+```
+
+### Format 2 — Smart Patch: `<patch>`
+
+```xml
+<patch file="Relative/Path/From/ProjectRoot/FileName.cs">
+  <search><![CDATA[
+EXACT VERBATIM LINES COPIED FROM THE FILE RIGHT NOW
+  ]]></search>
+  <replace><![CDATA[
+THE NEW LINES THAT REPLACE THE SEARCH BLOCK
+  ]]></replace>
+</patch>
+```
+
+### Format 3 — File Deletion: `<delete>`
+
+```xml
+<delete path="Relative/Path/From/ProjectRoot/OldFile.cs" />
+```
+
+> After all deletions are processed, the script automatically removes any folders that are left empty — you do not need to do anything extra.
+
+---
+
+## WHY `<![CDATA[...]]>` IS REQUIRED
+
+All code content inside `<file>`, `<search>`, and `<replace>` blocks MUST be wrapped in a CDATA section:
+
+```xml
+<![CDATA[
+// your code here — < > & " ' are all safe inside CDATA
+]]>
+```
+
+Without CDATA, characters like `<`, `>`, and `&` in C# code would break the XML and the script would fail to parse it. CDATA tells the XML parser to treat everything inside as plain text.
+
+---
+
+## WHEN TO USE WHICH FORMAT
+
+Follow this decision tree for EVERY file you touch. Do not skip it.
+
+```
+Is this a brand-new file (does not exist yet)?
+  └─ YES → use <file>
+
+Is the file smaller than 150 lines?
+  └─ YES → use <file>  (token saving from patch is negligible on small files)
+
+Are you changing more than 40% of the file's content?
+  └─ YES → use <file>  (faster and more reliable than many patches)
+
+Are your changes spread across 3 or more separate locations in the file?
+  └─ YES → use <file>  (multiple patches on one file become fragile)
+
+Is the target code poorly/inconsistently indented, or are you unsure of the exact whitespace?
+  └─ YES → use <file>  (patches will fail if indentation isn't a 100% perfect match)
+
+Are you 100% certain you can reproduce the search text character-for-character?
+  └─ NO / ANY DOUBT → use <file>
+
+All of the above are NO?
+  └─ use <patch>  ← Only reach here for large files with small, localized changes
+```
+
+**Need to remove a file?** Always use `<delete path="..." />`.
+
+**Default when unsure: always prefer `<file>`.** A reliable full file is always better than a fragile patch.
+
+---
+
+## RULES FOR `<file>` BLOCKS
+
+1. **CDATA required** — Always wrap file contents in `<![CDATA[...]]>`.
+2. **Complete content only** — Output every single line. Never write `// ... rest of file` or any shortcut. The script overwrites the file completely — truncated output destroys real code.
+3. **No commentary inside the block** — Only valid source code inside CDATA.
+4. **Path format** — Forward slashes, relative to project root, exact casing:
+   `SectorAnalysis.WebApi/Controllers/SectorsController.cs`
+
+---
+
+## RULES FOR `<patch>` BLOCKS
+
+These rules are critical. A single character difference in `<search>` causes the patch to fail.
+
+### `<patch>` block
+1. **CDATA required** — Wrap search text in `<![CDATA[...]]>`.
+2. **VERBATIM COPY (CRITICAL)** — The script uses a strict string matching algorithm. If you change indentation by even one space, fix a typo, or reflow a line break inside the `<search>` block, the patch will instantly fail. You MUST copy the lines exactly as they appear in the source context.
+3. **Never fix formatting in `<search>`** — If the original code is poorly indented, leave it poorly indented in the `<search>` block. Only fix it in the `<replace>` block.
+4. **Minimum 4 lines of context** — Include at least 4 surrounding lines above and below your actual change point. This makes the match unique.
+5. **Complete lines only** — Never start or end mid-line.
+6. **No line numbers** — Do not include line numbers.
+
+### `<replace>` block
+1. **CDATA required** — Wrap replacement text in `<![CDATA[...]]>`.
+2. Keep the unchanged context lines from `<search>` exactly as they were.
+3. Only the lines you actually want to change should differ from `<search>`.
+
+### One change per `<patch>`
+If you need to change two separate locations in the same file, output **two separate `<patch>` blocks** with the same file path.
+
+---
+
+## PATH FORMAT RULES (applies to all formats)
+
+| ❌ Wrong | ✅ Right |
+|---------|---------|
+| `.\SectorAnalysis.WebApi\Controllers\File.cs` | `SectorAnalysis.WebApi/Controllers/File.cs` |
+| `C:\full\absolute\path\File.cs` | `SectorAnalysis.WebApi/Controllers/File.cs` |
+| `file.cs` (no folder) | `SectorAnalysis.WebApi/Controllers/File.cs` |
+| Wrong casing: `controllers/file.cs` | Exact casing: `Controllers/File.cs` |
+
+---
+
+## MARKDOWN ESCAPING RULE (CRITICAL FOR UI)
+
+If you are writing or updating a Markdown file (like `README.md`), use standard tildes (`~~~`) for code blocks inside the CDATA section instead of triple backticks (` ``` `). 
+Using triple backticks inside the XML payload will prematurely close the chat UI's outer markdown block and break the copy button.
+
+---
+
+## COMMON MISTAKES TO AVOID
+
+| ❌ Wrong | ✅ Right |
+|---------|---------|
+| Missing `<ai-response>` root wrapper | Always wrap everything in `<ai-response>` |
+| Missing `<![CDATA[...]]>` around code | Always use CDATA for all code content |
+| Using `<patch>` on a file under 150 lines | Use `<file>` |
+| Using `<patch>` on 3+ scattered spots | Use `<file>` |
+| Changing indentation inside `<search>` | Copy indentation byte-for-byte |
+| Writing `// ... existing code ...` in `<file>` | Include every line |
+| Mentioning "please delete X" in plain text | Use `<delete path="X" />` |
+
+---
+
+## EXAMPLE OF A VALID RESPONSE
+
+```xml
+<ai-response>
+
+  <file path="SectorAnalysis.SharedContracts/Models/SectorDto.cs"><![CDATA[
+namespace SectorAnalysis.SharedContracts.Models;
+
+public record SectorDto(string Code, string Name, decimal Weight);
+]]></file>
+
+  <patch file="SectorAnalysis.WebApi/Controllers/SectorsController.cs">
+    <search><![CDATA[
+        [HttpGet]
+        public IActionResult GetAll()
+        {
+            return Ok(_service.GetSectors());
+        }
+    }
+}
+    ]]></search>
+    <replace><![CDATA[
+        [HttpGet]
+        public IActionResult GetAll()
+        {
+            return Ok(_service.GetSectors());
+        }
+
+        [HttpGet("{code}")]
+        public IActionResult GetByCode(string code)
+        {
+            var result = _service.GetSector(code);
+            return result is null ? NotFound() : Ok(result);
+        }
+    }
+}
+    ]]></replace>
+  </patch>
+
+  <delete path="SectorAnalysis.WebApi/Controllers/OldController.cs" />
+
+</ai-response>
+```
+
+---
+
+## SELF-CHECK BEFORE RESPONDING
+
+Before you output anything, answer these questions:
+
+1. Is the entire response wrapped in `<ai-response>...</ai-response>`?
+2. Is every code block (file contents, search text, replace text) inside `<![CDATA[...]]>`?
+3. For every `<file>` block: does it contain the **complete file** with zero truncation?
+4. For every `<patch>` block: is the `<search>` text a **character-for-character copy** from the source context (including all original whitespace and indentation)?
+5. Did I follow the **decision tree** to choose the right format for each file?
+6. Are all paths in **forward-slash format**, relative to the project root?
+7. Is the entire payload wrapped in EXACTLY ONE ````xml ```` block?
+8. Did I use `~~~` instead of backticks for code blocks inside markdown files?
+
+If any answer is "no" — fix it before outputting.

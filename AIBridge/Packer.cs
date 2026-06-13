@@ -111,29 +111,34 @@ namespace AIBridge
                 Directory.CreateDirectory(skillsDir);
             }
 
-            var systemPromptPath = Path.Combine(skillsDir, "ai-system-prompt.md");
             var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-            using var stream = assembly.GetManifestResourceStream("AIBridge.Resources.ai-system-prompt.md");
-            if (stream != null)
+            string[] skillFiles = { "ai-system-prompt.md", "ai-response-skill.md" };
+
+            foreach (var file in skillFiles)
             {
-                using var reader = new StreamReader(stream);
-                var promptContent = reader.ReadToEnd();
-                
-                bool existed = File.Exists(systemPromptPath);
-                File.WriteAllText(systemPromptPath, promptContent, Encoding.UTF8);
-                
-                if (existed)
+                var filePath = Path.Combine(skillsDir, file);
+                using var stream = assembly.GetManifestResourceStream($"AIBridge.Resources.{file}");
+                if (stream != null)
                 {
-                    ConsoleHelper.Success("✅ Updated aiSkills/ai-system-prompt.md to latest version.");
+                    using var reader = new StreamReader(stream);
+                    var content = reader.ReadToEnd();
+                    
+                    bool existed = File.Exists(filePath);
+                    File.WriteAllText(filePath, content, Encoding.UTF8);
+                    
+                    if (existed)
+                    {
+                        ConsoleHelper.Success($"✅ Updated aiSkills/{file} to latest version.");
+                    }
+                    else
+                    {
+                        ConsoleHelper.Success($"✅ Created aiSkills/{file}.");
+                    }
                 }
                 else
                 {
-                    ConsoleHelper.Success("✅ Created aiSkills/ai-system-prompt.md (system prompt for your AI).");
+                    ConsoleHelper.Warning($"⚠ Could not extract embedded resource: {file}");
                 }
-            }
-            else
-            {
-                ConsoleHelper.Warning("⚠ Could not extract embedded system prompt resource.");
             }
         }
 
@@ -383,6 +388,8 @@ namespace AIBridge
 
                     outputData[projectName].Append(block);
                     outputFileCounts[projectName]++;
+
+                    ConsoleHelper.WriteColored($"  Packed: {relativePath}", ConsoleColor.Blue);
                 }
                 catch (Exception ex)
                 {
