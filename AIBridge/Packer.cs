@@ -142,7 +142,7 @@ namespace AIBridge
             }
         }
 
-        private static (List<ProjectInfo> projects, string ecosystem) DetectProjects(string projectPath)
+        public static (List<ProjectInfo> projects, string ecosystem) DetectProjects(string projectPath)
         {
             // 1. Try .NET (.csproj)
             var csprojFiles = Directory.GetFiles(projectPath, "*.csproj", SearchOption.AllDirectories);
