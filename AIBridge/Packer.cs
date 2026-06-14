@@ -112,12 +112,14 @@ namespace AIBridge
             }
 
             var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-            string[] skillFiles = { "ai-system-prompt.md", "ai-response-skill.md" };
+            var resourceNames = assembly.GetManifestResourceNames()
+                .Where(n => n.StartsWith("AIBridge.Resources.") && n.EndsWith(".md"));
 
-            foreach (var file in skillFiles)
+            foreach (var resourceName in resourceNames)
             {
+                var file = resourceName.Substring("AIBridge.Resources.".Length);
                 var filePath = Path.Combine(skillsDir, file);
-                using var stream = assembly.GetManifestResourceStream($"AIBridge.Resources.{file}");
+                using var stream = assembly.GetManifestResourceStream(resourceName);
                 if (stream != null)
                 {
                     using var reader = new StreamReader(stream);

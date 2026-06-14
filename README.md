@@ -138,8 +138,9 @@ AI Bridge uses a layered approach to decide which files to pack:
 ## Step 3 — Save the AI Response
 
 The AI will respond with a valid XML document. AI Bridge performs **strict validation** on this file:
-- The root element must be `<ai-response>`.
-- Only `<file>`, `<patch>`, and `<delete>` are allowed as child elements.
+- The root element must be `<ai-response>` or `<ai-request>`.
+- For `<ai-response>`, only `<file>`, `<patch>`, and `<delete>` are allowed as child elements.
+- For `<ai-request>`, only `<file path="..." />` is allowed.
 - Conversational text outside these tags is ignored, but invalid tags will cause an error.
 
 Save this response as `ai-response.xml` in the `aiArtifacts\` folder.
@@ -169,6 +170,15 @@ ai-bridge apply
 ```
 
 ### What the tool does
+1. **Detects Payload Type** — If the root is `<ai-request>`, it enters File Request mode. If it is `<ai-response>`, it enters Patch mode.
+
+**If it's an `<ai-request>`:**
+- It extracts the requested file paths.
+- It reads the files from your local disk.
+- It generates a formatted context file at `aiArtifacts\ai-requested-context.txt`.
+- *You just upload this file back to the AI to continue!*
+
+**If it's an `<ai-response>`:**
 1. **Phase 1** — Applies `<file>` blocks (creates or overwrites full files).
 2. **Phase 2** — Applies `<patch>` blocks (targeted search-and-replace).
 3. **Phase 3** — Applies `<delete>` blocks (removes files).
@@ -183,8 +193,9 @@ ai-bridge apply
 
 | Flag | Description |
 |------|-------------|
-| `--watch` | Continuous mode. Applies current changes, then monitors `ai-response.xml` and auto-applies whenever you save it. |
+| `--watch` | Continuous mode. Monitors `ai-response.xml` and auto-applies whenever you save it (works for both patches and requests). |
 | `--dry-run` | Preview what changes would be made without modifying any files. |
+| `--paste` | Read the XML payload directly from your clipboard instead of a file (works for both patches and requests). For requests, it will also automatically copy the generated context back to your clipboard! |
 
 **Continuous Watch Mode (Recommended workflow):**
 ~~~bash
@@ -235,10 +246,14 @@ When you run `ai-bridge pack`, it sets up two folders:
 YourProjectRoot\
 ├── .aiignore                   ← Additional ignore rules (works alongside .gitignore)
 ├── aiSkills\                   ← Committed to git (team-shared)
-│   └── ai-system-prompt.md    ← System prompt for your browser AI
+│   ├── ai-system-prompt.md     ← System prompt for your browser AI
+│   ├── ai-response-skill.md    ← Code modification protocol
+│   ├── ai-request-skill.md     ← File request protocol
+│   └── ai-bridge-index-skill.md← Proactive workspace mapping
 └── aiArtifacts\                ← Auto-created, gitignored
     ├── *-context.txt           ← Output of ai-bridge pack
     ├── ai-response.xml         ← AI response you paste/download here
+    ├── ai-requested-context.txt← Generated when AI requests files
     └── failed-patches.txt      ← Created only when patches fail
 ```
 
