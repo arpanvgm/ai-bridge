@@ -11,3 +11,6 @@ VS Code extension: Sidebar panel for pack/apply with visual diff preview
 VS Code extension: Sidebar panel for pack/apply with visual diff preview
 
 No interactive mode — No TUI for selecting which files/projects to pack
+
+------------------------
+ output two separate <patch> blocks with the same file path. sequence or parellell ? 
