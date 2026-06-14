@@ -13,4 +13,7 @@ VS Code extension: Sidebar panel for pack/apply with visual diff preview
 No interactive mode — No TUI for selecting which files/projects to pack
 
 ------------------------
- output two separate <patch> blocks with the same file path. sequence or parellell ? 
+
+ We should have init command in this tool : 
+ 1) adding all aiSkills to the respective codebase (remove if old skills from there)
+ 2) adding an empty ai-response.xml file into aiArtrifacts folder of respective codebase. If not exists 

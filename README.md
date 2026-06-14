@@ -236,7 +236,7 @@ When you run `ai-bridge pack`, it sets up two folders:
 ```text
 YourProjectRoot\
 ├── .aiignore                   ← Additional ignore rules (works alongside .gitignore)
-├── aiSkills\                   ← Committed to git (team-shared)
+├── aiSkills\                   ← Auto-created, gitignored
 │   ├── ai-system-prompt.md     ← System prompt for your browser AI
 │   └── ai-response-skill.md    ← Code modification protocol
 └── aiArtifacts\                ← Auto-created, gitignored

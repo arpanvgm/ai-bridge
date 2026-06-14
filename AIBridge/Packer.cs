@@ -85,10 +85,21 @@ namespace AIBridge
             if (File.Exists(gitignorePath))
             {
                 var content = File.ReadAllText(gitignorePath);
+                bool gitignoreChanged = false;
                 if (!content.Contains("aiArtifacts/"))
                 {
-                    File.AppendAllText(gitignorePath, "\n# AI Bridge Artifacts\naiArtifacts/\n");
-                    ConsoleHelper.Success("✅ Patched .gitignore to ignore aiArtifacts/");
+                    File.AppendAllText(gitignorePath, "\n# AI Bridge\naiArtifacts/\n");
+                    gitignoreChanged = true;
+                }
+                if (!content.Contains("aiSkills/"))
+                {
+                    if (gitignoreChanged) File.AppendAllText(gitignorePath, "aiSkills/\n");
+                    else File.AppendAllText(gitignorePath, "\n# AI Bridge\naiSkills/\n");
+                    gitignoreChanged = true;
+                }
+                if (gitignoreChanged)
+                {
+                    ConsoleHelper.Success("✅ Patched .gitignore to ignore AI Bridge folders.");
                 }
             }
 
@@ -111,6 +122,14 @@ namespace AIBridge
                 Directory.CreateDirectory(skillsDir);
             }
 
+            if (Directory.Exists(skillsDir))
+            {
+                foreach (var existingFile in Directory.GetFiles(skillsDir))
+                {
+                    File.Delete(existingFile);
+                }
+            }
+
             var assembly = System.Reflection.Assembly.GetExecutingAssembly();
             var resourceNames = assembly.GetManifestResourceNames()
                 .Where(n => n.StartsWith("AIBridge.Resources.") && n.EndsWith(".md"));
@@ -125,17 +144,8 @@ namespace AIBridge
                     using var reader = new StreamReader(stream);
                     var content = reader.ReadToEnd();
                     
-                    bool existed = File.Exists(filePath);
                     File.WriteAllText(filePath, content, Encoding.UTF8);
-                    
-                    if (existed)
-                    {
-                        ConsoleHelper.Success($"✅ Updated aiSkills/{file} to latest version.");
-                    }
-                    else
-                    {
-                        ConsoleHelper.Success($"✅ Created aiSkills/{file}.");
-                    }
+                    ConsoleHelper.Success($"✅ Extracted aiSkills/{file}");
                 }
                 else
                 {
