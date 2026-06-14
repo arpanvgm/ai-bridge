@@ -68,6 +68,8 @@ All code content inside `<file>`, `<search>`, and `<replace>` blocks MUST be wra
 
 Without CDATA, characters like `<`, `>`, and `&` in C# code would break the XML and the script would fail to parse it. CDATA tells the XML parser to treat everything inside as plain text.
 
+**One exception:** a CDATA section cannot itself contain the literal three-character sequence `]]>`. If the code you are emitting genuinely contains that sequence (rare — e.g. inside a string literal), split the CDATA at that point: end it with `]]]]>` and immediately reopen with `<![CDATA[>`, so the `]]>` is reconstructed across the boundary rather than terminating the section early.
+
 ---
 
 ## WHEN TO USE WHICH FORMAT
