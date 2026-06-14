@@ -30,12 +30,12 @@
     <EmbeddedResource Include="Resources\ai-response-skill.md">
       <LogicalName>AIBridge.Resources.ai-response-skill.md</LogicalName>
     </EmbeddedResource>
-     <EmbeddedResource Include="Resources\ai-request-skill.md">
+     <!-- <EmbeddedResource Include="Resources\ai-request-skill.md">
       <LogicalName>AIBridge.Resources.ai-request-skill.md</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="Resources\ai-bridge-index-skill.md">
       <LogicalName>AIBridge.Resources.ai-bridge-index-skill.md</LogicalName>
-    </EmbeddedResource>
+    </EmbeddedResource> -->
   </ItemGroup>
 
   <ItemGroup>
