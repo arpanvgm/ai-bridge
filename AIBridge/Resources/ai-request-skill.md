@@ -10,7 +10,7 @@ When you are working from the `ai-bridge-index.xml` map, you do not have the ful
 
 ## RESPONSE STRUCTURE
 
-To request file contents, you MUST output a strict XML block. The `ai-bridge` tool will intercept this block, read the requested files from the user's local disk, and automatically provide them to you in the next prompt.
+To request file contents, you MUST output a strict XML block. The requested files will be read and provided to you in the next prompt.
 
 ```xml
 <ai-request>
@@ -23,8 +23,30 @@ To request file contents, you MUST output a strict XML block. The `ai-bridge` to
 
 1. **Exact Paths:** The `path` attribute must exactly match the `path` attribute found in the `ai-bridge-index.xml` file.
 2. **Batch Requests:** Request all the files you think you will need for the task in a single `<ai-request>` block to save time.
-3. **No Code Output Yet:** Do not attempt to guess the code or write an `<ai-response>` patch in the same message as an `<ai-request>`. Wait for the user's tool to reply with the file contents before you write any code modifications.
+3. **No Code Output Yet:** Do not attempt to guess the code or write an `<ai-response>` patch in the same message as an `<ai-request>`. Wait for the file contents to be provided before you write any code modifications.
 4. **Markdown Formatting:** Wrap the XML block in a standard markdown ````xml ```` block.
+
+## REPLY FORMAT (what you receive)
+
+The reply wraps requested files in `<module>` blocks, grouped by module:
+
+```
+<module name="WebApi" files="1">
+<file path="WebApi/Controllers/UserController.cs" lines="62">
+// full source code
+</file>
+</module>
+
+<module name="Shared" files="1">
+<file path="Shared/Models/UserProfile.cs" lines="14">
+// full source code
+</file>
+</module>
+```
+
+If a requested file and its content are missing from the reply (e.g. it was renamed or
+deleted since the index was generated), do not guess its content — tell the user the
+file could not be found and ask how to proceed.
 
 ## WORKFLOW EXAMPLE
 
@@ -40,3 +62,24 @@ I need to see the current Controllers and the User model to implement this.
   <file path="Shared/Models/UserProfile.cs" />
 </ai-request>
 ```
+
+**Reply (What you receive in next prompt):**
+
+```
+<module name="WebApi" files="1">
+<file path="WebApi/Controllers/UserController.cs" lines="62">
+// full source code
+</file>
+</module>
+
+<module name="Shared" files="1">
+<file path="Shared/Models/UserProfile.cs" lines="14">
+// full source code
+</file>
+</module>
+```
+
+**AI:**
+Now has full source for both files, and proceeds to write the `<ai-response>` as per
+`ai-response-skill.md` — no further `<ai-request>` needed for this task unless
+additional files turn out to be necessary.
