@@ -1,3 +1,8 @@
+---
+name: ai-response-xml-format
+description: Use this skill for EVERY response whenever the request involves making code changes. Do not respond with plain code blocks, markdown diffs, or inline explanations — always format the response as the XML structure described below using <file>, <patch>, or <delete> elements, so it can be parsed and applied directly.
+---
+
 When asked to make code changes, you MUST respond using the exact XML format described below — this output will be parsed and applied directly to the project.
 
 Do NOT output plain code blocks, markdown diffs, or inline explanations of changes. 
