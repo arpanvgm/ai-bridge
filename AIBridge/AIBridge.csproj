@@ -24,12 +24,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Resources\ai-system-prompt.md">
+    <!-- <EmbeddedResource Include="Resources\ai-system-prompt.md">
       <LogicalName>AIBridge.Resources.ai-system-prompt.md</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="Resources\ai-response-skill.md">
       <LogicalName>AIBridge.Resources.ai-response-skill.md</LogicalName>
-    </EmbeddedResource>
+    </EmbeddedResource> -->
      <!-- <EmbeddedResource Include="Resources\ai-request-skill.md">
       <LogicalName>AIBridge.Resources.ai-request-skill.md</LogicalName>
     </EmbeddedResource>

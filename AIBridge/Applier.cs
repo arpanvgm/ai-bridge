@@ -140,17 +140,17 @@ namespace AIBridge
 
             // Collect all target file paths from the response
             var targetFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (XmlNode node in xml.SelectNodes("//file")!)
+            foreach (XmlNode node in root.SelectNodes("file")!)
             {
                 var p = node.Attributes?["path"]?.Value.Trim();
                 if (!string.IsNullOrEmpty(p)) targetFiles.Add(p.Replace('/', Path.DirectorySeparatorChar));
             }
-            foreach (XmlNode node in xml.SelectNodes("//patch")!)
+            foreach (XmlNode node in root.SelectNodes("patch")!)
             {
-                var p = node.Attributes?["path"]?.Value.Trim();
+                var p = node.Attributes?["path"]?.Value?.Trim();
                 if (!string.IsNullOrEmpty(p)) targetFiles.Add(p.Replace('/', Path.DirectorySeparatorChar));
             }
-            foreach (XmlNode node in xml.SelectNodes("//delete")!)
+            foreach (XmlNode node in root.SelectNodes("delete")!)
             {
                 var p = node.Attributes?["path"]?.Value.Trim();
                 if (!string.IsNullOrEmpty(p)) targetFiles.Add(p.Replace('/', Path.DirectorySeparatorChar));
@@ -166,10 +166,14 @@ namespace AIBridge
             var failedPatchNodes = new List<XmlNode>();
 
             // 1. Full Files
-            foreach (XmlNode node in xml.SelectNodes("//file")!)
+            foreach (XmlNode node in root.SelectNodes("file")!)
             {
-                var relPath = node.Attributes?["path"]?.Value.Trim();
-                if (string.IsNullOrEmpty(relPath)) continue;
+                var relPath = node.Attributes?["path"]?.Value?.Trim();
+                if (string.IsNullOrEmpty(relPath))
+                {
+                    ConsoleHelper.Error("File creation failed: missing 'path' attribute on <file> tag.");
+                    continue;
+                }
 
                 var absPath = Path.Combine(projectPath, relPath.Replace('/', Path.DirectorySeparatorChar));
 
@@ -189,10 +193,16 @@ namespace AIBridge
             }
 
             // 2. Patches
-            foreach (XmlNode node in xml.SelectNodes("//patch")!)
+            foreach (XmlNode node in root.SelectNodes("patch")!)
             {
-                var relPath = node.Attributes?["path"]?.Value.Trim();
-                if (string.IsNullOrEmpty(relPath)) continue;
+                var relPath = node.Attributes?["path"]?.Value?.Trim();
+                if (string.IsNullOrEmpty(relPath))
+                {
+                    ConsoleHelper.Error("Patch failed: missing 'path' attribute on <patch> tag.");
+                    failedPatchNodes.Add(node);
+                    countPatchFailed++;
+                    continue;
+                }
 
                 var absPath = Path.Combine(projectPath, relPath.Replace('/', Path.DirectorySeparatorChar));
                 var searchNode = node.SelectSingleNode("search");
@@ -243,10 +253,14 @@ namespace AIBridge
             }
 
             // 3. Deletes
-            foreach (XmlNode node in xml.SelectNodes("//delete")!)
+            foreach (XmlNode node in root.SelectNodes("delete")!)
             {
-                var relPath = node.Attributes?["path"]?.Value.Trim();
-                if (string.IsNullOrEmpty(relPath)) continue;
+                var relPath = node.Attributes?["path"]?.Value?.Trim();
+                if (string.IsNullOrEmpty(relPath))
+                {
+                    ConsoleHelper.Error("Delete failed: missing 'path' attribute on <delete> tag.");
+                    continue;
+                }
 
                 var absPath = Path.Combine(projectPath, relPath.Replace('/', Path.DirectorySeparatorChar));
 
