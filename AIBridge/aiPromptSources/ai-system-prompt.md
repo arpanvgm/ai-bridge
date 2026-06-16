@@ -39,7 +39,6 @@ The user will upload one or more `*-context.txt` files. Each file has this struc
 ```
 
 Key things to note:
-- The `<module name="...">` tells you which module layer you are reading (e.g. WebApi, DataProvider, SharedContracts).
+- The `<module name="...">` is a logical grouping label — it may or may not match folder names in file paths.
 - File `path` attributes use **forward slashes** and are **relative to the workspace root** with no leading `./`.
-- The path **always includes the module folder as the first segment**: `SectorAnalysis.WebApi/Controllers/SectorsController.cs` — NOT `Controllers/SectorsController.cs`.
-- **Copy the path exactly as shown in the context file** when writing your `<file>`, `<patch>`, and `<delete>` blocks. Do not strip the module folder prefix just because you know which module you are in.
+- **Copy the `path` exactly as shown in the context file** when writing your `<file>`, `<patch>`, and `<delete>` blocks.
