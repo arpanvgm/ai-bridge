@@ -23,3 +23,5 @@ Should we modify system prompt not to mentioned anything about ai-response, and 
  We should have init command in this tool : 
  1) adding all aiSkills to the respective codebase (remove if old skills from there)
  2) adding an empty ai-response.xml file into aiArtrifacts folder of respective codebase. If not exists 
+
+

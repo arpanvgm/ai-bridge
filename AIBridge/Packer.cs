@@ -38,7 +38,7 @@ namespace AIBridge
         private static readonly HashSet<string> ExcludeFileNames = new(StringComparer.OrdinalIgnoreCase)
         {
             "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
-            ".DS_Store", "Thumbs.db", ".gitignore", ".aiignore"
+            ".DS_Store", "Thumbs.db", ".gitignore", ".aiignore", "ai-bridge-index.xml"
         };
 
         // AI Bridge folders that should never be packed (regardless of git or fallback)
@@ -106,7 +106,7 @@ namespace AIBridge
             var aiIgnorePath = Path.Combine(projectPath, ".aiignore");
             if (!File.Exists(aiIgnorePath))
             {
-                var defaultIgnore = "# Additional ignore rules for AI Bridge packing (works alongside .gitignore)\n# Folders should end with /\naiSkills/\nTestResults/\n*.g.cs\n*.log\n*.tmp\n";
+                var defaultIgnore = "# Additional ignore rules for AI Bridge packing (works alongside .gitignore)\n# Folders should end with /\naiSkills/\nTestResults/\n*.g.cs\n*.log\n*.tmp\nai-bridge-index.xml\n";
                 File.WriteAllText(aiIgnorePath, defaultIgnore);
                 ConsoleHelper.Success("✅ Created default .aiignore file.");
             }

@@ -11,6 +11,8 @@ If no `*-context.txt` files are provided, ask the user to share them and stop �
 ## OUTPUT FORMAT
 
 ```xml
+<ai-response>
+  <file path="ai-bridge-index.xml"><![CDATA[
 <?xml version="1.0" encoding="utf-8"?>
 <ai-bridge-index>
 
@@ -24,16 +26,20 @@ If no `*-context.txt` files are provided, ask the user to share them and stop �
   </module>
 
 </ai-bridge-index>
+  ]]></file>
+</ai-response>
 ```
 
 Rules:
+- Output MUST be a valid `<ai-response>` block as shown above.
+- The `path` attribute of the outer `<file>` wrapper MUST be `ai-bridge-index.xml`.
+- The entire `ai-bridge-index` XML content MUST be inside `<![CDATA[ ... ]]>`.
 - One `<module>` block per `<module>` found in the input, preserving the same names and order.
 - One self-closing `<file />` per source file with two attributes:
   - `path` — copied exactly from the context file.
   - `purpose` — your 1–2 sentence summary.
 - Within each `<module>`, `<file>` entries preserve the same order as in the input.
-- Use 2-space indentation. No blank lines between `<file />` entries.
-- No other elements, attributes, or metadata.
+- Use 2-space indentation inside the index XML. No blank lines between `<file />` entries.
 
 ---
 
@@ -91,6 +97,8 @@ and `infra-context.txt`:
 Output:
 
 ```xml
+<ai-response>
+  <file path="ai-bridge-index.xml"><![CDATA[
 <?xml version="1.0" encoding="utf-8"?>
 <ai-bridge-index>
 
@@ -105,6 +113,8 @@ Output:
   </module>
 
 </ai-bridge-index>
+  ]]></file>
+</ai-response>
 ```
 
 Note: module names are logical labels — they may or may not match folder names in the file paths. Always use the `path` attribute to identify a file's location.
