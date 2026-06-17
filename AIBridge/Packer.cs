@@ -66,111 +66,6 @@ namespace AIBridge
             @"\.user$", @"\.suo$", @"\.log$", @"\.tmp$"
         };
 
-        public static void Init()
-        {
-            var projectPath = Environment.CurrentDirectory;
-            var artifactsDir = Path.Combine(projectPath, "aiArtifacts");
-            if (!Directory.Exists(artifactsDir))
-            {
-                Directory.CreateDirectory(artifactsDir);
-            }
-
-            var responseFilePath = Path.Combine(artifactsDir, "ai-response.xml");
-            if (!File.Exists(responseFilePath))
-            {
-                File.WriteAllText(responseFilePath, "<!-- Paste the AI response XML here -->\n");
-            }
-
-            var gitignorePath = Path.Combine(projectPath, ".gitignore");
-            if (File.Exists(gitignorePath))
-            {
-                var content = File.ReadAllText(gitignorePath);
-                bool gitignoreChanged = false;
-                if (!content.Contains("aiArtifacts/"))
-                {
-                    File.AppendAllText(gitignorePath, "\n# AI Bridge\naiArtifacts/\n");
-                    gitignoreChanged = true;
-                }
-                if (!content.Contains("aiSkills/"))
-                {
-                    if (gitignoreChanged) File.AppendAllText(gitignorePath, "aiSkills/\n");
-                    else File.AppendAllText(gitignorePath, "\n# AI Bridge\naiSkills/\n");
-                    gitignoreChanged = true;
-                }
-                if (!content.Contains("aiPrompts/"))
-                {
-                    if (gitignoreChanged) File.AppendAllText(gitignorePath, "aiPrompts/\n");
-                    else File.AppendAllText(gitignorePath, "\n# AI Bridge\naiPrompts/\n");
-                    gitignoreChanged = true;
-                }
-                if (gitignoreChanged)
-                {
-                    ConsoleHelper.Success("✅ Patched .gitignore to ignore AI Bridge folders.");
-                }
-            }
-
-            var aiIgnorePath = Path.Combine(projectPath, ".aiignore");
-            if (!File.Exists(aiIgnorePath))
-            {
-                var defaultIgnore = "# Additional ignore rules for AI Bridge packing (works alongside .gitignore)\n# Folders should end with /\naiSkills/\naiPrompts/\nTestResults/\n*.g.cs\n*.log\n*.tmp\nai-bridge-index.xml\n";
-                File.WriteAllText(aiIgnorePath, defaultIgnore);
-                ConsoleHelper.Success("✅ Created default .aiignore file.");
-            }
-            else
-            {
-                ConsoleHelper.Info("ℹ .aiignore already exists.");
-            }
-
-            // Create aiSkills and aiPrompts folders and extract from source folders
-            var skillsDir = Path.Combine(projectPath, "aiSkills");
-            var promptsDir = Path.Combine(projectPath, "aiPrompts");
-
-            if (Directory.Exists(skillsDir))
-            {
-                foreach (var existingFile in Directory.GetFiles(skillsDir))
-                {
-                    File.Delete(existingFile);
-                }
-            }
-            if (Directory.Exists(promptsDir))
-            {
-                foreach (var existingFile in Directory.GetFiles(promptsDir))
-                {
-                    File.Delete(existingFile);
-                }
-            }
-
-            string baseDir = AppContext.BaseDirectory;
-            string sourceSkillsDir = Path.Combine(baseDir, "aiSkillSources");
-            string sourcePromptsDir = Path.Combine(baseDir, "aiPromptSources");
-
-            if (Directory.Exists(sourceSkillsDir))
-            {
-                if (!Directory.Exists(skillsDir)) Directory.CreateDirectory(skillsDir);
-                foreach (var file in Directory.GetFiles(sourceSkillsDir, "*.*", SearchOption.AllDirectories))
-                {
-                    var relPath = Path.GetRelativePath(sourceSkillsDir, file);
-                    var destFile = Path.Combine(skillsDir, relPath);
-                    Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
-                    File.Copy(file, destFile, true);
-                    ConsoleHelper.Success($"✅ Extracted aiSkills/{relPath.Replace('\\', '/')}");
-                }
-            }
-
-            if (Directory.Exists(sourcePromptsDir))
-            {
-                if (!Directory.Exists(promptsDir)) Directory.CreateDirectory(promptsDir);
-                foreach (var file in Directory.GetFiles(sourcePromptsDir, "*.*", SearchOption.AllDirectories))
-                {
-                    var relPath = Path.GetRelativePath(sourcePromptsDir, file);
-                    var destFile = Path.Combine(promptsDir, relPath);
-                    Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
-                    File.Copy(file, destFile, true);
-                    ConsoleHelper.Success($"✅ Extracted aiPrompts/{relPath.Replace('\\', '/')}");
-                }
-            }
-        }
-
         public static (List<ProjectInfo> projects, string ecosystem) DetectProjects(string projectPath)
         {
             // 1. Try .NET (.csproj)
@@ -303,10 +198,16 @@ namespace AIBridge
 
         public static void Run()
         {
-            Init();
             var projectPath = Environment.CurrentDirectory;
             var artifactsDir = Path.Combine(projectPath, "aiArtifacts");
             var aiIgnorePath = Path.Combine(projectPath, ".aiignore");
+
+            if (!Directory.Exists(artifactsDir) || !Directory.Exists(Path.Combine(projectPath, "aiSkills")))
+            {
+                ConsoleHelper.Error("Error: Project not initialized for AI Bridge.");
+                ConsoleHelper.Info("Please run 'ai-bridge init' first to set up the necessary skills and ignore files for this codebase.");
+                return;
+            }
 
             var rootFolderName = new DirectoryInfo(projectPath).Name;
             var (detectedProjects, ecosystem) = DetectProjects(projectPath);

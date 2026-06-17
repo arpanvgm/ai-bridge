@@ -37,11 +37,32 @@ namespace AIBridge
                     bool paste = flags.Contains("--paste");
                     Applier.Run(dryRun, watch, paste);
                     break;
+                case "init":
+                    if (flags.Count > 0)
+                    {
+                        ConsoleHelper.Error($"Error: Unknown arguments for 'init': {string.Join(", ", flags)}");
+                        return;
+                    }
+                    ConsoleHelper.Info("Initializing AI Bridge for this project...");
+                    Initializer.Init(force: false);
+                    break;
+
+                case "update":
+                    if (flags.Count > 0)
+                    {
+                        ConsoleHelper.Error($"Error: Unknown arguments for 'update': {string.Join(", ", flags)}");
+                        return;
+                    }
+                    ConsoleHelper.Info("Updating AI Bridge default templates...");
+                    Initializer.Init(force: true);
+                    break;
 
                 default:
                     Console.WriteLine("Usage: ai-bridge [command]");
                     Console.WriteLine("Commands:");
-                    Console.WriteLine("  pack                - Packs source files into text context for AI (auto-initializes on first run).");
+                    Console.WriteLine("  init                - Scaffolds .aiignore, aiSkills/, and aiPrompts/ without overwriting existing files.");
+                    Console.WriteLine("  update              - Updates aiSkills/ and aiPrompts/ to the latest defaults (overwrites existing files).");
+                    Console.WriteLine("  pack                - Packs source files into text context for AI.");
                     Console.WriteLine("  apply [options]     - Applies ai-response.xml patches to the codebase.");
                     Console.WriteLine();
                     Console.WriteLine("Apply Options:");
