@@ -10,7 +10,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>ai-bridge</ToolCommandName>
     <PackageId>Tools.AIBridge</PackageId>
-    <Version>1.0.5</Version>
+    <Version>1.0.6</Version>
     <Authors>Arpan</Authors>
     <Description>A lightweight, language-agnostic CLI tool for packing project source code into AI-readable context and applying AI-generated code changes back to your codebase.</Description>
     <PackageTags>ai;chatgpt;claude;gemini;cli;tool;pack;apply;context</PackageTags>
@@ -24,13 +24,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Resources\ai-system-prompt.md">
-      <LogicalName>AIBridge.Resources.ai-system-prompt.md</LogicalName>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Resources\ai-response-skill.md">
-      <LogicalName>AIBridge.Resources.ai-response-skill.md</LogicalName>
-    </EmbeddedResource>
+    <Content Include="aiPromptSources\**" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="aiSkillSources\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  
 
   <ItemGroup>
     <PackageReference Include="TextCopy" Version="6.2.1" />

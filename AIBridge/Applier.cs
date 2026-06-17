@@ -114,9 +114,15 @@ namespace AIBridge
             }
 
             var root = xml.DocumentElement;
-            if (root == null || root.Name != "ai-response")
+            if (root == null || (root.Name != "ai-response" && root.Name != "ai-request"))
             {
-                ConsoleHelper.Error("Error: Root element must be <ai-response>.");
+                ConsoleHelper.Error("Error: Root element must be <ai-response> or <ai-request>.");
+                return;
+            }
+
+            if (root.Name == "ai-request")
+            {
+                HandleAiRequest(root, projectPath, paste);
                 return;
             }
 
@@ -134,17 +140,17 @@ namespace AIBridge
 
             // Collect all target file paths from the response
             var targetFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (XmlNode node in xml.SelectNodes("//file")!)
+            foreach (XmlNode node in root.SelectNodes("file")!)
             {
                 var p = node.Attributes?["path"]?.Value.Trim();
                 if (!string.IsNullOrEmpty(p)) targetFiles.Add(p.Replace('/', Path.DirectorySeparatorChar));
             }
-            foreach (XmlNode node in xml.SelectNodes("//patch")!)
+            foreach (XmlNode node in root.SelectNodes("patch")!)
             {
-                var p = node.Attributes?["path"]?.Value.Trim();
+                var p = node.Attributes?["path"]?.Value?.Trim();
                 if (!string.IsNullOrEmpty(p)) targetFiles.Add(p.Replace('/', Path.DirectorySeparatorChar));
             }
-            foreach (XmlNode node in xml.SelectNodes("//delete")!)
+            foreach (XmlNode node in root.SelectNodes("delete")!)
             {
                 var p = node.Attributes?["path"]?.Value.Trim();
                 if (!string.IsNullOrEmpty(p)) targetFiles.Add(p.Replace('/', Path.DirectorySeparatorChar));
@@ -160,10 +166,14 @@ namespace AIBridge
             var failedPatchNodes = new List<XmlNode>();
 
             // 1. Full Files
-            foreach (XmlNode node in xml.SelectNodes("//file")!)
+            foreach (XmlNode node in root.SelectNodes("file")!)
             {
-                var relPath = node.Attributes?["path"]?.Value.Trim();
-                if (string.IsNullOrEmpty(relPath)) continue;
+                var relPath = node.Attributes?["path"]?.Value?.Trim();
+                if (string.IsNullOrEmpty(relPath))
+                {
+                    ConsoleHelper.Error("File creation failed: missing 'path' attribute on <file> tag.");
+                    continue;
+                }
 
                 var absPath = Path.Combine(projectPath, relPath.Replace('/', Path.DirectorySeparatorChar));
 
@@ -183,10 +193,16 @@ namespace AIBridge
             }
 
             // 2. Patches
-            foreach (XmlNode node in xml.SelectNodes("//patch")!)
+            foreach (XmlNode node in root.SelectNodes("patch")!)
             {
-                var relPath = node.Attributes?["path"]?.Value.Trim();
-                if (string.IsNullOrEmpty(relPath)) continue;
+                var relPath = node.Attributes?["path"]?.Value?.Trim();
+                if (string.IsNullOrEmpty(relPath))
+                {
+                    ConsoleHelper.Error("Patch failed: missing 'path' attribute on <patch> tag.");
+                    failedPatchNodes.Add(node);
+                    countPatchFailed++;
+                    continue;
+                }
 
                 var absPath = Path.Combine(projectPath, relPath.Replace('/', Path.DirectorySeparatorChar));
                 var searchNode = node.SelectSingleNode("search");
@@ -237,10 +253,14 @@ namespace AIBridge
             }
 
             // 3. Deletes
-            foreach (XmlNode node in xml.SelectNodes("//delete")!)
+            foreach (XmlNode node in root.SelectNodes("delete")!)
             {
-                var relPath = node.Attributes?["path"]?.Value.Trim();
-                if (string.IsNullOrEmpty(relPath)) continue;
+                var relPath = node.Attributes?["path"]?.Value?.Trim();
+                if (string.IsNullOrEmpty(relPath))
+                {
+                    ConsoleHelper.Error("Delete failed: missing 'path' attribute on <delete> tag.");
+                    continue;
+                }
 
                 var absPath = Path.Combine(projectPath, relPath.Replace('/', Path.DirectorySeparatorChar));
 
@@ -383,5 +403,106 @@ namespace AIBridge
         private static string TrimCDATA(string text) => Regex.Replace(Regex.Replace(text, @"^\r?\n", ""), @"\r?\n[ \t]*$", "");
         private static string NormalizeWhitespace(string text) => Regex.Replace(text, @"[ \t]+", " ").Trim();
         private static string NormalizeLineWhitespace(string line) => Regex.Replace(line, @"[ \t]+", " ").Trim();
+        private static void HandleAiRequest(XmlElement root, string projectPath, bool paste)
+        {
+            var requestedFiles = new List<string>();
+            foreach (XmlNode node in root.SelectNodes("//file")!)
+            {
+                var p = node.Attributes?["path"]?.Value.Trim();
+                if (!string.IsNullOrEmpty(p)) requestedFiles.Add(p.Replace('\\', '/'));
+            }
+
+            if (requestedFiles.Count == 0)
+            {
+                ConsoleHelper.Warning("No valid <file path=\"...\"> tags found in <ai-request>.");
+                return;
+            }
+
+            var rootFolderName = new DirectoryInfo(projectPath).Name;
+            var (projects, _) = Packer.DetectProjects(projectPath);
+
+            var moduleToFiles = new Dictionary<string, List<(string relativePath, string content)>>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var relPath in requestedFiles)
+            {
+                string moduleName = rootFolderName;
+                var absPath = Path.Combine(projectPath, relPath.Replace('/', Path.DirectorySeparatorChar));
+                
+                // Use the exact matching logic from Packer.cs
+                foreach (var proj in projects)
+                {
+                    if (absPath.StartsWith(proj.DirectoryPrefix, StringComparison.OrdinalIgnoreCase))
+                    {
+                        moduleName = proj.Name;
+                        break;
+                    }
+                }
+
+                if (!moduleToFiles.ContainsKey(moduleName))
+                {
+                    moduleToFiles[moduleName] = new List<(string, string)>();
+                }
+
+                string fileContent;
+                if (File.Exists(absPath))
+                {
+                    fileContent = File.ReadAllText(absPath).TrimEnd();
+                }
+                else
+                {
+                    fileContent = "// File not found on disk";
+                }
+
+                moduleToFiles[moduleName].Add((relPath, fileContent));
+            }
+
+            var sb = new StringBuilder();
+            foreach (var module in moduleToFiles)
+            {
+                var totalFiles = module.Value.Count;
+                sb.AppendLine($"<module name=\"{module.Key}\" files=\"{totalFiles}\">");
+
+                foreach (var file in module.Value)
+                {
+                    var lines = file.content.Count(c => c == '\n') + 1;
+                    sb.AppendLine($"<file path=\"{file.relativePath}\" lines=\"{lines}\">");
+                    sb.AppendLine(file.content);
+                    sb.AppendLine("</file>");
+                }
+
+                sb.AppendLine("</module>");
+                sb.AppendLine();
+            }
+
+            var resultText = sb.ToString().TrimEnd();
+
+            var artifactsDir = Path.Combine(projectPath, "aiArtifacts");
+            if (!Directory.Exists(artifactsDir)) Directory.CreateDirectory(artifactsDir);
+
+            var outputFile = Path.Combine(artifactsDir, "ai-requested-context.txt");
+            File.WriteAllText(outputFile, resultText, Encoding.UTF8);
+
+            ConsoleHelper.Success($"\nSuccess! Generated requested context for {requestedFiles.Count} files.");
+            ConsoleHelper.Info($"File saved to: {outputFile}");
+
+            if (paste)
+            {
+                try
+                {
+                    TextCopy.ClipboardService.SetText(resultText);
+                    ConsoleHelper.Info("The requested context has also been copied to your clipboard!");
+                }
+                catch (Exception ex)
+                {
+                    ConsoleHelper.Warning($"Could not copy to clipboard: {ex.Message}");
+                }
+            }
+            else
+            {
+                var inputFile = Path.Combine(artifactsDir, "ai-response.xml");
+                File.WriteAllText(inputFile, "<!-- Paste the AI response XML here -->\n");
+                ConsoleHelper.Success("✅ Cleared ai-response.xml to prevent accidental re-application.");
+            }
+        }
     }
 }

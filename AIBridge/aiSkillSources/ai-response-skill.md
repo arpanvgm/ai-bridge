@@ -1,9 +1,13 @@
-When asked to make code changes, you MUST respond using the exact XML format described below — this output is saved as a file and processed by the `ai-bridge apply` command that applies your changes directly to the project.
+---
+name: ai-response-xml-format
+description: Use this skill for EVERY response whenever the request involves making code changes. Do not respond with plain code blocks, markdown diffs, or inline explanations — always format the response as the XML structure described below using <file>, <patch>, or <delete> elements, so it can be parsed and applied directly.
+---
+
+When asked to make code changes, you MUST respond using the exact XML format described below — this output will be parsed and applied directly to the project.
 
 Do NOT output plain code blocks, markdown diffs, or inline explanations of changes. 
 
-If your platform supports file generation (e.g., Code Interpreter), automatically save the XML output to a file named `ai-response.xml` and provide a download link. 
-Otherwise, you must wrap the entire XML output in exactly ONE standard markdown code block (```xml ... ```) so it can be copied in a single click. Do not break the response into multiple code blocks.
+You must wrap the entire XML output in exactly ONE standard markdown code block (```xml ... ```) so it can be copied in a single click. Do not break the response into multiple code blocks.
 
 ---
 
@@ -19,7 +23,7 @@ Your entire response MUST be wrapped in a single `<ai-response>` root element:
 </ai-response>
 ```
 
-This makes the response a valid XML file that can be opened in VS Code with full collapse/expand support.
+This makes the response a well-formed XML document.
 
 ---
 
@@ -28,7 +32,7 @@ This makes the response a valid XML file that can be opened in VS Code with full
 ### Format 1 — Full File: `<file>`
 
 ```xml
-<file path="Relative/Path/From/ProjectRoot/FileName.cs"><![CDATA[
+<file path="Relative/Path/From/WorkspaceRoot/FileName.cs"><![CDATA[
 // Complete file contents — every single line, nothing omitted
 ]]></file>
 ```
@@ -36,7 +40,7 @@ This makes the response a valid XML file that can be opened in VS Code with full
 ### Format 2 — Smart Patch: `<patch>`
 
 ```xml
-<patch path="Relative/Path/From/ProjectRoot/FileName.cs">
+<patch path="Relative/Path/From/WorkspaceRoot/FileName.cs">
   <search><![CDATA[
 EXACT VERBATIM LINES COPIED FROM THE FILE RIGHT NOW
   ]]></search>
@@ -49,10 +53,10 @@ THE NEW LINES THAT REPLACE THE SEARCH BLOCK
 ### Format 3 — File Deletion: `<delete>`
 
 ```xml
-<delete path="Relative/Path/From/ProjectRoot/OldFile.cs" />
+<delete path="Relative/Path/From/WorkspaceRoot/OldFile.cs" />
 ```
 
-> After all deletions are processed, the script automatically removes any folders that are left empty — you do not need to do anything extra.
+> You do not need to handle empty folders left after deletion.
 
 ---
 
@@ -66,7 +70,9 @@ All code content inside `<file>`, `<search>`, and `<replace>` blocks MUST be wra
 ]]>
 ```
 
-Without CDATA, characters like `<`, `>`, and `&` in C# code would break the XML and the script would fail to parse it. CDATA tells the XML parser to treat everything inside as plain text.
+Without CDATA, characters like `<`, `>`, and `&` in code would break the XML. CDATA tells the XML parser to treat everything inside as plain text.
+
+**One exception:** a CDATA section cannot itself contain the literal three-character sequence `]]>`. If the code you are emitting genuinely contains that sequence (rare — e.g. inside a string literal), split the CDATA at that point: end it with `]]]]>` and immediately reopen with `<![CDATA[>`, so the `]]>` is reconstructed across the boundary rather than terminating the section early.
 
 ---
 
@@ -106,9 +112,9 @@ All of the above are NO?
 ## RULES FOR `<file>` BLOCKS
 
 1. **CDATA required** — Always wrap file contents in `<![CDATA[...]]>`.
-2. **Complete content only** — Output every single line. Never write `// ... rest of file` or any shortcut. The script overwrites the file completely — truncated output destroys real code.
+2. **Complete content only** — Output every single line. Never write `// ... rest of file` or any shortcut. The file is overwritten completely — truncated output destroys real code.
 3. **No commentary inside the block** — Only valid source code inside CDATA.
-4. **Path format** — Forward slashes, relative to project root, exact casing:
+4. **Path format** — Forward slashes, relative to workspace root, exact casing:
    `SectorAnalysis.WebApi/Controllers/SectorsController.cs`
 
 ---
@@ -119,7 +125,7 @@ These rules are critical. A single character difference in `<search>` causes the
 
 ### `<patch>` block
 1. **CDATA required** — Wrap search text in `<![CDATA[...]]>`.
-2. **VERBATIM COPY (CRITICAL)** — The script uses a strict string matching algorithm. If you change indentation by even one space, fix a typo, or reflow a line break inside the `<search>` block, the patch will instantly fail. You MUST copy the lines exactly as they appear in the source context.
+2. **VERBATIM COPY (CRITICAL)** — Strict string matching is used to locate the search text. If you change indentation by even one space, fix a typo, or reflow a line break inside the `<search>` block, the patch will fail. You MUST copy the lines exactly as they appear in the source context.
 3. **Never fix formatting in `<search>`** — If the original code is poorly indented, leave it poorly indented in the `<search>` block. Only fix it in the `<replace>` block.
 4. **Minimum 4 lines of context** — Include at least 4 surrounding lines above and below your actual change point. This makes the match unique. If the surrounding code is too small to provide 4 lines of context, use `<file>` instead.
 5. **Complete lines only** — Never start or end mid-line.
@@ -222,7 +228,7 @@ Before you output anything, answer these questions:
 3. For every `<file>` block: does it contain the **complete file** with zero truncation?
 4. For every `<patch>` block: is the `<search>` text a **character-for-character copy** from the source context (including all original whitespace and indentation)?
 5. Did I follow the **decision tree** to choose the right format for each file?
-6. Are all paths in **forward-slash format**, relative to the project root?
+6. Are all paths in **forward-slash format**, relative to the workspace root?
 7. Is the entire payload wrapped in EXACTLY ONE ````xml ```` block?
 8. Did I use `~~~` instead of backticks for code blocks inside markdown files?
 

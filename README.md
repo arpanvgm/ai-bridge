@@ -12,20 +12,23 @@ Works with **any language or technology** — .NET, Node.js, Python, React, or a
 Your Project
     │
     ▼
-[1] ai-bridge pack  ──►  aiArtifacts/*-context.txt
+[1] ai-bridge init  ──►  Scaffolds .aiignore, aiSkills/, aiPrompts/
+    │
+    ▼
+[2] ai-bridge pack  ──►  aiArtifacts/*-context.txt
                                     │
                                     ▼
-                         [2] Paste into Browser AI
+                         [3] Paste into Browser AI
                              (ChatGPT / Claude / Gemini)
                                     │
                              Ask for changes
                                     │
                                     ▼
-                         [3] Save AI response
+                         [4] Save AI response
                              ──► aiArtifacts/ai-response.xml
                                     │
                                     ▼
-                         [4] ai-bridge apply
+                         [5] ai-bridge apply
                                     │
                                     ▼
                              Code lands in your project ✅
@@ -82,21 +85,39 @@ Root-level files (e.g., `docker-compose.yml`, `README.md`) are always packed int
 ---
 
 
-## Step 1 — Pack Your Project Context
+## Step 1 — Initialize Your Workspace
 
-Open your terminal, navigate to your project directory, and run the `pack` command. On first run, it auto-initializes your workspace (creates `.aiignore`, `aiSkills/`, `aiArtifacts/`, patches `.gitignore`).
+Open your terminal, navigate to your project directory, and run the `init` command.
 
 ```bash
 cd D:\Code\Github\you\your-project
+ai-bridge init
+```
+
+**What it does:**
+1. Creates a `.aiignore` file for custom exclusion rules.
+2. Extracts default AI skills and prompts to the `aiSkills/` and `aiPrompts/` folders.
+3. Patches your `.gitignore` so these folders aren't checked into source control.
+4. Creates the `aiArtifacts/` folder and placeholder `ai-response.xml`.
+
+> **Note:** Running `init` is completely safe. It will **never** overwrite your files if you have customized the skills or prompts locally.
+> If you want to pull down the newest default templates after updating the tool, you can run `ai-bridge update` to overwrite your local templates.
+
+---
+
+## Step 2 — Pack Your Project Context
+
+Once initialized, run the `pack` command to build your context file.
+
+```bash
 ai-bridge pack
 ```
 
 **What it does:**
-1. **Auto-initializes** on first run — creates `.aiignore`, `aiSkills/ai-system-prompt.md`, and `aiArtifacts/`.
-2. **Uses `git ls-files`** to determine which files to include — automatically respects all `.gitignore` rules (nested, negation, global).
-3. **Filters out binary files** (images, fonts, executables, archives, etc.) so only source code and config are packed.
-4. **Applies `.aiignore` rules** for any additional exclusions you define.
-5. **Groups files by project** based on ecosystem detection.
+1. **Uses `git ls-files`** to determine which files to include — automatically respects all `.gitignore` rules (nested, negation, global).
+2. **Filters out binary files** (images, fonts, executables, archives, etc.) so only source code and config are packed.
+3. **Applies `.aiignore` rules** for any additional exclusions you define.
+4. **Groups files by project** based on ecosystem detection.
 
 **Output:** One `*-context.txt` file per project layer, saved to `aiArtifacts\`:
 
@@ -126,49 +147,39 @@ AI Bridge uses a layered approach to decide which files to pack:
 
 ---
 
-## Step 2 — Give Context to the AI
+## Step 3 — Give Context to the AI
 
 1. Open your browser AI (ChatGPT, Claude, or Gemini).
-2. **Set the System Prompt** — paste the contents of `ai-system-prompt.md` into the system / custom instructions area. You only need to do this once per chat session.
+2. **Set the System Prompt** — paste the contents of `aiSkills/ai-system-prompt.md` into the system / custom instructions area. You only need to do this once per chat session.
 3. **Upload the context file(s)** — attach the relevant `*-context.txt` file(s) from `aiArtifacts\`.
 4. **Describe what you want** — ask the AI to add a feature, fix a bug, refactor code, delete files, etc.
 
 ---
 
-## Step 3 — Save the AI Response
-
-The AI will respond with a valid XML document. AI Bridge performs **strict validation** on this file:
-- The root element must be `<ai-response>`.
-- Only `<file>`, `<patch>`, and `<delete>` are allowed as child elements.
-- Conversational text outside these tags is ignored, but invalid tags will cause an error.
-
-Save this response as `ai-response.xml` in the `aiArtifacts\` folder.
-
-### Option A — Copy & Paste (Works with all AI tools)
-1. Select the entire AI response text in the browser.
-2. Copy it (`Ctrl+C`).
-3. Open Notepad (or any editor), paste, and save as:
-   ```text
-   aiArtifacts\ai-response.xml
-   ```
-
-### Option B — Download (ChatGPT with Code Interpreter)
-Ask ChatGPT directly:
-> *"Save your response to a file called ai-response.xml and give me a download link."*
-
-ChatGPT will generate a downloadable file. Place it in `aiArtifacts\`.
-
----
-
 ## Step 4 — Apply the AI Response
 
-Inside your project directory, run the `apply` command to apply the changes.
+The AI will respond with a valid XML document. AI Bridge performs **strict validation** on this response (ensuring only valid `<file>`, `<patch>`, or `<delete>` tags are present).
+
+Once the AI generates the response, you have two ways to apply it to your project:
+
+### Option A: Direct Clipboard Paste (Easiest & Fastest ✨)
+You don't even need to save a file! Simply select the entire AI response in your browser and copy it (`Ctrl+C`).
+Then, inside your project directory, run the apply command with the `--paste` flag:
+
+```bash
+ai-bridge apply --paste
+```
+*This reads the AI's XML directly from your clipboard and applies the code changes instantly.*
+
+### Option B: Save to File
+If you prefer saving the file (or if the AI provides a direct download option), save the response as `ai-response.xml` inside your `aiArtifacts\` folder. Then run:
 
 ```bash
 ai-bridge apply
 ```
 
 ### What the tool does
+
 1. **Phase 1** — Applies `<file>` blocks (creates or overwrites full files).
 2. **Phase 2** — Applies `<patch>` blocks (targeted search-and-replace).
 3. **Phase 3** — Applies `<delete>` blocks (removes files).
@@ -183,8 +194,9 @@ ai-bridge apply
 
 | Flag | Description |
 |------|-------------|
-| `--watch` | Continuous mode. Applies current changes, then monitors `ai-response.xml` and auto-applies whenever you save it. |
+| `--watch` | Continuous mode. Monitors `ai-response.xml` and auto-applies whenever you save it. |
 | `--dry-run` | Preview what changes would be made without modifying any files. |
+| `--paste` | Read the XML payload directly from your clipboard instead of a file. |
 
 **Continuous Watch Mode (Recommended workflow):**
 ~~~bash
@@ -229,13 +241,16 @@ aiSkills/ai-system-prompt.md
 
 ## What it generates in your project
 
-When you run `ai-bridge pack`, it sets up two folders:
+When you run `ai-bridge init`, it sets up these folders:
 
 ```text
 YourProjectRoot\
 ├── .aiignore                   ← Additional ignore rules (works alongside .gitignore)
-├── aiSkills\                   ← Committed to git (team-shared)
-│   └── ai-system-prompt.md    ← System prompt for your browser AI
+├── aiSkills\                   ← Auto-created, gitignored
+│   ├── ai-system-prompt.md     ← System prompt for your browser AI
+│   └── ai-response-skill.md    ← Code modification protocol
+├── aiPrompts\                  ← Auto-created, gitignored
+│   └── ...                     ← Additional prompt templates
 └── aiArtifacts\                ← Auto-created, gitignored
     ├── *-context.txt           ← Output of ai-bridge pack
     ├── ai-response.xml         ← AI response you paste/download here

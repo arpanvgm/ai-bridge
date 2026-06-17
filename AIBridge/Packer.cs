@@ -38,13 +38,13 @@ namespace AIBridge
         private static readonly HashSet<string> ExcludeFileNames = new(StringComparer.OrdinalIgnoreCase)
         {
             "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
-            ".DS_Store", "Thumbs.db", ".gitignore", ".aiignore"
+            ".DS_Store", "Thumbs.db", ".gitignore", ".aiignore", "ai-bridge-index.xml"
         };
 
         // AI Bridge folders that should never be packed (regardless of git or fallback)
         private static readonly string[] AlwaysExcludePrefixes = new[]
         {
-            "aiSkills/", "aiArtifacts/"
+            "aiSkills/", "aiArtifacts/", "aiPrompts/"
         };
 
         // Hardcoded folder patterns for fallback when git is not available
@@ -54,7 +54,7 @@ namespace AIBridge
             @"[\\/]bin[\\/]", @"[\\/]obj[\\/]", @"[\\/]node_modules[\\/]",
             @"[\\/]dist[\\/]", @"[\\/]out[\\/]", @"[\\/]build[\\/]",
             @"[\\/]packages[\\/]", @"[\\/]TestResults[\\/]",
-            @"[\\/]aiSkills[\\/]", @"[\\/]aiArtifacts[\\/]",
+            @"[\\/]aiSkills[\\/]", @"[\\/]aiArtifacts[\\/]", @"[\\/]aiPrompts[\\/]",
             @"[\\/]__pycache__[\\/]", @"[\\/]\.mypy_cache[\\/]",
             @"[\\/]target[\\/]", @"[\\/]vendor[\\/]"
         };
@@ -66,83 +66,7 @@ namespace AIBridge
             @"\.user$", @"\.suo$", @"\.log$", @"\.tmp$"
         };
 
-        public static void Init()
-        {
-            var projectPath = Environment.CurrentDirectory;
-            var artifactsDir = Path.Combine(projectPath, "aiArtifacts");
-            if (!Directory.Exists(artifactsDir))
-            {
-                Directory.CreateDirectory(artifactsDir);
-            }
-
-            var responseFilePath = Path.Combine(artifactsDir, "ai-response.xml");
-            if (!File.Exists(responseFilePath))
-            {
-                File.WriteAllText(responseFilePath, "<!-- Paste the AI response XML here -->\n");
-            }
-
-            var gitignorePath = Path.Combine(projectPath, ".gitignore");
-            if (File.Exists(gitignorePath))
-            {
-                var content = File.ReadAllText(gitignorePath);
-                if (!content.Contains("aiArtifacts/"))
-                {
-                    File.AppendAllText(gitignorePath, "\n# AI Bridge Artifacts\naiArtifacts/\n");
-                    ConsoleHelper.Success("✅ Patched .gitignore to ignore aiArtifacts/");
-                }
-            }
-
-            var aiIgnorePath = Path.Combine(projectPath, ".aiignore");
-            if (!File.Exists(aiIgnorePath))
-            {
-                var defaultIgnore = "# Additional ignore rules for AI Bridge packing (works alongside .gitignore)\n# Folders should end with /\naiSkills/\nTestResults/\n*.g.cs\n*.log\n*.tmp\n";
-                File.WriteAllText(aiIgnorePath, defaultIgnore);
-                ConsoleHelper.Success("✅ Created default .aiignore file.");
-            }
-            else
-            {
-                ConsoleHelper.Info("ℹ .aiignore already exists.");
-            }
-
-            // Create aiSkills folder and write system prompt
-            var skillsDir = Path.Combine(projectPath, "aiSkills");
-            if (!Directory.Exists(skillsDir))
-            {
-                Directory.CreateDirectory(skillsDir);
-            }
-
-            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-            string[] skillFiles = { "ai-system-prompt.md", "ai-response-skill.md" };
-
-            foreach (var file in skillFiles)
-            {
-                var filePath = Path.Combine(skillsDir, file);
-                using var stream = assembly.GetManifestResourceStream($"AIBridge.Resources.{file}");
-                if (stream != null)
-                {
-                    using var reader = new StreamReader(stream);
-                    var content = reader.ReadToEnd();
-                    
-                    bool existed = File.Exists(filePath);
-                    File.WriteAllText(filePath, content, Encoding.UTF8);
-                    
-                    if (existed)
-                    {
-                        ConsoleHelper.Success($"✅ Updated aiSkills/{file} to latest version.");
-                    }
-                    else
-                    {
-                        ConsoleHelper.Success($"✅ Created aiSkills/{file}.");
-                    }
-                }
-                else
-                {
-                    ConsoleHelper.Warning($"⚠ Could not extract embedded resource: {file}");
-                }
-            }
-        }
-
-        private static (List<ProjectInfo> projects, string ecosystem) DetectProjects(string projectPath)
+        public static (List<ProjectInfo> projects, string ecosystem) DetectProjects(string projectPath)
         {
             // 1. Try .NET (.csproj)
             var csprojFiles = Directory.GetFiles(projectPath, "*.csproj", SearchOption.AllDirectories);
@@ -221,7 +145,7 @@ namespace AIBridge
                 .Where(d =>
                 {
                     var name = new DirectoryInfo(d).Name;
-                    return !name.StartsWith(".") && name != "aiArtifacts" && name != "aiSkills"
+                    return !name.StartsWith(".") && name != "aiArtifacts" && name != "aiSkills" && name != "aiPrompts"
                         && name != "bin" && name != "obj" && name != "node_modules";
                 })
                 .Select(d => new ProjectInfo(
@@ -274,10 +198,16 @@ namespace AIBridge
 
         public static void Run()
         {
-            Init();
             var projectPath = Environment.CurrentDirectory;
             var artifactsDir = Path.Combine(projectPath, "aiArtifacts");
             var aiIgnorePath = Path.Combine(projectPath, ".aiignore");
+
+            if (!Directory.Exists(artifactsDir) || !Directory.Exists(Path.Combine(projectPath, "aiSkills")))
+            {
+                ConsoleHelper.Error("Error: Project not initialized for AI Bridge.");
+                ConsoleHelper.Info("Please run 'ai-bridge init' first to set up the necessary skills and ignore files for this codebase.");
+                return;
+            }
 
             var rootFolderName = new DirectoryInfo(projectPath).Name;
             var (detectedProjects, ecosystem) = DetectProjects(projectPath);
@@ -364,7 +294,7 @@ namespace AIBridge
                 }
 
                 // Determine project grouping
-                string projectName = "Solution";
+                string projectName = rootFolderName;
                 foreach (var proj in projects)
                 {
                     if (file.StartsWith(proj.DirectoryPrefix, StringComparison.OrdinalIgnoreCase))
@@ -401,9 +331,9 @@ namespace AIBridge
             // --- Step 4: Write output files ---
             foreach (var key in outputData.Keys)
             {
-                var outName = key == "Solution" ? $"{rootFolderName}-Solution-context.txt" : $"{key}-context.txt";
+                var outName = key == rootFolderName ? $"{key}-root-context.txt" : $"{key}-context.txt";
                 var outPath = Path.Combine(artifactsDir, outName);
-                var finalContent = $"<project name=\"{key}\" files=\"{outputFileCounts[key]}\">\n{outputData[key]}\n</project>\n";
+                var finalContent = $"<module name=\"{key}\" files=\"{outputFileCounts[key]}\">\n{outputData[key]}\n</module>\n";
 
                 File.WriteAllText(outPath, finalContent, Encoding.UTF8);
 
