@@ -44,7 +44,7 @@ namespace AIBridge
         // AI Bridge folders that should never be packed (regardless of git or fallback)
         private static readonly string[] AlwaysExcludePrefixes = new[]
         {
-            "aiSkills/", "aiArtifacts/"
+            "aiSkills/", "aiArtifacts/", "aiPrompts/"
         };
 
         // Hardcoded folder patterns for fallback when git is not available
@@ -54,7 +54,7 @@ namespace AIBridge
             @"[\\/]bin[\\/]", @"[\\/]obj[\\/]", @"[\\/]node_modules[\\/]",
             @"[\\/]dist[\\/]", @"[\\/]out[\\/]", @"[\\/]build[\\/]",
             @"[\\/]packages[\\/]", @"[\\/]TestResults[\\/]",
-            @"[\\/]aiSkills[\\/]", @"[\\/]aiArtifacts[\\/]",
+            @"[\\/]aiSkills[\\/]", @"[\\/]aiArtifacts[\\/]", @"[\\/]aiPrompts[\\/]",
             @"[\\/]__pycache__[\\/]", @"[\\/]\.mypy_cache[\\/]",
             @"[\\/]target[\\/]", @"[\\/]vendor[\\/]"
         };
@@ -97,6 +97,12 @@ namespace AIBridge
                     else File.AppendAllText(gitignorePath, "\n# AI Bridge\naiSkills/\n");
                     gitignoreChanged = true;
                 }
+                if (!content.Contains("aiPrompts/"))
+                {
+                    if (gitignoreChanged) File.AppendAllText(gitignorePath, "aiPrompts/\n");
+                    else File.AppendAllText(gitignorePath, "\n# AI Bridge\naiPrompts/\n");
+                    gitignoreChanged = true;
+                }
                 if (gitignoreChanged)
                 {
                     ConsoleHelper.Success("✅ Patched .gitignore to ignore AI Bridge folders.");
@@ -106,7 +112,7 @@ namespace AIBridge
             var aiIgnorePath = Path.Combine(projectPath, ".aiignore");
             if (!File.Exists(aiIgnorePath))
             {
-                var defaultIgnore = "# Additional ignore rules for AI Bridge packing (works alongside .gitignore)\n# Folders should end with /\naiSkills/\nTestResults/\n*.g.cs\n*.log\n*.tmp\nai-bridge-index.xml\n";
+                var defaultIgnore = "# Additional ignore rules for AI Bridge packing (works alongside .gitignore)\n# Folders should end with /\naiSkills/\naiPrompts/\nTestResults/\n*.g.cs\n*.log\n*.tmp\nai-bridge-index.xml\n";
                 File.WriteAllText(aiIgnorePath, defaultIgnore);
                 ConsoleHelper.Success("✅ Created default .aiignore file.");
             }
@@ -115,12 +121,9 @@ namespace AIBridge
                 ConsoleHelper.Info("ℹ .aiignore already exists.");
             }
 
-            // Create aiSkills folder and write system prompt
+            // Create aiSkills and aiPrompts folders and extract from source folders
             var skillsDir = Path.Combine(projectPath, "aiSkills");
-            if (!Directory.Exists(skillsDir))
-            {
-                Directory.CreateDirectory(skillsDir);
-            }
+            var promptsDir = Path.Combine(projectPath, "aiPrompts");
 
             if (Directory.Exists(skillsDir))
             {
@@ -129,27 +132,41 @@ namespace AIBridge
                     File.Delete(existingFile);
                 }
             }
-
-            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-            var resourceNames = assembly.GetManifestResourceNames()
-                .Where(n => n.StartsWith("AIBridge.Resources.") && n.EndsWith(".md"));
-
-            foreach (var resourceName in resourceNames)
+            if (Directory.Exists(promptsDir))
             {
-                var file = resourceName.Substring("AIBridge.Resources.".Length);
-                var filePath = Path.Combine(skillsDir, file);
-                using var stream = assembly.GetManifestResourceStream(resourceName);
-                if (stream != null)
+                foreach (var existingFile in Directory.GetFiles(promptsDir))
                 {
-                    using var reader = new StreamReader(stream);
-                    var content = reader.ReadToEnd();
-                    
-                    File.WriteAllText(filePath, content, Encoding.UTF8);
-                    ConsoleHelper.Success($"✅ Extracted aiSkills/{file}");
+                    File.Delete(existingFile);
                 }
-                else
+            }
+
+            string baseDir = AppContext.BaseDirectory;
+            string sourceSkillsDir = Path.Combine(baseDir, "aiSkillSources");
+            string sourcePromptsDir = Path.Combine(baseDir, "aiPromptSources");
+
+            if (Directory.Exists(sourceSkillsDir))
+            {
+                if (!Directory.Exists(skillsDir)) Directory.CreateDirectory(skillsDir);
+                foreach (var file in Directory.GetFiles(sourceSkillsDir, "*.*", SearchOption.AllDirectories))
                 {
-                    ConsoleHelper.Warning($"⚠ Could not extract embedded resource: {file}");
+                    var relPath = Path.GetRelativePath(sourceSkillsDir, file);
+                    var destFile = Path.Combine(skillsDir, relPath);
+                    Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
+                    File.Copy(file, destFile, true);
+                    ConsoleHelper.Success($"✅ Extracted aiSkills/{relPath.Replace('\\', '/')}");
+                }
+            }
+
+            if (Directory.Exists(sourcePromptsDir))
+            {
+                if (!Directory.Exists(promptsDir)) Directory.CreateDirectory(promptsDir);
+                foreach (var file in Directory.GetFiles(sourcePromptsDir, "*.*", SearchOption.AllDirectories))
+                {
+                    var relPath = Path.GetRelativePath(sourcePromptsDir, file);
+                    var destFile = Path.Combine(promptsDir, relPath);
+                    Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
+                    File.Copy(file, destFile, true);
+                    ConsoleHelper.Success($"✅ Extracted aiPrompts/{relPath.Replace('\\', '/')}");
                 }
             }
         }
@@ -233,7 +250,7 @@ namespace AIBridge
                 .Where(d =>
                 {
                     var name = new DirectoryInfo(d).Name;
-                    return !name.StartsWith(".") && name != "aiArtifacts" && name != "aiSkills"
+                    return !name.StartsWith(".") && name != "aiArtifacts" && name != "aiSkills" && name != "aiPrompts"
                         && name != "bin" && name != "obj" && name != "node_modules";
                 })
                 .Select(d => new ProjectInfo(
