@@ -79,7 +79,17 @@ namespace AIBridge
 
             if (paste)
             {
-                rawContent = TextCopy.ClipboardService.GetText() ?? string.Empty;
+                try
+                {
+                    rawContent = TextCopy.ClipboardService.GetText() ?? string.Empty;
+                }
+                catch (Exception ex)
+                {
+                    ConsoleHelper.Error($"Error: Could not access clipboard. {ex.Message}");
+                    ConsoleHelper.Info("To apply changes, please save the AI response to 'aiArtifacts/ai-response.xml' and run 'ai-bridge apply'.");
+                    return;
+                }
+
                 if (string.IsNullOrWhiteSpace(rawContent))
                 {
                     ConsoleHelper.Error("Error: Clipboard is empty.");
