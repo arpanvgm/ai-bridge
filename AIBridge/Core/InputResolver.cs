@@ -1,8 +1,9 @@
 using System;
 using System.IO;
 using System.Text;
+using AIBridge.Helpers;
 
-namespace AIBridge
+namespace AIBridge.Core
 {
     /// <summary>
     /// Resolves AI response content from multiple sources (file, clipboard, stdin)

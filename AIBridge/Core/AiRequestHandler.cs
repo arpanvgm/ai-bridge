@@ -4,8 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Xml;
+using AIBridge.Helpers;
 
-namespace AIBridge
+namespace AIBridge.Core
 {
     /// <summary>
     /// Handles the &lt;ai-request&gt; flow: gathers requested file contents,

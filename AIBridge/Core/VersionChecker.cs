@@ -1,8 +1,9 @@
 using System;
 using System.IO;
 using System.Reflection;
+using AIBridge.Helpers;
 
-namespace AIBridge
+namespace AIBridge.Core
 {
     public static class VersionChecker
     {

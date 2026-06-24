@@ -1,7 +1,8 @@
 using System;
 using System.IO;
+using AIBridge.Helpers;
 
-namespace AIBridge
+namespace AIBridge.Core
 {
     public static class Initializer
     {

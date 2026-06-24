@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 
-namespace AIBridge
+namespace AIBridge.Helpers
 {
     /// <summary>
     /// Zero-dependency clipboard access across Windows, macOS, Linux (X11/Wayland), and WSL2.
