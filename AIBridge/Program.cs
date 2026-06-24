@@ -19,6 +19,7 @@ namespace AIBridge
                         ConsoleHelper.Error($"Error: Unknown arguments for 'pack': {string.Join(", ", flags)}");
                         return;
                     }
+                    if (!VersionChecker.EnsureUpToDate()) return;
                     ConsoleHelper.Info("Packing AI context...");
                     Packer.Run();
                     break;
@@ -31,6 +32,7 @@ namespace AIBridge
                         ConsoleHelper.Error($"Error: Unknown arguments for 'apply': {string.Join(", ", invalidApplyFlags)}");
                         return;
                     }
+                    if (!VersionChecker.EnsureUpToDate()) return;
                     ConsoleHelper.Info("Applying AI code changes...");
                     bool dryRun = flags.Contains("--dry-run");
                     bool watch = flags.Contains("--watch");
@@ -60,8 +62,8 @@ namespace AIBridge
                 default:
                     Console.WriteLine("Usage: ai-bridge [command]");
                     Console.WriteLine("Commands:");
-                    Console.WriteLine("  init                - Scaffolds .aiignore, aiSkills/, and aiPrompts/ without overwriting existing files.");
-                    Console.WriteLine("  update              - Updates aiSkills/ and aiPrompts/ to the latest defaults (overwrites existing files).");
+                    Console.WriteLine("  init                - Scaffolds .aiignore, aiSkills/, and aiPrompts/ for a new project.");
+                    Console.WriteLine("  update              - Syncs aiSkills/ and aiPrompts/ to match the currently installed tool version.");
                     Console.WriteLine("  pack                - Packs source files into text context for AI.");
                     Console.WriteLine("  apply [options]     - Applies ai-response.xml patches to the codebase.");
                     Console.WriteLine();
