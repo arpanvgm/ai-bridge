@@ -28,10 +28,7 @@
     <Content Include="aiSkillSources\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
-  
 
-  <ItemGroup>
-    <PackageReference Include="TextCopy" Version="6.2.1" />
-  </ItemGroup>
+
 
 </Project>

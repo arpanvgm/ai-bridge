@@ -68,7 +68,7 @@ namespace AIBridge
                     Console.WriteLine("Apply Options:");
                     Console.WriteLine("  --dry-run           - Preview changes without modifying files.");
                     Console.WriteLine("  --watch             - Keep running and auto-apply when ai-response.xml is saved.");
-                    Console.WriteLine("  --paste             - Read AI response from clipboard instead of file.");
+                    Console.WriteLine("  --paste             - Skip file, read directly from clipboard (optional — auto-detected by default).");
                     break;
             }
         }

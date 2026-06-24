@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -75,37 +74,12 @@ namespace AIBridge
             var inputFile = Path.Combine(artifactsDir, "ai-response.xml");
             var failedLogFile = Path.Combine(artifactsDir, "failed-patches.txt");
 
-            string rawContent;
+            // --- Step 1: Resolve input content into ai-response.xml ---
+            if (!InputResolver.Resolve(inputFile, paste))
+                return;
 
-            if (paste)
-            {
-                try
-                {
-                    rawContent = TextCopy.ClipboardService.GetText() ?? string.Empty;
-                }
-                catch (Exception ex)
-                {
-                    ConsoleHelper.Error($"Error: Could not access clipboard. {ex.Message}");
-                    ConsoleHelper.Info("To apply changes, please save the AI response to 'aiArtifacts/ai-response.xml' and run 'ai-bridge apply'.");
-                    return;
-                }
-
-                if (string.IsNullOrWhiteSpace(rawContent))
-                {
-                    ConsoleHelper.Error("Error: Clipboard is empty.");
-                    return;
-                }
-                ConsoleHelper.Info("Read AI response from clipboard.");
-            }
-            else
-            {
-                if (!File.Exists(inputFile))
-                {
-                    ConsoleHelper.Error($"Error: Cannot find '{inputFile}'.");
-                    return;
-                }
-                rawContent = File.ReadAllText(inputFile);
-            }
+            // --- Step 2: Read and parse the file ---
+            var rawContent = File.ReadAllText(inputFile);
 
             if (File.Exists(failedLogFile)) File.Delete(failedLogFile);
 
@@ -130,12 +104,14 @@ namespace AIBridge
                 return;
             }
 
+            // --- Step 3: Delegate to ai-request handler if needed ---
             if (root.Name == "ai-request")
             {
-                HandleAiRequest(root, projectPath, paste);
+                AiRequestHandler.Handle(root, projectPath, paste);
                 return;
             }
 
+            // --- Step 4: Validate child elements ---
             foreach (XmlNode node in root.ChildNodes)
             {
                 if (node.NodeType == XmlNodeType.Element)
@@ -148,24 +124,6 @@ namespace AIBridge
                 }
             }
 
-            // Collect all target file paths from the response
-            var targetFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (XmlNode node in root.SelectNodes("file")!)
-            {
-                var p = node.Attributes?["path"]?.Value.Trim();
-                if (!string.IsNullOrEmpty(p)) targetFiles.Add(p.Replace('/', Path.DirectorySeparatorChar));
-            }
-            foreach (XmlNode node in root.SelectNodes("patch")!)
-            {
-                var p = node.Attributes?["path"]?.Value?.Trim();
-                if (!string.IsNullOrEmpty(p)) targetFiles.Add(p.Replace('/', Path.DirectorySeparatorChar));
-            }
-            foreach (XmlNode node in root.SelectNodes("delete")!)
-            {
-                var p = node.Attributes?["path"]?.Value.Trim();
-                if (!string.IsNullOrEmpty(p)) targetFiles.Add(p.Replace('/', Path.DirectorySeparatorChar));
-            }
-
             if (dryRun)
             {
                 ConsoleHelper.Info("\n--- DRY RUN (no files will be modified) ---\n");
@@ -175,7 +133,7 @@ namespace AIBridge
             var failedFiles = new List<string>();
             var failedPatchNodes = new List<XmlNode>();
 
-            // 1. Full Files
+            // --- Step 5: Process <file> elements (full file creation/overwrite) ---
             foreach (XmlNode node in root.SelectNodes("file")!)
             {
                 var relPath = node.Attributes?["path"]?.Value?.Trim();
@@ -202,67 +160,16 @@ namespace AIBridge
                 countFullFiles++;
             }
 
-            // 2. Patches
+            // --- Step 6: Process <patch> elements ---
             foreach (XmlNode node in root.SelectNodes("patch")!)
             {
-                var relPath = node.Attributes?["path"]?.Value?.Trim();
-                if (string.IsNullOrEmpty(relPath))
-                {
-                    ConsoleHelper.Error("Patch failed: missing 'path' attribute on <patch> tag.");
-                    failedPatchNodes.Add(node);
-                    countPatchFailed++;
-                    continue;
-                }
-
-                var absPath = Path.Combine(projectPath, relPath.Replace('/', Path.DirectorySeparatorChar));
-                var searchNode = node.SelectSingleNode("search");
-                var replaceNode = node.SelectSingleNode("replace");
-
-                if (dryRun)
-                {
-                    ConsoleHelper.Info($"  PATCH: {relPath}");
+                if (Patcher.ApplyPatch(node, projectPath, dryRun, failedFiles, failedPatchNodes))
                     countPatchOk++;
-                    continue;
-                }
-
-                if (!File.Exists(absPath) || searchNode == null || replaceNode == null)
-                {
-                    ConsoleHelper.Error($"Patch failed: File not found or invalid XML -> {relPath}");
-                    failedFiles.Add(relPath);
-                    failedPatchNodes.Add(node);
-                    countPatchFailed++;
-                    continue;
-                }
-
-                var targetContent = Normalize(File.ReadAllText(absPath));
-                var search = TrimCDATA(Normalize(searchNode.InnerText));
-                var replace = TrimCDATA(Normalize(replaceNode.InnerText));
-
-                if (targetContent.Contains(search))
-                {
-                    // Exact match
-                    var updated = targetContent.Replace(search, replace);
-                    File.WriteAllText(absPath, updated, Encoding.UTF8);
-                    ConsoleHelper.Success($"Patched: {relPath}");
-                    countPatchOk++;
-                }
-                else if (TryFuzzyPatch(targetContent, search, replace, out var fuzzyResult))
-                {
-                    // Fuzzy match (whitespace-normalized)
-                    File.WriteAllText(absPath, fuzzyResult, Encoding.UTF8);
-                    ConsoleHelper.Warning($"Patched (fuzzy): {relPath}");
-                    countPatchOk++;
-                }
                 else
-                {
-                    ConsoleHelper.Error($"Patch failed: Match not found -> {relPath}");
-                    failedFiles.Add(relPath);
-                    failedPatchNodes.Add(node);
                     countPatchFailed++;
-                }
             }
 
-            // 3. Deletes
+            // --- Step 7: Process <delete> elements ---
             foreach (XmlNode node in root.SelectNodes("delete")!)
             {
                 var relPath = node.Attributes?["path"]?.Value?.Trim();
@@ -289,13 +196,13 @@ namespace AIBridge
                 }
             }
 
-            // 4. Clean up empty folders after deletions
+            // --- Step 8: Clean up empty folders after deletions ---
             if (countDeleted > 0 && !dryRun)
             {
                 CleanEmptyFolders(projectPath);
             }
 
-            // Summary
+            // --- Step 9: Summary ---
             if (dryRun)
             {
                 ConsoleHelper.Info($"\nDry run complete: {countFullFiles} file(s), {countPatchOk} patch(es), {countDeleted} delete(s).");
@@ -312,88 +219,14 @@ namespace AIBridge
                     File.WriteAllLines(failedLogFile, failedFiles.Distinct());
 
                     // Rebuild ai-response.xml with ONLY failed patch blocks
-                    RebuildResponseWithFailedPatches(inputFile, failedPatchNodes);
+                    Patcher.RebuildResponseWithFailedPatches(inputFile, failedPatchNodes);
                     ConsoleHelper.Warning($"⚠ ai-response.xml now contains only the {countPatchFailed} failed patch(es). Fix and re-run 'ai-bridge apply'.");
                 }
                 else
                 {
-                    if (!paste)
-                    {
-                        File.WriteAllText(inputFile, "<!-- Paste the AI response XML here -->\n");
-                        ConsoleHelper.Success("✅ Cleared ai-response.xml to prevent accidental re-application.");
-                    }
+                    InputResolver.ResetInputFile(inputFile);
                 }
             }
-        }
-
-        private static bool TryFuzzyPatch(string fileContent, string search, string replace, out string result)
-        {
-            result = fileContent;
-
-            // Normalize whitespace: collapse runs of spaces/tabs to single space, trim each line
-            var normalizedFile = NormalizeWhitespace(fileContent);
-            var normalizedSearch = NormalizeWhitespace(search);
-
-            if (!normalizedFile.Contains(normalizedSearch))
-            {
-                return false;
-            }
-
-            // Find the matching region by line-by-line comparison
-            var fileLines = fileContent.Split('\n');
-            var searchLines = search.Split('\n')
-                .Select(l => l.TrimEnd())
-                .Where(l => !string.IsNullOrEmpty(l))
-                .ToArray();
-
-            if (searchLines.Length == 0) return false;
-
-            var normalizedSearchLines = searchLines.Select(NormalizeLineWhitespace).ToArray();
-
-            // Find the starting line index in the file
-            for (int i = 0; i <= fileLines.Length - normalizedSearchLines.Length; i++)
-            {
-                bool match = true;
-                for (int j = 0; j < normalizedSearchLines.Length; j++)
-                {
-                    if (NormalizeLineWhitespace(fileLines[i + j].TrimEnd()) != normalizedSearchLines[j])
-                    {
-                        match = false;
-                        break;
-                    }
-                }
-
-                if (match)
-                {
-                    // Replace the matched range with the replacement text
-                    var before = string.Join('\n', fileLines.Take(i));
-                    var after = string.Join('\n', fileLines.Skip(i + normalizedSearchLines.Length));
-
-                    if (before.Length > 0) before += '\n';
-                    if (after.Length > 0) replace += '\n';
-
-                    result = before + replace + after;
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static void RebuildResponseWithFailedPatches(string inputFile, List<XmlNode> failedPatchNodes)
-        {
-            var sb = new StringBuilder();
-            sb.AppendLine("<ai-response>");
-            sb.AppendLine();
-
-            foreach (var node in failedPatchNodes)
-            {
-                sb.AppendLine(node.OuterXml);
-                sb.AppendLine();
-            }
-
-            sb.AppendLine("</ai-response>");
-            File.WriteAllText(inputFile, sb.ToString(), Encoding.UTF8);
         }
 
         private static void CleanEmptyFolders(string rootPath)
@@ -406,112 +239,6 @@ namespace AIBridge
                     Directory.Delete(dir);
                     ConsoleHelper.Info($"Removed empty folder: {Path.GetRelativePath(rootPath, dir)}");
                 }
-            }
-        }
-
-        private static string Normalize(string text) => text.Replace("\r\n", "\n").Replace("\r", "\n");
-        private static string TrimCDATA(string text) => Regex.Replace(Regex.Replace(text, @"^\r?\n", ""), @"\r?\n[ \t]*$", "");
-        private static string NormalizeWhitespace(string text) => Regex.Replace(text, @"[ \t]+", " ").Trim();
-        private static string NormalizeLineWhitespace(string line) => Regex.Replace(line, @"[ \t]+", " ").Trim();
-        private static void HandleAiRequest(XmlElement root, string projectPath, bool paste)
-        {
-            var requestedFiles = new List<string>();
-            foreach (XmlNode node in root.SelectNodes("//file")!)
-            {
-                var p = node.Attributes?["path"]?.Value.Trim();
-                if (!string.IsNullOrEmpty(p)) requestedFiles.Add(p.Replace('\\', '/'));
-            }
-
-            if (requestedFiles.Count == 0)
-            {
-                ConsoleHelper.Warning("No valid <file path=\"...\"> tags found in <ai-request>.");
-                return;
-            }
-
-            var rootFolderName = new DirectoryInfo(projectPath).Name;
-            var (projects, _) = Packer.DetectProjects(projectPath);
-
-            var moduleToFiles = new Dictionary<string, List<(string relativePath, string content)>>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var relPath in requestedFiles)
-            {
-                string moduleName = rootFolderName;
-                var absPath = Path.Combine(projectPath, relPath.Replace('/', Path.DirectorySeparatorChar));
-                
-                // Use the exact matching logic from Packer.cs
-                foreach (var proj in projects)
-                {
-                    if (absPath.StartsWith(proj.DirectoryPrefix, StringComparison.OrdinalIgnoreCase))
-                    {
-                        moduleName = proj.Name;
-                        break;
-                    }
-                }
-
-                if (!moduleToFiles.ContainsKey(moduleName))
-                {
-                    moduleToFiles[moduleName] = new List<(string, string)>();
-                }
-
-                string fileContent;
-                if (File.Exists(absPath))
-                {
-                    fileContent = File.ReadAllText(absPath).TrimEnd();
-                }
-                else
-                {
-                    fileContent = "// File not found on disk";
-                }
-
-                moduleToFiles[moduleName].Add((relPath, fileContent));
-            }
-
-            var sb = new StringBuilder();
-            foreach (var module in moduleToFiles)
-            {
-                var totalFiles = module.Value.Count;
-                sb.AppendLine($"<module name=\"{module.Key}\" files=\"{totalFiles}\">");
-
-                foreach (var file in module.Value)
-                {
-                    var lines = file.content.Count(c => c == '\n') + 1;
-                    sb.AppendLine($"<file path=\"{file.relativePath}\" lines=\"{lines}\">");
-                    sb.AppendLine(file.content);
-                    sb.AppendLine("</file>");
-                }
-
-                sb.AppendLine("</module>");
-                sb.AppendLine();
-            }
-
-            var resultText = sb.ToString().TrimEnd();
-
-            var artifactsDir = Path.Combine(projectPath, "aiArtifacts");
-            if (!Directory.Exists(artifactsDir)) Directory.CreateDirectory(artifactsDir);
-
-            var outputFile = Path.Combine(artifactsDir, "ai-requested-context.txt");
-            File.WriteAllText(outputFile, resultText, Encoding.UTF8);
-
-            ConsoleHelper.Success($"\nSuccess! Generated requested context for {requestedFiles.Count} files.");
-            ConsoleHelper.Info($"File saved to: {outputFile}");
-
-            if (paste)
-            {
-                try
-                {
-                    TextCopy.ClipboardService.SetText(resultText);
-                    ConsoleHelper.Info("The requested context has also been copied to your clipboard!");
-                }
-                catch (Exception ex)
-                {
-                    ConsoleHelper.Warning($"Could not copy to clipboard: {ex.Message}");
-                }
-            }
-            else
-            {
-                var inputFile = Path.Combine(artifactsDir, "ai-response.xml");
-                File.WriteAllText(inputFile, "<!-- Paste the AI response XML here -->\n");
-                ConsoleHelper.Success("✅ Cleared ai-response.xml to prevent accidental re-application.");
             }
         }
     }
