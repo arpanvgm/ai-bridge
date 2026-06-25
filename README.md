@@ -160,36 +160,29 @@ AI Bridge uses a layered approach to decide which files to pack:
 
 The AI will respond with a valid XML document. AI Bridge performs **strict validation** on this response (ensuring only valid `<file>`, `<patch>`, or `<delete>` tags are present).
 
-Once the AI generates the response, simply run:
-
-```bash
-ai-bridge apply
-```
-
-AI Bridge **automatically finds** the AI response using a smart 3-step detection:
-
-| Priority | Source | What happens |
-|----------|--------|--------------|
-| 1️⃣ | **ai-response.xml** | If the file has real content (not the default placeholder), it's used directly. |
-| 2️⃣ | **Clipboard** | If the file is empty/placeholder, AI Bridge reads from your system clipboard. The content is saved to `ai-response.xml` and then processed. |
-| 3️⃣ | **Terminal (stdin)** | If clipboard is unavailable (e.g. WSL2, SSH, headless server), you're prompted to paste the XML directly into your terminal. Just paste and press Enter after the closing `</ai-response>` tag. |
-
-> **Tip:** The fastest workflow is: copy the AI response in your browser (`Ctrl+C`), switch to your terminal, and run `ai-bridge apply`. That's it — no manual file saving needed!
+Once the AI generates the response, you have two ways to apply it:
 
 ### How to get the AI response into your project
 
-**Option A: Just copy and run (Fastest ✨)**
+**Option A: Copy and paste (Fastest ✨)**
 
 1. Select the AI response in your browser and copy it (`Ctrl+C`).
-2. Run `ai-bridge apply` — it reads from your clipboard automatically.
+2. Run:
+   ```bash
+   ai-bridge apply --paste
+   ```
+3. AI Bridge reads your clipboard, saves it to `ai-response.xml`, and applies the changes.
+
+> **Tip:** If clipboard is unavailable (e.g. WSL2, SSH, headless server), AI Bridge will prompt you to paste the XML directly into the terminal. Just paste your entire response and press Enter.
 
 **Option B: Save to file**
 
-Save the response as `ai-response.xml` inside your `aiArtifacts/` folder, then run `ai-bridge apply`.
-
-**Option C: Paste into terminal**
-
-If you're on a headless system or clipboard isn't available, `ai-bridge apply` will prompt you to paste the XML directly into the terminal. Just paste and press Enter after the closing tag — no Ctrl+D needed.
+1. Save the AI response as `ai-response.xml` inside your `aiArtifacts/` folder.
+2. Run:
+   ```bash
+   ai-bridge apply
+   ```
+3. AI Bridge reads the file and applies the changes.
 
 ### What the tool does
 
@@ -208,11 +201,11 @@ If you're on a headless system or clipboard isn't available, `ai-bridge apply` w
 
 | Flag | Description |
 |------|-------------|
+| `--paste` | Reads the AI response from your clipboard (or stdin if clipboard is unavailable) and applies it. |
 | `--watch` | Continuous mode. Monitors `ai-response.xml` and auto-applies whenever you save it. |
 | `--dry-run` | Preview what changes would be made without modifying any files. |
-| `--paste` | Skip the file check and read directly from clipboard. Optional — auto-detected by default. |
 
-**Continuous Watch Mode (Recommended workflow):**
+**Continuous Watch Mode (Recommended for save-to-file workflow):**
 ~~~bash
 ai-bridge apply --watch
 ~~~
@@ -286,10 +279,10 @@ AI Bridge uses native OS commands for clipboard access — **no external depende
 | **Linux (X11)** | `xclip` | Install: `sudo apt install xclip` |
 | **Linux (Wayland)** | `wl-clipboard` | Install: `sudo apt install wl-clipboard` |
 | **WSL2** | Windows bridge (`powershell.exe` / `clip.exe`) | Works automatically when Windows interop is enabled (default). |
-| **WSL2 (interop off)** | stdin fallback | Clipboard unavailable — AI Bridge prompts you to paste into the terminal. |
-| **Headless / SSH** | stdin fallback | No clipboard — AI Bridge prompts you to paste into the terminal. |
+| **WSL2 (interop off)** | stdin fallback | Clipboard unavailable — use `--paste` and AI Bridge prompts you to paste into the terminal. |
+| **Headless / SSH** | stdin fallback | No clipboard — use `--paste` and AI Bridge prompts you to paste into the terminal. |
 
-> **How it works:** When clipboard is unavailable, AI Bridge gracefully falls back to terminal input. You paste your XML and press Enter after the closing `</ai-response>` tag. No special key combinations needed.
+> **How it works:** When you use `ai-bridge apply --paste` and clipboard is unavailable, AI Bridge gracefully falls back to terminal input. Paste your entire AI response XML and press Enter. No special key combinations needed.
 
 ---
 

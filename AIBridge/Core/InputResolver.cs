@@ -15,8 +15,8 @@ namespace AIBridge.Core
 
         /// <summary>
         /// Resolves AI response content into the ai-response.xml file.
-        /// Priority: file (if real content) → clipboard → stdin.
-        /// When --paste is used, file check is skipped.
+        /// Without --paste: reads strictly from the file (no fallback).
+        /// With --paste: clipboard → stdin → saves to file.
         /// Returns true if content was resolved successfully; false otherwise.
         /// </summary>
         public static bool Resolve(string inputFile, bool paste)
@@ -24,18 +24,21 @@ namespace AIBridge.Core
             var artifactsDir = Path.GetDirectoryName(inputFile)!;
             if (!Directory.Exists(artifactsDir)) Directory.CreateDirectory(artifactsDir);
 
-            // 1. If not --paste, check if the file already has real content
-            if (!paste && File.Exists(inputFile))
+            // Without --paste: only read from the file
+            if (!paste)
             {
-                var fileText = File.ReadAllText(inputFile);
-                if (!string.IsNullOrWhiteSpace(fileText) && !fileText.Trim().StartsWith(Placeholder.TrimEnd()))
+                if (File.Exists(inputFile))
                 {
-                    ConsoleHelper.Info("Read AI response from ai-response.xml.");
+                    ConsoleHelper.Info("Reading AI response from ai-response.xml.");
                     return true;
                 }
+
+                ConsoleHelper.Error("File not found: aiArtifacts/ai-response.xml");
+                ConsoleHelper.Info("Paste content into the file, or use 'ai-bridge apply --paste'.");
+                return false;
             }
 
-            // 2. Try clipboard
+            // With --paste: try clipboard first
             string? content = null;
             try
             {
@@ -53,8 +56,8 @@ namespace AIBridge.Core
                 return true;
             }
 
-            // 3. Fall back to stdin
-            ConsoleHelper.Info("Paste your AI response XML below and press Enter after the closing tag:");
+            // Fall back to stdin
+            ConsoleHelper.Info("Paste your entire AI response XML below and then press Enter:");
             Console.WriteLine();
             content = ClipboardHelper.ReadXmlFromStdin();
 
@@ -66,7 +69,7 @@ namespace AIBridge.Core
             }
 
             ConsoleHelper.Error("Error: No content received.");
-            ConsoleHelper.Info("To apply changes, save the AI response to 'aiArtifacts/ai-response.xml' and run 'ai-bridge apply'.");
+            ConsoleHelper.Info("Save the AI response to 'aiArtifacts/ai-response.xml' and run 'ai-bridge apply'.");
             return false;
         }
 

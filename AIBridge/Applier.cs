@@ -96,13 +96,20 @@ namespace AIBridge
             catch (Exception ex)
             {
                 ConsoleHelper.Error($"Error: '{inputFile}' is not valid XML. {ex.Message}");
+                ConsoleHelper.Info("Ensure the file contains a valid <ai-response>, or use 'ai-bridge apply --paste'.");
                 return;
             }
 
             var root = xml.DocumentElement;
-            if (root == null || (root.Name != "ai-response" && root.Name != "ai-request"))
+            if (root == null)
             {
-                ConsoleHelper.Error("Error: Root element must be <ai-response> or <ai-request>.");
+                ConsoleHelper.Error("Error: No XML content found in ai-response.xml.");
+                ConsoleHelper.Info("Paste a valid <ai-response> into the file, or use 'ai-bridge apply --paste'.");
+                return;
+            }
+            if (root.Name != "ai-response" && root.Name != "ai-request")
+            {
+                ConsoleHelper.Error($"Error: Root element must be <ai-response> or <ai-request>, found <{root.Name}>.");
                 return;
             }
 
