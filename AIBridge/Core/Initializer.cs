@@ -1,7 +1,8 @@
 using System;
 using System.IO;
+using AIBridge.Helpers;
 
-namespace AIBridge
+namespace AIBridge.Core
 {
     public static class Initializer
     {
@@ -82,6 +83,8 @@ namespace AIBridge
 
             ExtractDirectory(sourceSkillsDir, skillsDir, force, "aiSkills");
             ExtractDirectory(sourcePromptsDir, promptsDir, force, "aiPrompts");
+
+            VersionChecker.UpdateVersionFile();
         }
 
         private static void ExtractDirectory(string sourceDir, string targetDir, bool force, string displayName)

@@ -100,8 +100,7 @@ ai-bridge init
 3. Patches your `.gitignore` so these folders aren't checked into source control.
 4. Creates the `aiArtifacts/` folder and placeholder `ai-response.xml`.
 
-> **Note:** Running `init` is completely safe. It will **never** overwrite your files if you have customized the skills or prompts locally.
-> If you want to pull down the newest default templates after updating the tool, you can run `ai-bridge update` to overwrite your local templates.
+> **Note:** The `aiSkills/` and `aiPrompts/` folders are tightly coupled to the tool's implementation. Customizing these files is not allowed. When the `ai-bridge` tool receives an update, it will force you to run `ai-bridge update` to sync these local templates with the new tool version.
 
 ---
 
@@ -150,9 +149,10 @@ AI Bridge uses a layered approach to decide which files to pack:
 ## Step 3 — Give Context to the AI
 
 1. Open your browser AI (ChatGPT, Claude, or Gemini).
-2. **Set the System Prompt** — paste the contents of `aiSkills/ai-system-prompt.md` into the system / custom instructions area. You only need to do this once per chat session.
-3. **Upload the context file(s)** — attach the relevant `*-context.txt` file(s) from `aiArtifacts\`.
-4. **Describe what you want** — ask the AI to add a feature, fix a bug, refactor code, delete files, etc.
+2. **Set the System Prompt** — paste the contents of `aiPrompts/ai-system-prompt.md` into the system / custom instructions area. You only need to do this once per chat session.
+3. **Upload the Protocol** — attach the `aiSkills/ai-response-skill.md` file to the chat. This teaches the AI exactly how to format its output.
+4. **Upload the context file(s)** — attach the relevant `*-context.txt` file(s) from `aiArtifacts/`.
+5. **Describe what you want** — ask the AI to add a feature, fix a bug, refactor code, delete files, etc.
 
 ---
 
@@ -160,31 +160,38 @@ AI Bridge uses a layered approach to decide which files to pack:
 
 The AI will respond with a valid XML document. AI Bridge performs **strict validation** on this response (ensuring only valid `<file>`, `<patch>`, or `<delete>` tags are present).
 
-Once the AI generates the response, you have two ways to apply it to your project:
+Once the AI generates the response, you have two ways to apply it:
 
-### Option A: Direct Clipboard Paste (Easiest & Fastest ✨)
-You don't even need to save a file! Simply select the entire AI response in your browser and copy it (`Ctrl+C`).
-Then, inside your project directory, run the apply command with the `--paste` flag:
+### How to get the AI response into your project
 
-```bash
-ai-bridge apply --paste
-```
-*This reads the AI's XML directly from your clipboard and applies the code changes instantly.*
+**Option A: Copy and paste (Fastest ✨)**
 
-### Option B: Save to File
-If you prefer saving the file (or if the AI provides a direct download option), save the response as `ai-response.xml` inside your `aiArtifacts\` folder. Then run:
+1. Select the AI response in your browser and copy it (`Ctrl+C`).
+2. Run:
+   ```bash
+   ai-bridge apply --paste
+   ```
+3. AI Bridge reads your clipboard, saves it to `ai-response.xml`, and applies the changes.
 
-```bash
-ai-bridge apply
-```
+> **Tip:** If clipboard is unavailable (e.g. WSL2, SSH, headless server), AI Bridge will prompt you to paste the XML directly into the terminal. Just paste your entire response and press Enter.
+
+**Option B: Save to file**
+
+1. Save the AI response as `ai-response.xml` inside your `aiArtifacts/` folder.
+2. Run:
+   ```bash
+   ai-bridge apply
+   ```
+3. AI Bridge reads the file and applies the changes.
 
 ### What the tool does
 
 1. **Phase 1** — Applies `<file>` blocks (creates or overwrites full files).
-2. **Phase 2** — Applies `<patch>` blocks (targeted search-and-replace).
+2. **Phase 2** — Applies `<patch>` blocks (targeted search-and-replace, with fuzzy matching fallback).
 3. **Phase 3** — Applies `<delete>` blocks (removes files).
 4. **Phase 4** — Cleans up any folders left empty after deletions.
 5. **Prints a summary** of all changes made.
+6. **Resets** `ai-response.xml` to prevent accidental re-application.
 
 ### After the run
 - If some patches failed → paths are saved to `aiArtifacts\failed-patches.txt`. Go back to the AI and ask:
@@ -194,11 +201,11 @@ ai-bridge apply
 
 | Flag | Description |
 |------|-------------|
+| `--paste` | Reads the AI response from your clipboard (or stdin if clipboard is unavailable) and applies it. |
 | `--watch` | Continuous mode. Monitors `ai-response.xml` and auto-applies whenever you save it. |
 | `--dry-run` | Preview what changes would be made without modifying any files. |
-| `--paste` | Read the XML payload directly from your clipboard instead of a file. |
 
-**Continuous Watch Mode (Recommended workflow):**
+**Continuous Watch Mode (Recommended for save-to-file workflow):**
 ~~~bash
 ai-bridge apply --watch
 ~~~
@@ -221,21 +228,24 @@ No files were modified. Run 'ai-bridge apply' to apply for real.
 
 ---
 
-## System Prompt
+## System Prompt & Skills
 
-The AI needs a system prompt so it responds in the correct XML format that `ai-bridge apply` understands. After running `ai-bridge pack`, you'll find the system prompt at:
+The AI needs instructions so it responds in the correct XML format that `ai-bridge apply` understands. After running `ai-bridge init`, you'll find these instructions in two files:
 
 ```text
-aiSkills/ai-system-prompt.md
+aiPrompts/ai-system-prompt.md
+aiSkills/ai-response-skill.md
 ```
 
 **Setup (one-time per AI chat session):**
-1. Open `aiSkills/ai-system-prompt.md` in any text editor.
-2. Copy the entire contents of the file.
-3. Paste it into your browser AI's system instructions:
+1. Open `aiPrompts/ai-system-prompt.md` in any text editor and copy the entire contents.
+2. Paste it into your browser AI's system instructions:
    - **ChatGPT**: Settings → Personalization → Custom Instructions (top box)
    - **Claude**: Start a new Project → Project Instructions
    - **Gemini**: System instructions (in Gemini Advanced / API settings)
+3. Upload `aiSkills/ai-response-skill.md` as a file attachment to the AI chat to give it the strict code modification protocol.
+
+> **Important — Version Sync:** AI Bridge strictly enforces version synchronization between the tool executable and your local templates. You cannot customize these files, because if the tool is updated, outdated prompts will break the workflow. If `ai-bridge pack` or `apply` detects a version mismatch, it will abort and require you to run `ai-bridge update` to sync the templates.
 
 ---
 
@@ -246,16 +256,33 @@ When you run `ai-bridge init`, it sets up these folders:
 ```text
 YourProjectRoot\
 ├── .aiignore                   ← Additional ignore rules (works alongside .gitignore)
-├── aiSkills\                   ← Auto-created, gitignored
-│   ├── ai-system-prompt.md     ← System prompt for your browser AI
-│   └── ai-response-skill.md    ← Code modification protocol
 ├── aiPrompts\                  ← Auto-created, gitignored
-│   └── ...                     ← Additional prompt templates
+│   └── ai-system-prompt.md     ← System prompt for your browser AI
+├── aiSkills\                   ← Auto-created, gitignored
+│   └── ai-response-skill.md    ← Code modification protocol
 └── aiArtifacts\                ← Auto-created, gitignored
     ├── *-context.txt           ← Output of ai-bridge pack
     ├── ai-response.xml         ← AI response you paste/download here
     └── failed-patches.txt      ← Created only when patches fail
 ```
+
+---
+
+## Platform Support — Clipboard
+
+AI Bridge uses native OS commands for clipboard access — **no external dependencies required**.
+
+| Platform | Clipboard Tool | Notes |
+|----------|---------------|-------|
+| **Windows** | Built-in (`powershell.exe` / `clip.exe`) | Works out of the box. |
+| **macOS** | Built-in (`pbpaste` / `pbcopy`) | Works out of the box. |
+| **Linux (X11)** | `xclip` | Install: `sudo apt install xclip` |
+| **Linux (Wayland)** | `wl-clipboard` | Install: `sudo apt install wl-clipboard` |
+| **WSL2** | Windows bridge (`powershell.exe` / `clip.exe`) | Works automatically when Windows interop is enabled (default). |
+| **WSL2 (interop off)** | stdin fallback | Clipboard unavailable — use `--paste` and AI Bridge prompts you to paste into the terminal. |
+| **Headless / SSH** | stdin fallback | No clipboard — use `--paste` and AI Bridge prompts you to paste into the terminal. |
+
+> **How it works:** When you use `ai-bridge apply --paste` and clipboard is unavailable, AI Bridge gracefully falls back to terminal input. Paste your entire AI response XML and press Enter. No special key combinations needed.
 
 ---
 
@@ -279,5 +306,3 @@ ai-bridge: The term 'ai-bridge' is not recognized as the name of a cmdlet, funct
 )
 ```
 Then **restart your terminal**. The command should work again.
-
----

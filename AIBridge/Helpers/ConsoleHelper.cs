@@ -1,6 +1,6 @@
 using System;
 
-namespace AIBridge
+namespace AIBridge.Helpers
 {
     public static class ConsoleHelper
     {
