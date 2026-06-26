@@ -90,6 +90,7 @@ namespace AIBridge.Core
         {
             var sb = new StringBuilder();
             sb.AppendLine("<ai-response>");
+            sb.AppendLine("<ai-edits>");
             sb.AppendLine();
 
             foreach (var node in failedPatchNodes)
@@ -98,6 +99,7 @@ namespace AIBridge.Core
                 sb.AppendLine();
             }
 
+            sb.AppendLine("</ai-edits>");
             sb.AppendLine("</ai-response>");
             File.WriteAllText(inputFile, sb.ToString(), Encoding.UTF8);
         }

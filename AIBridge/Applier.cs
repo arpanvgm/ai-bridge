@@ -142,9 +142,9 @@ namespace AIBridge
             {
                 if (node.NodeType == XmlNodeType.Element)
                 {
-                    if (node.Name != "file" && node.Name != "patch" && node.Name != "delete")
+                    if (node.Name != "ai-edits" && node.Name != "update-ai-bridge-index")
                     {
-                        ConsoleHelper.Error($"Error: Unknown element '<{node.Name}>' found. Only <file>, <patch>, and <delete> are allowed.");
+                        ConsoleHelper.Error($"Error: Unknown element '<{node.Name}>' found. Only <ai-edits> and <update-ai-bridge-index> are allowed.");
                         return;
                     }
                 }
@@ -160,7 +160,7 @@ namespace AIBridge
             var failedPatchNodes = new List<XmlNode>();
 
             // --- Step 5: Process <file> elements (full file creation/overwrite) ---
-            foreach (XmlNode node in root.SelectNodes("file")!)
+            foreach (XmlNode node in root.SelectNodes("ai-edits/file")!)
             {
                 var relPath = node.Attributes?["path"]?.Value?.Trim();
                 if (string.IsNullOrEmpty(relPath))
@@ -187,7 +187,7 @@ namespace AIBridge
             }
 
             // --- Step 6: Process <patch> elements ---
-            foreach (XmlNode node in root.SelectNodes("patch")!)
+            foreach (XmlNode node in root.SelectNodes("ai-edits/patch")!)
             {
                 if (Patcher.ApplyPatch(node, projectPath, dryRun, failedFiles, failedPatchNodes))
                     countPatchOk++;
@@ -196,7 +196,7 @@ namespace AIBridge
             }
 
             // --- Step 7: Process <delete> elements ---
-            foreach (XmlNode node in root.SelectNodes("delete")!)
+            foreach (XmlNode node in root.SelectNodes("ai-edits/delete")!)
             {
                 var relPath = node.Attributes?["path"]?.Value?.Trim();
                 if (string.IsNullOrEmpty(relPath))
@@ -219,6 +219,16 @@ namespace AIBridge
                     File.Delete(absPath);
                     ConsoleHelper.Success($"Deleted: {relPath}");
                     countDeleted++;
+                }
+            }
+
+            // --- Step 7.5: Process <update-ai-bridge-index> if present ---
+            if (!dryRun && countPatchFailed == 0)
+            {
+                var indexUpdateNode = root.SelectSingleNode("update-ai-bridge-index");
+                if (indexUpdateNode is XmlElement indexUpdateElement)
+                {
+                    AiIndexHandler.HandleUpdate(indexUpdateElement, projectPath);
                 }
             }
 
