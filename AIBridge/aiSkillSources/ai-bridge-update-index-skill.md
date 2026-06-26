@@ -44,6 +44,16 @@ If your `<ai-edits>` consists *entirely* of minor changes (bug fixes, small refa
 
 ---
 
+## CRITICAL: Path Matching
+
+The `path` attribute is the unique identifier for every file in the index. The C# tooling uses exact string matching to find the file.
+
+- When outputting a `<delete path="...">` or updating an existing `<file>`, the path you provide **MUST EXACTLY MATCH** the path as it appears in the original `ai-bridge-index.xml`.
+- If the casing is wrong, or if you use backslashes instead of forward slashes, the index update will fail or create duplicate ghost entries.
+- Paths must always be relative to the workspace root (e.g. `Folder/Subfolder/File.cs`).
+
+---
+
 ## Output format
 
 Because you are generating a delta, you must **omit** any file whose `purpose` did not change. Do not output untouched files, and do not output `<module>` wrappers if you are not adding or modifying any files inside them.
