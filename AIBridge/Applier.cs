@@ -26,7 +26,7 @@ namespace AIBridge
                 ConsoleHelper.Info("Starting watch mode for ai-response.xml...");
                 ApplyInternal(dryRun, paste);
 
-                var watchDir = Path.Combine(Environment.CurrentDirectory, "aiArtifacts");
+                var watchDir = Path.Combine(WorkspaceHelper.GetProjectRoot(), "aiArtifacts");
                 if (!Directory.Exists(watchDir)) Directory.CreateDirectory(watchDir);
 
                 using var watcher = new FileSystemWatcher(watchDir)
@@ -71,7 +71,7 @@ namespace AIBridge
 
         private static void ApplyInternal(bool dryRun, bool paste)
         {
-            var projectPath = Environment.CurrentDirectory;
+            var projectPath = WorkspaceHelper.GetProjectRoot();
             var artifactsDir = Path.Combine(projectPath, "aiArtifacts");
             var inputFile = Path.Combine(artifactsDir, "ai-response.xml");
             var failedLogFile = Path.Combine(artifactsDir, "failed-patches.txt");

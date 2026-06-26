@@ -8,7 +8,7 @@ namespace AIBridge.Core
     {
         public static void Init(bool force = false)
         {
-            var projectPath = Environment.CurrentDirectory;
+            var projectPath = WorkspaceHelper.GetProjectRoot();
             var artifactsDir = Path.Combine(projectPath, "aiArtifacts");
             if (!Directory.Exists(artifactsDir))
             {

@@ -200,7 +200,7 @@ namespace AIBridge
 
         public static void Run()
         {
-            var projectPath = Environment.CurrentDirectory;
+            var projectPath = WorkspaceHelper.GetProjectRoot();
             var artifactsDir = Path.Combine(projectPath, "aiArtifacts");
             var aiIgnorePath = Path.Combine(projectPath, ".aiignore");
 
