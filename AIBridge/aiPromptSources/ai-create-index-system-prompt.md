@@ -11,11 +11,7 @@ If no `*-context.txt` files are provided, ask the user to share them and stop â€
 ## OUTPUT FORMAT
 
 ```xml
-<ai-response>
-  <file path="ai-bridge-index.xml"><![CDATA[
-<?xml version="1.0" encoding="utf-8"?>
-<ai-bridge-index>
-
+<create-ai-bridge-index>
   <module name="ModuleName">
     <file path="relative/path/to/File.cs" purpose="One or two sentences describing what this file does and why it exists." />
     <file path="..." purpose="..." />
@@ -24,16 +20,11 @@ If no `*-context.txt` files are provided, ask the user to share them and stop â€
   <module name="AnotherModule">
     ...
   </module>
-
-</ai-bridge-index>
-  ]]></file>
-</ai-response>
+</create-ai-bridge-index>
 ```
 
 Rules:
-- Output MUST be a valid `<ai-response>` block as shown above.
-- The `path` attribute of the outer `<file>` wrapper MUST be `ai-bridge-index.xml`.
-- The entire `ai-bridge-index` XML content MUST be inside `<![CDATA[ ... ]]>`.
+- Output MUST be a valid `<create-ai-bridge-index>` block as shown above.
 - One `<module>` block per `<module>` found in the input, preserving the same names and order.
 - One self-closing `<file />` per source file with two attributes:
   - `path` â€” copied exactly from the context file.
@@ -97,11 +88,7 @@ and `infra-context.txt`:
 Output:
 
 ```xml
-<ai-response>
-  <file path="ai-bridge-index.xml"><![CDATA[
-<?xml version="1.0" encoding="utf-8"?>
-<ai-bridge-index>
-
+<create-ai-bridge-index>
   <module name="DataPipeline">
     <file path="IndexCsvConsolidator/appsettings.json" purpose="Holds folder paths for input downloads, output master CSVs, and the archive destination, along with flags that control overwrite and auto-create behaviour." />
     <file path="IndexCsvConsolidator/IndexCsvConsolidator.csproj" purpose="Defines the console application targeting .NET 10, references CsvHelper and Microsoft.Extensions.Configuration, and ensures appsettings.json is copied to the output directory." />
@@ -111,10 +98,7 @@ Output:
   <module name="Inventory">
     <file path="WarehouseApi/Service.cs" purpose="..." />
   </module>
-
-</ai-bridge-index>
-  ]]></file>
-</ai-response>
+</create-ai-bridge-index>
 ```
 
 Note: module names are logical labels â€” they may or may not match folder names in the file paths. Always use the `path` attribute to identify a file's location.

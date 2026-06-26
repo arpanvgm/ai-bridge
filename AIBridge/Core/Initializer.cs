@@ -27,12 +27,26 @@ namespace AIBridge.Core
             if (File.Exists(gitignorePath))
             {
                 var content = File.ReadAllText(gitignorePath);
-                var workspaceIgnorePattern = "ai-bridge-*/";
-                
-                if (!content.Contains(workspaceIgnorePattern))
+                bool gitignoreChanged = false;
+                if (!content.Contains("ai-bridge-*/aiArtifacts/"))
                 {
-                    File.AppendAllText(gitignorePath, $"\n# AI Bridge\n{workspaceIgnorePattern}\n");
-                    ConsoleHelper.Success("✅ Patched .gitignore to ignore AI Bridge workspace.");
+                    File.AppendAllText(gitignorePath, "\n# AI Bridge\nai-bridge-*/aiArtifacts/\n");
+                    gitignoreChanged = true;
+                }
+                if (!content.Contains("ai-bridge-*/aiSkills/"))
+                {
+                    File.AppendAllText(gitignorePath, "ai-bridge-*/aiSkills/\n");
+                    gitignoreChanged = true;
+                }
+                if (!content.Contains("ai-bridge-*/aiPrompts/"))
+                {
+                    File.AppendAllText(gitignorePath, "ai-bridge-*/aiPrompts/\n");
+                    gitignoreChanged = true;
+                }
+                
+                if (gitignoreChanged)
+                {
+                    ConsoleHelper.Success("✅ Patched .gitignore to ignore AI Bridge workspace contents.");
                 }
             }
 

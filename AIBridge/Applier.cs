@@ -110,9 +110,9 @@ namespace AIBridge
                 ConsoleHelper.Info("Paste a valid <ai-response> into the file, or use 'ai-bridge apply --paste'.");
                 return;
             }
-            if (root.Name != "ai-response" && root.Name != "ai-request")
+            if (root.Name != "ai-response" && root.Name != "ai-request" && root.Name != "create-ai-bridge-index" && root.Name != "update-ai-bridge-index")
             {
-                ConsoleHelper.Error($"Error: Root element must be <ai-response> or <ai-request>, found <{root.Name}>.");
+                ConsoleHelper.Error($"Error: Root element must be <ai-response>, <ai-request>, <create-ai-bridge-index>, or <update-ai-bridge-index>, found <{root.Name}>.");
                 return;
             }
 
@@ -120,6 +120,20 @@ namespace AIBridge
             if (root.Name == "ai-request")
             {
                 AiRequestHandler.Handle(root, projectPath, paste);
+                return;
+            }
+
+            if (root.Name == "create-ai-bridge-index")
+            {
+                AiIndexHandler.HandleCreate(root, projectPath);
+                InputResolver.ResetInputFile(inputFile);
+                return;
+            }
+
+            if (root.Name == "update-ai-bridge-index")
+            {
+                AiIndexHandler.HandleUpdate(root, projectPath);
+                InputResolver.ResetInputFile(inputFile);
                 return;
             }
 

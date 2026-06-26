@@ -12,10 +12,10 @@ Works with **any language or technology** — .NET, Node.js, Python, React, or a
 Your Project
     │
     ▼
-[1] ai-bridge init  ──►  Scaffolds .aiignore, aiSkills/, aiPrompts/
+[1] ai-bridge init  ──►  Scaffolds .aiignore, ai-bridge-[ProjectName]/
     │
     ▼
-[2] ai-bridge pack  ──►  aiArtifacts/*-context.txt
+[2] ai-bridge pack  ──►  ai-bridge-[ProjectName]/aiArtifacts/*-context.txt
                                     │
                                     ▼
                          [3] Paste into Browser AI
@@ -25,7 +25,7 @@ Your Project
                                     │
                                     ▼
                          [4] Save AI response
-                             ──► aiArtifacts/ai-response.xml
+                             ──► ai-bridge-[ProjectName]/aiArtifacts/ai-response.xml
                                     │
                                     ▼
                          [5] ai-bridge apply
@@ -95,10 +95,11 @@ ai-bridge init
 ```
 
 **What it does:**
-1. Creates a `.aiignore` file for custom exclusion rules.
-2. Extracts default AI skills and prompts to the `aiSkills/` and `aiPrompts/` folders.
-3. Patches your `.gitignore` so these folders aren't checked into source control.
-4. Creates the `aiArtifacts/` folder and placeholder `ai-response.xml`.
+1. Creates a `.aiignore` file for custom exclusion rules at your project root.
+2. Creates an isolated workspace folder named `ai-bridge-[YourProjectName]/`.
+3. Extracts default AI skills and prompts to `ai-bridge-[YourProjectName]/aiSkills/` and `aiPrompts/`.
+4. Creates the `aiArtifacts/` folder and placeholder `ai-response.xml` inside the workspace.
+5. Patches your `.gitignore` so the inner folders aren't checked into source control (but `ai-bridge-index.xml` is).
 
 > **Note:** The `aiSkills/` and `aiPrompts/` folders are tightly coupled to the tool's implementation. Customizing these files is not allowed. When the `ai-bridge` tool receives an update, it will force you to run `ai-bridge update` to sync these local templates with the new tool version.
 
@@ -118,10 +119,10 @@ ai-bridge pack
 3. **Applies `.aiignore` rules** for any additional exclusions you define.
 4. **Groups files by project** based on ecosystem detection.
 
-**Output:** One `*-context.txt` file per project layer, saved to `aiArtifacts\`:
+**Output:** One `*-context.txt` file per project layer, saved to your workspace's `aiArtifacts\` folder:
 
 ```text
-aiArtifacts\
+ai-bridge-[ProjectName]\aiArtifacts\
     YourApp.WebApi-context.txt
     YourApp.DataProvider-context.txt
     YourApp.SharedContracts-context.txt
@@ -149,9 +150,9 @@ AI Bridge uses a layered approach to decide which files to pack:
 ## Step 3 — Give Context to the AI
 
 1. Open your browser AI (ChatGPT, Claude, or Gemini).
-2. **Set the System Prompt** — paste the contents of `aiPrompts/ai-system-prompt.md` into the system / custom instructions area. You only need to do this once per chat session.
-3. **Upload the Protocol** — attach the `aiSkills/ai-response-skill.md` file to the chat. This teaches the AI exactly how to format its output.
-4. **Upload the context file(s)** — attach the relevant `*-context.txt` file(s) from `aiArtifacts/`.
+2. **Set the System Prompt** — paste the contents of `ai-bridge-[ProjectName]/aiPrompts/ai-system-prompt.md` into the system / custom instructions area. You only need to do this once per chat session.
+3. **Upload the Protocol** — attach the `ai-bridge-[ProjectName]/aiSkills/ai-response-skill.md` file to the chat. This teaches the AI exactly how to format its output.
+4. **Upload the context file(s)** — attach the relevant `*-context.txt` file(s) from `ai-bridge-[ProjectName]/aiArtifacts/`.
 5. **Describe what you want** — ask the AI to add a feature, fix a bug, refactor code, delete files, etc.
 
 ---
@@ -177,7 +178,7 @@ Once the AI generates the response, you have two ways to apply it:
 
 **Option B: Save to file**
 
-1. Save the AI response as `ai-response.xml` inside your `aiArtifacts/` folder.
+1. Save the AI response as `ai-response.xml` inside your `ai-bridge-[ProjectName]/aiArtifacts/` folder.
 2. Run:
    ```bash
    ai-bridge apply
@@ -194,7 +195,7 @@ Once the AI generates the response, you have two ways to apply it:
 6. **Resets** `ai-response.xml` to prevent accidental re-application.
 
 ### After the run
-- If some patches failed → paths are saved to `aiArtifacts\failed-patches.txt`. Go back to the AI and ask:
+- If some patches failed → paths are saved to `failed-patches.txt` inside your workspace. Go back to the AI and ask:
   > *"Some patches failed for these files. Please give me full `<file>` blocks instead: [paste failed-patches.txt contents]"*
 
 ### Apply Options
@@ -230,20 +231,20 @@ No files were modified. Run 'ai-bridge apply' to apply for real.
 
 ## System Prompt & Skills
 
-The AI needs instructions so it responds in the correct XML format that `ai-bridge apply` understands. After running `ai-bridge init`, you'll find these instructions in two files:
+The AI needs instructions so it responds in the correct XML format that `ai-bridge apply` understands. After running `ai-bridge init`, you'll find these instructions in your workspace:
 
 ```text
-aiPrompts/ai-system-prompt.md
-aiSkills/ai-response-skill.md
+ai-bridge-[ProjectName]/aiPrompts/ai-system-prompt.md
+ai-bridge-[ProjectName]/aiSkills/ai-response-skill.md
 ```
 
 **Setup (one-time per AI chat session):**
-1. Open `aiPrompts/ai-system-prompt.md` in any text editor and copy the entire contents.
+1. Open `ai-bridge-[ProjectName]/aiPrompts/ai-system-prompt.md` in any text editor and copy the entire contents.
 2. Paste it into your browser AI's system instructions:
    - **ChatGPT**: Settings → Personalization → Custom Instructions (top box)
    - **Claude**: Start a new Project → Project Instructions
    - **Gemini**: System instructions (in Gemini Advanced / API settings)
-3. Upload `aiSkills/ai-response-skill.md` as a file attachment to the AI chat to give it the strict code modification protocol.
+3. Upload `ai-bridge-[ProjectName]/aiSkills/ai-response-skill.md` as a file attachment to the AI chat to give it the strict code modification protocol.
 
 > **Important — Version Sync:** AI Bridge strictly enforces version synchronization between the tool executable and your local templates. You cannot customize these files, because if the tool is updated, outdated prompts will break the workflow. If `ai-bridge pack` or `apply` detects a version mismatch, it will abort and require you to run `ai-bridge update` to sync the templates.
 
@@ -251,19 +252,21 @@ aiSkills/ai-response-skill.md
 
 ## What it generates in your project
 
-When you run `ai-bridge init`, it sets up these folders:
+When you run `ai-bridge init`, it sets up an isolated workspace for your project:
 
 ```text
 YourProjectRoot\
-├── .aiignore                   ← Additional ignore rules (works alongside .gitignore)
-├── aiPrompts\                  ← Auto-created, gitignored
-│   └── ai-system-prompt.md     ← System prompt for your browser AI
-├── aiSkills\                   ← Auto-created, gitignored
-│   └── ai-response-skill.md    ← Code modification protocol
-└── aiArtifacts\                ← Auto-created, gitignored
-    ├── *-context.txt           ← Output of ai-bridge pack
-    ├── ai-response.xml         ← AI response you paste/download here
-    └── failed-patches.txt      ← Created only when patches fail
+├── .aiignore                           ← Additional ignore rules (works alongside .gitignore)
+└── ai-bridge-[YourProjectName]\        ← The dedicated AI workspace
+    ├── ai-bridge-index.xml             ← The structural map of your codebase (Tracked by Git)
+    ├── aiPrompts\                      ← Auto-created, gitignored
+    │   └── ai-system-prompt.md         ← System prompt for your browser AI
+    ├── aiSkills\                       ← Auto-created, gitignored
+    │   └── ai-response-skill.md        ← Code modification protocol
+    └── aiArtifacts\                    ← Auto-created, gitignored
+        ├── *-context.txt               ← Output of ai-bridge pack
+        ├── ai-response.xml             ← AI response you paste/download here
+        └── failed-patches.txt          ← Created only when patches fail
 ```
 
 ---

@@ -115,9 +115,19 @@ Formatting rules:
 - 2-space indentation, no blank lines between `<file />` entries.
 - Escape `"` → `&quot;`, `&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;` inside `purpose`.
 
-Output the assembled `ai-bridge-index.xml` using the exact `<ai-response>` format
-defined in `ai-response-skill.md`. This is your ONLY output for this turn. Write it as a full `<file>` replacement at the
-root of the codebase: `<file path="ai-bridge-index.xml">`.
+Output the index changes using the `<update-ai-bridge-index>` format. This is a highly efficient delta format where you only output the specific files that were added, modified, or deleted. DO NOT output the full index file. This is your ONLY output for this turn.
+
+```xml
+<update-ai-bridge-index>
+  <!-- Group added/modified files by module -->
+  <module name="ModuleName">
+    <file path="path/to/AddedOrModified.cs" purpose="New or updated 1-2 sentence purpose." />
+  </module>
+  
+  <!-- Deleted files go anywhere inside the block -->
+  <delete path="path/to/DeletedFile.cs" />
+</update-ai-bridge-index>
+```
 
 ---
 
