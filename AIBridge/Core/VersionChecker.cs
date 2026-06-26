@@ -16,7 +16,8 @@ namespace AIBridge.Core
         public static bool EnsureUpToDate()
         {
             var projectPath = WorkspaceHelper.GetProjectRoot();
-            var versionFile = Path.Combine(projectPath, "aiSkills", ".version");
+            var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
+            var versionFile = Path.Combine(aiWorkspace, "aiSkills", ".version");
 
             if (!File.Exists(versionFile))
             {
@@ -50,7 +51,8 @@ namespace AIBridge.Core
         public static void UpdateVersionFile()
         {
             var projectPath = WorkspaceHelper.GetProjectRoot();
-            var skillsDir = Path.Combine(projectPath, "aiSkills");
+            var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
+            var skillsDir = Path.Combine(aiWorkspace, "aiSkills");
             
             if (!Directory.Exists(skillsDir))
             {

@@ -87,7 +87,8 @@ namespace AIBridge.Core
 
             var resultText = sb.ToString().TrimEnd();
 
-            var artifactsDir = Path.Combine(projectPath, "aiArtifacts");
+            var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
+            var artifactsDir = Path.Combine(aiWorkspace, "aiArtifacts");
             if (!Directory.Exists(artifactsDir)) Directory.CreateDirectory(artifactsDir);
 
             var outputFile = Path.Combine(artifactsDir, "ai-requested-context.txt");

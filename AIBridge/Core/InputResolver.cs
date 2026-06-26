@@ -33,7 +33,7 @@ namespace AIBridge.Core
                     return true;
                 }
 
-                ConsoleHelper.Error("File not found: aiArtifacts/ai-response.xml");
+                ConsoleHelper.Error("File not found: ai-response.xml");
                 ConsoleHelper.Info("Paste content into the file, or use 'ai-bridge apply --paste'.");
                 return false;
             }
@@ -69,7 +69,7 @@ namespace AIBridge.Core
             }
 
             ConsoleHelper.Error("Error: No content received.");
-            ConsoleHelper.Info("Save the AI response to 'aiArtifacts/ai-response.xml' and run 'ai-bridge apply'.");
+            ConsoleHelper.Info("Save the AI response to 'ai-response.xml' and run 'ai-bridge apply'.");
             return false;
         }
 

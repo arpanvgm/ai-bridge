@@ -9,7 +9,9 @@ namespace AIBridge.Core
         public static void Init(bool force = false)
         {
             var projectPath = WorkspaceHelper.GetProjectRoot();
-            var artifactsDir = Path.Combine(projectPath, "aiArtifacts");
+            var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
+
+            var artifactsDir = Path.Combine(aiWorkspace, "aiArtifacts");
             if (!Directory.Exists(artifactsDir))
             {
                 Directory.CreateDirectory(artifactsDir);
@@ -25,34 +27,19 @@ namespace AIBridge.Core
             if (File.Exists(gitignorePath))
             {
                 var content = File.ReadAllText(gitignorePath);
-                bool gitignoreChanged = false;
-                if (!content.Contains("aiArtifacts/"))
+                var workspaceIgnorePattern = "ai-bridge-*/";
+                
+                if (!content.Contains(workspaceIgnorePattern))
                 {
-                    File.AppendAllText(gitignorePath, "\n# AI Bridge\naiArtifacts/\n");
-                    gitignoreChanged = true;
-                }
-                if (!content.Contains("aiSkills/"))
-                {
-                    if (gitignoreChanged) File.AppendAllText(gitignorePath, "aiSkills/\n");
-                    else File.AppendAllText(gitignorePath, "\n# AI Bridge\naiSkills/\n");
-                    gitignoreChanged = true;
-                }
-                if (!content.Contains("aiPrompts/"))
-                {
-                    if (gitignoreChanged) File.AppendAllText(gitignorePath, "aiPrompts/\n");
-                    else File.AppendAllText(gitignorePath, "\n# AI Bridge\naiPrompts/\n");
-                    gitignoreChanged = true;
-                }
-                if (gitignoreChanged)
-                {
-                    ConsoleHelper.Success("✅ Patched .gitignore to ignore AI Bridge folders.");
+                    File.AppendAllText(gitignorePath, $"\n# AI Bridge\n{workspaceIgnorePattern}\n");
+                    ConsoleHelper.Success("✅ Patched .gitignore to ignore AI Bridge workspace.");
                 }
             }
 
             var aiIgnorePath = Path.Combine(projectPath, ".aiignore");
             if (!File.Exists(aiIgnorePath))
             {
-                var defaultIgnore = "# Additional ignore rules for AI Bridge packing (works alongside .gitignore)\n# Folders should end with /\naiSkills/\naiPrompts/\nTestResults/\n*.g.cs\n*.log\n*.tmp\nai-bridge-index.xml\n";
+                var defaultIgnore = "# Additional ignore rules for AI Bridge packing (works alongside .gitignore)\n# Folders should end with /\nai-bridge-*/\nTestResults/\n*.g.cs\n*.log\n*.tmp\n";
                 File.WriteAllText(aiIgnorePath, defaultIgnore);
                 ConsoleHelper.Success("✅ Created default .aiignore file.");
             }
@@ -62,8 +49,8 @@ namespace AIBridge.Core
             }
 
             // Create aiSkills and aiPrompts folders and extract from source folders
-            var skillsDir = Path.Combine(projectPath, "aiSkills");
-            var promptsDir = Path.Combine(projectPath, "aiPrompts");
+            var skillsDir = Path.Combine(aiWorkspace, "aiSkills");
+            var promptsDir = Path.Combine(aiWorkspace, "aiPrompts");
 
             if (force)
             {

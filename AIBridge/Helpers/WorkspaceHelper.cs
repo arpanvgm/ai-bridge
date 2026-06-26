@@ -19,5 +19,11 @@ namespace AIBridge.Helpers
             }
             return Environment.CurrentDirectory;
         }
+
+        public static string GetAiWorkspacePath(string projectRoot)
+        {
+            var rootFolderName = new DirectoryInfo(projectRoot).Name;
+            return Path.Combine(projectRoot, $"ai-bridge-{rootFolderName}");
+        }
     }
 }
