@@ -88,14 +88,13 @@ present tense, based on the new file's content from the past `<ai-response>`.
 - For a `<patch>`, regenerate `purpose` only if the patch changes what the file
   fundamentally does (e.g. adds a new responsibility, changes its role). If the patch is
   a minor/local change (bug fix, small refactor, added parameter) that doesn't change
-  the file's overall purpose, leave the existing `purpose` unchanged.
+  the file's overall purpose, leave the existing `purpose` unchanged. If the purpose is unchanged, **do not include this file in your output**.
 - If you need the file's current full content to judge this accurately and don't have
   it in context, and `ai-request-skill.md` is available in this conversation, you may
   use it to fetch the file before finalizing the index. Otherwise, make a best-effort
   judgement from the patch diff plus the existing `purpose`.
 
-**Deleted** — Remove the matching `<file path="...">` entry from its `<module>`. If that
-module's `<file>` list becomes empty as a result, remove the entire `<module>` block.
+**Deleted** — Output a `<delete path="..." />` tag for the file. You do not need to worry about the module; the system will automatically locate the file and clean up any empty modules for you.
 
 **Renames** — A past `<ai-response>` represents a rename as a `<delete>` of the old path plus a
 `<file>` for the new path; handle it as **Deleted** + **Added** per the rules above.
@@ -103,11 +102,9 @@ Optionally, if the new file's content is largely unchanged from the old one's, y
 adapt the old entry's `purpose` for the new entry instead of writing it from scratch —
 but a fresh summary is always acceptable too.
 
-### Step 5 — Leave everything else untouched
+### Step 5 — Omit everything else
 
-Every `<module>` and `<file>` entry not touched by the change set must be carried over
-**exactly as it appears in the baseline index** — same `path`, same `purpose`, same
-order, same escaping. Do not "improve" or re-summarize untouched entries.
+Because you are generating a delta, you must **omit** any file whose `purpose` did not change. Do not output untouched files, and do not output `<module>` wrappers if you are not adding or modifying any files inside them.
 
 ### Step 6 — Assemble and write the output
 
@@ -115,9 +112,19 @@ Formatting rules:
 - 2-space indentation, no blank lines between `<file />` entries.
 - Escape `"` → `&quot;`, `&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;` inside `purpose`.
 
-Output the assembled `ai-bridge-index.xml` using the exact `<ai-response>` format
-defined in `ai-response-skill.md`. This is your ONLY output for this turn. Write it as a full `<file>` replacement at the
-root of the codebase: `<file path="ai-bridge-index.xml">`.
+Output the index changes using the `<update-ai-bridge-index>` format. This is a highly efficient delta format where you only output the specific files that were added, modified, or deleted. DO NOT output the full index file. This is your ONLY output for this turn.
+
+```xml
+<update-ai-bridge-index>
+  <!-- Group added/modified files by module -->
+  <module name="ModuleName">
+    <file path="path/to/AddedOrModified.cs" purpose="New or updated 1-2 sentence purpose." />
+  </module>
+  
+  <!-- Deleted files go anywhere inside the block -->
+  <delete path="path/to/DeletedFile.cs" />
+</update-ai-bridge-index>
+```
 
 ---
 
@@ -130,4 +137,3 @@ root of the codebase: `<file path="ai-bridge-index.xml">`.
 | A `<patch>` touches a path not present in the baseline index | Treat as **Added** — the baseline was apparently incomplete for this path |
 | Same path added then deleted within the change set | Net effect: no entry — do not add it |
 | Module for a new file's path prefix doesn't exist yet | Create a new `<module name="...">` block for it |
-| Module's `<file>` list becomes empty after deletions | Remove the entire `<module>` block |

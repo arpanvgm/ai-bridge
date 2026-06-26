@@ -8,8 +8,10 @@ namespace AIBridge.Core
     {
         public static void Init(bool force = false)
         {
-            var projectPath = Environment.CurrentDirectory;
-            var artifactsDir = Path.Combine(projectPath, "aiArtifacts");
+            var projectPath = WorkspaceHelper.GetProjectRoot();
+            var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
+
+            var artifactsDir = Path.Combine(aiWorkspace, "aiArtifacts");
             if (!Directory.Exists(artifactsDir))
             {
                 Directory.CreateDirectory(artifactsDir);
@@ -26,33 +28,32 @@ namespace AIBridge.Core
             {
                 var content = File.ReadAllText(gitignorePath);
                 bool gitignoreChanged = false;
-                if (!content.Contains("aiArtifacts/"))
+                if (!content.Contains("ai-bridge-*/aiArtifacts/"))
                 {
-                    File.AppendAllText(gitignorePath, "\n# AI Bridge\naiArtifacts/\n");
+                    File.AppendAllText(gitignorePath, "\n# AI Bridge\nai-bridge-*/aiArtifacts/\n");
                     gitignoreChanged = true;
                 }
-                if (!content.Contains("aiSkills/"))
+                if (!content.Contains("ai-bridge-*/aiSkills/"))
                 {
-                    if (gitignoreChanged) File.AppendAllText(gitignorePath, "aiSkills/\n");
-                    else File.AppendAllText(gitignorePath, "\n# AI Bridge\naiSkills/\n");
+                    File.AppendAllText(gitignorePath, "ai-bridge-*/aiSkills/\n");
                     gitignoreChanged = true;
                 }
-                if (!content.Contains("aiPrompts/"))
+                if (!content.Contains("ai-bridge-*/aiPrompts/"))
                 {
-                    if (gitignoreChanged) File.AppendAllText(gitignorePath, "aiPrompts/\n");
-                    else File.AppendAllText(gitignorePath, "\n# AI Bridge\naiPrompts/\n");
+                    File.AppendAllText(gitignorePath, "ai-bridge-*/aiPrompts/\n");
                     gitignoreChanged = true;
                 }
+                
                 if (gitignoreChanged)
                 {
-                    ConsoleHelper.Success("✅ Patched .gitignore to ignore AI Bridge folders.");
+                    ConsoleHelper.Success("✅ Patched .gitignore to ignore AI Bridge workspace contents.");
                 }
             }
 
             var aiIgnorePath = Path.Combine(projectPath, ".aiignore");
             if (!File.Exists(aiIgnorePath))
             {
-                var defaultIgnore = "# Additional ignore rules for AI Bridge packing (works alongside .gitignore)\n# Folders should end with /\naiSkills/\naiPrompts/\nTestResults/\n*.g.cs\n*.log\n*.tmp\nai-bridge-index.xml\n";
+                var defaultIgnore = "# Additional ignore rules for AI Bridge packing (works alongside .gitignore)\n# Folders should end with /\nai-bridge-*/\nTestResults/\n*.g.cs\n*.log\n*.tmp\n";
                 File.WriteAllText(aiIgnorePath, defaultIgnore);
                 ConsoleHelper.Success("✅ Created default .aiignore file.");
             }
@@ -62,8 +63,8 @@ namespace AIBridge.Core
             }
 
             // Create aiSkills and aiPrompts folders and extract from source folders
-            var skillsDir = Path.Combine(projectPath, "aiSkills");
-            var promptsDir = Path.Combine(projectPath, "aiPrompts");
+            var skillsDir = Path.Combine(aiWorkspace, "aiSkills");
+            var promptsDir = Path.Combine(aiWorkspace, "aiPrompts");
 
             if (force)
             {
@@ -81,32 +82,34 @@ namespace AIBridge.Core
             string sourceSkillsDir = Path.Combine(baseDir, "aiSkillSources");
             string sourcePromptsDir = Path.Combine(baseDir, "aiPromptSources");
 
-            ExtractDirectory(sourceSkillsDir, skillsDir, force, "aiSkills");
-            ExtractDirectory(sourcePromptsDir, promptsDir, force, "aiPrompts");
+            ExtractDirectory(sourceSkillsDir, skillsDir, force, projectPath);
+            ExtractDirectory(sourcePromptsDir, promptsDir, force, projectPath);
 
             VersionChecker.UpdateVersionFile();
         }
 
-        private static void ExtractDirectory(string sourceDir, string targetDir, bool force, string displayName)
+        private static void ExtractDirectory(string sourceDir, string targetDir, bool force, string projectPath)
         {
             if (!Directory.Exists(sourceDir)) return;
             
             if (!Directory.Exists(targetDir)) Directory.CreateDirectory(targetDir);
 
+            var relativeTargetDir = Path.GetRelativePath(projectPath, targetDir).Replace('\\', '/');
+
             foreach (var file in Directory.GetFiles(sourceDir, "*.*", SearchOption.AllDirectories))
             {
-                var relPath = Path.GetRelativePath(sourceDir, file);
+                var relPath = Path.GetRelativePath(sourceDir, file).Replace('\\', '/');
                 var destFile = Path.Combine(targetDir, relPath);
                 
                 if (!File.Exists(destFile) || force)
                 {
                     Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
                     File.Copy(file, destFile, true);
-                    ConsoleHelper.Success($"✅ Extracted {displayName}/{relPath.Replace('\\', '/')}");
+                    ConsoleHelper.Success($"✅ Extracted {relativeTargetDir}/{relPath}");
                 }
                 else
                 {
-                    ConsoleHelper.Info($"ℹ Skipped {displayName}/{relPath.Replace('\\', '/')} (already exists, use 'ai-bridge update' to overwrite)");
+                    ConsoleHelper.Info($"ℹ Skipped {relativeTargetDir}/{relPath} (already exists, use 'ai-bridge update' to overwrite)");
                 }
             }
         }

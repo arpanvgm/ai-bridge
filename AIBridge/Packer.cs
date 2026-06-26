@@ -46,7 +46,7 @@ namespace AIBridge
         // AI Bridge folders that should never be packed (regardless of git or fallback)
         private static readonly string[] AlwaysExcludePrefixes = new[]
         {
-            "aiSkills/", "aiArtifacts/", "aiPrompts/"
+            "ai-bridge-"
         };
 
         // Hardcoded folder patterns for fallback when git is not available
@@ -56,7 +56,7 @@ namespace AIBridge
             @"[\\/]bin[\\/]", @"[\\/]obj[\\/]", @"[\\/]node_modules[\\/]",
             @"[\\/]dist[\\/]", @"[\\/]out[\\/]", @"[\\/]build[\\/]",
             @"[\\/]packages[\\/]", @"[\\/]TestResults[\\/]",
-            @"[\\/]aiSkills[\\/]", @"[\\/]aiArtifacts[\\/]", @"[\\/]aiPrompts[\\/]",
+            @"[\\/]ai-bridge-[^\/]+[\\/]",
             @"[\\/]__pycache__[\\/]", @"[\\/]\.mypy_cache[\\/]",
             @"[\\/]target[\\/]", @"[\\/]vendor[\\/]"
         };
@@ -147,7 +147,7 @@ namespace AIBridge
                 .Where(d =>
                 {
                     var name = new DirectoryInfo(d).Name;
-                    return !name.StartsWith(".") && name != "aiArtifacts" && name != "aiSkills" && name != "aiPrompts"
+                    return !name.StartsWith(".") && !name.StartsWith("ai-bridge-")
                         && name != "bin" && name != "obj" && name != "node_modules";
                 })
                 .Select(d => new ProjectInfo(
@@ -200,11 +200,12 @@ namespace AIBridge
 
         public static void Run()
         {
-            var projectPath = Environment.CurrentDirectory;
-            var artifactsDir = Path.Combine(projectPath, "aiArtifacts");
+            var projectPath = WorkspaceHelper.GetProjectRoot();
+            var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
+            var artifactsDir = Path.Combine(aiWorkspace, "aiArtifacts");
             var aiIgnorePath = Path.Combine(projectPath, ".aiignore");
 
-            if (!Directory.Exists(artifactsDir) || !Directory.Exists(Path.Combine(projectPath, "aiSkills")))
+            if (!Directory.Exists(artifactsDir) || !Directory.Exists(Path.Combine(aiWorkspace, "aiSkills")))
             {
                 ConsoleHelper.Error("Error: Project not initialized for AI Bridge.");
                 ConsoleHelper.Info("Please run 'ai-bridge init' first to set up the necessary skills and ignore files for this codebase.");

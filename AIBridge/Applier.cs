@@ -26,7 +26,9 @@ namespace AIBridge
                 ConsoleHelper.Info("Starting watch mode for ai-response.xml...");
                 ApplyInternal(dryRun, paste);
 
-                var watchDir = Path.Combine(Environment.CurrentDirectory, "aiArtifacts");
+                var projectRoot = WorkspaceHelper.GetProjectRoot();
+                var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectRoot);
+                var watchDir = Path.Combine(aiWorkspace, "aiArtifacts");
                 if (!Directory.Exists(watchDir)) Directory.CreateDirectory(watchDir);
 
                 using var watcher = new FileSystemWatcher(watchDir)
@@ -71,8 +73,9 @@ namespace AIBridge
 
         private static void ApplyInternal(bool dryRun, bool paste)
         {
-            var projectPath = Environment.CurrentDirectory;
-            var artifactsDir = Path.Combine(projectPath, "aiArtifacts");
+            var projectPath = WorkspaceHelper.GetProjectRoot();
+            var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
+            var artifactsDir = Path.Combine(aiWorkspace, "aiArtifacts");
             var inputFile = Path.Combine(artifactsDir, "ai-response.xml");
             var failedLogFile = Path.Combine(artifactsDir, "failed-patches.txt");
 
@@ -107,9 +110,9 @@ namespace AIBridge
                 ConsoleHelper.Info("Paste a valid <ai-response> into the file, or use 'ai-bridge apply --paste'.");
                 return;
             }
-            if (root.Name != "ai-response" && root.Name != "ai-request")
+            if (root.Name != "ai-response" && root.Name != "ai-request" && root.Name != "create-ai-bridge-index" && root.Name != "update-ai-bridge-index")
             {
-                ConsoleHelper.Error($"Error: Root element must be <ai-response> or <ai-request>, found <{root.Name}>.");
+                ConsoleHelper.Error($"Error: Root element must be <ai-response>, <ai-request>, <create-ai-bridge-index>, or <update-ai-bridge-index>, found <{root.Name}>.");
                 return;
             }
 
@@ -117,6 +120,20 @@ namespace AIBridge
             if (root.Name == "ai-request")
             {
                 AiRequestHandler.Handle(root, projectPath, paste);
+                return;
+            }
+
+            if (root.Name == "create-ai-bridge-index")
+            {
+                AiIndexHandler.HandleCreate(root, projectPath);
+                InputResolver.ResetInputFile(inputFile);
+                return;
+            }
+
+            if (root.Name == "update-ai-bridge-index")
+            {
+                AiIndexHandler.HandleUpdate(root, projectPath);
+                InputResolver.ResetInputFile(inputFile);
                 return;
             }
 
