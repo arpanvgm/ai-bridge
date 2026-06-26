@@ -17,7 +17,7 @@ namespace AIBridge.Core
         {
             var projectPath = WorkspaceHelper.GetProjectRoot();
             var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
-            var versionFile = Path.Combine(aiWorkspace, "aiSkills", ".version");
+            var versionFile = Path.Combine(aiWorkspace, ".version");
 
             if (!File.Exists(versionFile))
             {
@@ -52,14 +52,13 @@ namespace AIBridge.Core
         {
             var projectPath = WorkspaceHelper.GetProjectRoot();
             var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
-            var skillsDir = Path.Combine(aiWorkspace, "aiSkills");
             
-            if (!Directory.Exists(skillsDir))
+            if (!Directory.Exists(aiWorkspace))
             {
-                Directory.CreateDirectory(skillsDir);
+                Directory.CreateDirectory(aiWorkspace);
             }
 
-            var versionFile = Path.Combine(skillsDir, ".version");
+            var versionFile = Path.Combine(aiWorkspace, ".version");
             File.WriteAllText(versionFile, GetCurrentVersion());
         }
     }
