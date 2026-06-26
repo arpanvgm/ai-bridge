@@ -82,32 +82,34 @@ namespace AIBridge.Core
             string sourceSkillsDir = Path.Combine(baseDir, "aiSkillSources");
             string sourcePromptsDir = Path.Combine(baseDir, "aiPromptSources");
 
-            ExtractDirectory(sourceSkillsDir, skillsDir, force, "aiSkills");
-            ExtractDirectory(sourcePromptsDir, promptsDir, force, "aiPrompts");
+            ExtractDirectory(sourceSkillsDir, skillsDir, force, projectPath);
+            ExtractDirectory(sourcePromptsDir, promptsDir, force, projectPath);
 
             VersionChecker.UpdateVersionFile();
         }
 
-        private static void ExtractDirectory(string sourceDir, string targetDir, bool force, string displayName)
+        private static void ExtractDirectory(string sourceDir, string targetDir, bool force, string projectPath)
         {
             if (!Directory.Exists(sourceDir)) return;
             
             if (!Directory.Exists(targetDir)) Directory.CreateDirectory(targetDir);
 
+            var relativeTargetDir = Path.GetRelativePath(projectPath, targetDir).Replace('\\', '/');
+
             foreach (var file in Directory.GetFiles(sourceDir, "*.*", SearchOption.AllDirectories))
             {
-                var relPath = Path.GetRelativePath(sourceDir, file);
+                var relPath = Path.GetRelativePath(sourceDir, file).Replace('\\', '/');
                 var destFile = Path.Combine(targetDir, relPath);
                 
                 if (!File.Exists(destFile) || force)
                 {
                     Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
                     File.Copy(file, destFile, true);
-                    ConsoleHelper.Success($"✅ Extracted {displayName}/{relPath.Replace('\\', '/')}");
+                    ConsoleHelper.Success($"✅ Extracted {relativeTargetDir}/{relPath}");
                 }
                 else
                 {
-                    ConsoleHelper.Info($"ℹ Skipped {displayName}/{relPath.Replace('\\', '/')} (already exists, use 'ai-bridge update' to overwrite)");
+                    ConsoleHelper.Info($"ℹ Skipped {relativeTargetDir}/{relPath} (already exists, use 'ai-bridge update' to overwrite)");
                 }
             }
         }
