@@ -12,19 +12,19 @@ namespace AIBridge
 {
     public static class Applier
     {
-        public static void Run(bool dryRun = false, bool watch = false, bool paste = false)
+        public static void Run(bool watch = false, bool paste = false)
         {
             if (watch)
             {
                 if (paste)
                 {
                     ConsoleHelper.Warning("Ignoring --watch flag because --paste was used.");
-                    ApplyInternal(dryRun, paste);
+                    ApplyInternal(paste);
                     return;
                 }
 
                 ConsoleHelper.Info("Starting watch mode for ai-response.xml...");
-                ApplyInternal(dryRun, paste);
+                ApplyInternal(paste);
 
                 var projectRoot = WorkspaceHelper.GetProjectRoot();
                 var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectRoot);
@@ -48,7 +48,7 @@ namespace AIBridge
                     System.Threading.Thread.Sleep(500); // debounce file lock
                     Console.WriteLine();
                     ConsoleHelper.Info("Change detected in ai-response.xml. Applying...");
-                    ApplyInternal(dryRun, paste);
+                    ApplyInternal(paste);
                     ConsoleHelper.Info("\nWaiting for next change... (Press Ctrl+C to exit)");
                 }
 
@@ -67,11 +67,11 @@ namespace AIBridge
             }
             else
             {
-                ApplyInternal(dryRun, paste);
+                ApplyInternal(paste);
             }
         }
 
-        private static void ApplyInternal(bool dryRun, bool paste)
+        private static void ApplyInternal(bool paste)
         {
             var projectPath = WorkspaceHelper.GetProjectRoot();
             var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
@@ -137,22 +137,63 @@ namespace AIBridge
                 return;
             }
 
-            // --- Step 4: Validate child elements ---
-            foreach (XmlNode node in root.ChildNodes)
+            // --- Step 4.5: Validate index update rules ---
+            var aiEditsNode = root.SelectSingleNode("ai-edits");
+            var indexUpdateNode = root.SelectSingleNode("update-ai-bridge-index");
+
+            if (aiEditsNode != null)
             {
-                if (node.NodeType == XmlNodeType.Element)
+                if (indexUpdateNode == null)
                 {
-                    if (node.Name != "file" && node.Name != "patch" && node.Name != "delete")
+                    ConsoleHelper.Error("Error: AI provided <ai-edits> but completely forgot to provide an <update-ai-bridge-index> block.");
+                    ConsoleHelper.Info("Please ask the AI to regenerate the response and include the mandatory index update block.");
+                    return;
+                }
+
+                var hasDeletes = aiEditsNode.SelectNodes("delete")?.Count > 0;
+                bool actualCreates = false;
+                
+                var fileNodes = aiEditsNode.SelectNodes("file");
+                if (fileNodes != null)
+                {
+                    foreach (XmlNode fileNode in fileNodes)
                     {
-                        ConsoleHelper.Error($"Error: Unknown element '<{node.Name}>' found. Only <file>, <patch>, and <delete> are allowed.");
+                        var relPath = fileNode.Attributes?["path"]?.Value?.Trim();
+                        if (!string.IsNullOrEmpty(relPath))
+                        {
+                            var absPath = Path.Combine(projectPath, relPath.Replace('/', Path.DirectorySeparatorChar));
+                            if (!File.Exists(absPath))
+                            {
+                                actualCreates = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (actualCreates || hasDeletes)
+                {
+                    var hasIndexChanges = indexUpdateNode.SelectNodes(".//file | .//delete")?.Count > 0;
+                    if (!hasIndexChanges)
+                    {
+                        ConsoleHelper.Error("Error: AI created or deleted files in <ai-edits>, but sent an empty <update-ai-bridge-index> block.");
+                        ConsoleHelper.Info("The index must be structurally updated when files are added or removed. Please ask the AI to fix its response.");
                         return;
                     }
                 }
             }
 
-            if (dryRun)
+            // --- Step 4: Validate child elements ---
+            foreach (XmlNode node in root.ChildNodes)
             {
-                ConsoleHelper.Info("\n--- DRY RUN (no files will be modified) ---\n");
+                if (node.NodeType == XmlNodeType.Element)
+                {
+                    if (node.Name != "ai-edits" && node.Name != "update-ai-bridge-index")
+                    {
+                        ConsoleHelper.Error($"Error: Unknown element '<{node.Name}>' found. Only <ai-edits> and <update-ai-bridge-index> are allowed.");
+                        return;
+                    }
+                }
             }
 
             int countFullFiles = 0, countPatchOk = 0, countPatchFailed = 0, countDeleted = 0;
@@ -160,7 +201,7 @@ namespace AIBridge
             var failedPatchNodes = new List<XmlNode>();
 
             // --- Step 5: Process <file> elements (full file creation/overwrite) ---
-            foreach (XmlNode node in root.SelectNodes("file")!)
+            foreach (XmlNode node in root.SelectNodes("ai-edits/file")!)
             {
                 var relPath = node.Attributes?["path"]?.Value?.Trim();
                 if (string.IsNullOrEmpty(relPath))
@@ -171,14 +212,6 @@ namespace AIBridge
 
                 var absPath = Path.Combine(projectPath, relPath.Replace('/', Path.DirectorySeparatorChar));
 
-                if (dryRun)
-                {
-                    var action = File.Exists(absPath) ? "OVERWRITE" : "CREATE";
-                    ConsoleHelper.Info($"  {action}: {relPath}");
-                    countFullFiles++;
-                    continue;
-                }
-
                 Directory.CreateDirectory(Path.GetDirectoryName(absPath)!);
                 var newContent = node.InnerText.Trim('\r', '\n') + "\r\n";
                 File.WriteAllText(absPath, newContent, Encoding.UTF8);
@@ -187,16 +220,16 @@ namespace AIBridge
             }
 
             // --- Step 6: Process <patch> elements ---
-            foreach (XmlNode node in root.SelectNodes("patch")!)
+            foreach (XmlNode node in root.SelectNodes("ai-edits/patch")!)
             {
-                if (Patcher.ApplyPatch(node, projectPath, dryRun, failedFiles, failedPatchNodes))
+                if (Patcher.ApplyPatch(node, projectPath, failedFiles, failedPatchNodes))
                     countPatchOk++;
                 else
                     countPatchFailed++;
             }
 
             // --- Step 7: Process <delete> elements ---
-            foreach (XmlNode node in root.SelectNodes("delete")!)
+            foreach (XmlNode node in root.SelectNodes("ai-edits/delete")!)
             {
                 var relPath = node.Attributes?["path"]?.Value?.Trim();
                 if (string.IsNullOrEmpty(relPath))
@@ -207,13 +240,6 @@ namespace AIBridge
 
                 var absPath = Path.Combine(projectPath, relPath.Replace('/', Path.DirectorySeparatorChar));
 
-                if (dryRun)
-                {
-                    ConsoleHelper.Info($"  DELETE: {relPath}");
-                    countDeleted++;
-                    continue;
-                }
-
                 if (File.Exists(absPath))
                 {
                     File.Delete(absPath);
@@ -222,36 +248,37 @@ namespace AIBridge
                 }
             }
 
+            // --- Step 7.5: Process <update-ai-bridge-index> if present ---
+            if (countPatchFailed == 0)
+            {
+                if (indexUpdateNode is XmlElement indexUpdateElement)
+                {
+                    AiIndexHandler.HandleUpdate(indexUpdateElement, projectPath);
+                }
+            }
+
             // --- Step 8: Clean up empty folders after deletions ---
-            if (countDeleted > 0 && !dryRun)
+            if (countDeleted > 0)
             {
                 CleanEmptyFolders(projectPath);
             }
 
             // --- Step 9: Summary ---
-            if (dryRun)
+            ConsoleHelper.Info($"\nSummary: {countFullFiles} written, {countPatchOk} patched, {countDeleted} deleted.");
+
+            if (countPatchFailed > 0)
             {
-                ConsoleHelper.Info($"\nDry run complete: {countFullFiles} file(s), {countPatchOk} patch(es), {countDeleted} delete(s).");
-                ConsoleHelper.Info("No files were modified. Run 'ai-bridge apply' to apply for real.");
+                // Write failed file paths for quick reference
+                ConsoleHelper.Error($"Failed patches: {countPatchFailed}. Check {failedLogFile}");
+                File.WriteAllLines(failedLogFile, failedFiles.Distinct());
+
+                // Rebuild ai-response.xml with ONLY failed patch blocks
+                Patcher.RebuildResponseWithFailedPatches(inputFile, failedPatchNodes);
+                ConsoleHelper.Warning($"⚠ ai-response.xml now contains only the {countPatchFailed} failed patch(es). Fix and re-run 'ai-bridge apply'.");
             }
             else
             {
-                ConsoleHelper.Info($"\nSummary: {countFullFiles} written, {countPatchOk} patched, {countDeleted} deleted.");
-
-                if (countPatchFailed > 0)
-                {
-                    // Write failed file paths for quick reference
-                    ConsoleHelper.Error($"Failed patches: {countPatchFailed}. Check {failedLogFile}");
-                    File.WriteAllLines(failedLogFile, failedFiles.Distinct());
-
-                    // Rebuild ai-response.xml with ONLY failed patch blocks
-                    Patcher.RebuildResponseWithFailedPatches(inputFile, failedPatchNodes);
-                    ConsoleHelper.Warning($"⚠ ai-response.xml now contains only the {countPatchFailed} failed patch(es). Fix and re-run 'ai-bridge apply'.");
-                }
-                else
-                {
-                    InputResolver.ResetInputFile(inputFile);
-                }
+                InputResolver.ResetInputFile(inputFile);
             }
         }
 

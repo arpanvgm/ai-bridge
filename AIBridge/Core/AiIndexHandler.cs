@@ -11,32 +11,47 @@ namespace AIBridge.Core
         public static void HandleCreate(XmlNode root, string projectPath)
         {
             var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
-            var indexFile = Path.Combine(aiWorkspace, "ai-bridge-index.xml");
+            var indexFile = Path.Combine(aiWorkspace, WorkspaceHelper.GetIndexFileName(projectPath));
 
-            var sb = new StringBuilder();
-            sb.AppendLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
-            sb.AppendLine("<ai-bridge-index>");
+            var doc = new XmlDocument();
+            var indexRoot = doc.CreateElement("ai-bridge-index");
+            indexRoot.SetAttribute("lastUpdated", DateTime.UtcNow.ToString("o"));
+
             foreach (XmlNode node in root.ChildNodes)
             {
                 if (node.NodeType == XmlNodeType.Element)
                 {
-                    sb.AppendLine(node.OuterXml);
+                    var importedNode = doc.ImportNode(node, true);
+                    indexRoot.AppendChild(importedNode);
                 }
             }
-            sb.AppendLine("</ai-bridge-index>");
+            doc.AppendChild(indexRoot);
 
-            File.WriteAllText(indexFile, sb.ToString(), Encoding.UTF8);
+            var settings = new XmlWriterSettings
+            {
+                Indent = true,
+                IndentChars = "  ",
+                OmitXmlDeclaration = false,
+                Encoding = new UTF8Encoding(false) // No BOM
+            };
+
+            using (var writer = XmlWriter.Create(indexFile, settings))
+            {
+                doc.Save(writer);
+            }
+
             ConsoleHelper.Success("✅ Generated new ai-bridge-index.xml successfully.");
         }
 
         public static void HandleUpdate(XmlNode root, string projectPath)
         {
             var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
-            var indexFile = Path.Combine(aiWorkspace, "ai-bridge-index.xml");
+            var indexFileName = WorkspaceHelper.GetIndexFileName(projectPath);
+            var indexFile = Path.Combine(aiWorkspace, indexFileName);
 
             if (!File.Exists(indexFile))
             {
-                ConsoleHelper.Error("Error: ai-bridge-index.xml not found. Cannot update an index that does not exist.");
+                ConsoleHelper.Error($"Error: {indexFileName} not found. Cannot update an index that does not exist.");
                 return;
             }
 
@@ -47,14 +62,14 @@ namespace AIBridge.Core
             }
             catch (Exception ex)
             {
-                ConsoleHelper.Error($"Error parsing existing ai-bridge-index.xml: {ex.Message}");
+                ConsoleHelper.Error($"Error parsing existing {indexFileName}: {ex.Message}");
                 return;
             }
 
             var indexRoot = xml.DocumentElement;
             if (indexRoot == null || indexRoot.Name != "ai-bridge-index")
             {
-                ConsoleHelper.Error("Error: ai-bridge-index.xml is malformed (missing <ai-bridge-index> root).");
+                ConsoleHelper.Error($"Error: {indexFileName} is malformed (missing <ai-bridge-index> root).");
                 return;
             }
 
@@ -170,12 +185,14 @@ namespace AIBridge.Core
                 Encoding = new UTF8Encoding(false) // No BOM
             };
 
+            indexRoot.SetAttribute("lastUpdated", DateTime.UtcNow.ToString("o"));
+
             using (var writer = XmlWriter.Create(indexFile, settings))
             {
                 xml.Save(writer);
             }
 
-            ConsoleHelper.Success($"✅ Updated ai-bridge-index.xml: {addedCount} added, {updatedCount} updated, {deletedCount} deleted.");
+            ConsoleHelper.Success($"✅ Updated {indexFileName}: {addedCount} added, {updatedCount} updated, {deletedCount} deleted.");
         }
     }
 }

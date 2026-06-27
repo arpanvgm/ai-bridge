@@ -64,8 +64,9 @@ project.assets.json
 # OSX
 .DS_Store
 
-# AI Bridge working files
-aiArtifacts/
-
 # .NET local tooling cache
 dotnet/
+
+# Our temporary notes and files
+Notes/
+

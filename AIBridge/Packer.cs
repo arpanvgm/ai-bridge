@@ -12,36 +12,7 @@ namespace AIBridge
 {
     public static class Packer
     {
-        // Binary/non-text extensions to always exclude from packing
-        private static readonly HashSet<string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase)
-        {
-            // Images
-            ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".svg", ".webp", ".tiff", ".tif", ".raw",
-            // Fonts
-            ".woff", ".woff2", ".ttf", ".eot", ".otf",
-            // Compiled/binary
-            ".exe", ".dll", ".pdb", ".so", ".dylib", ".o", ".a", ".lib",
-            ".class", ".jar", ".war", ".pyc", ".pyo", ".wasm",
-            // Archives
-            ".zip", ".tar", ".gz", ".rar", ".7z", ".bz2", ".xz", ".nupkg",
-            // Media
-            ".mp3", ".mp4", ".avi", ".mov", ".wav", ".flac", ".ogg", ".webm", ".mkv",
-            // Documents (binary formats)
-            ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-            // Database
-            ".db", ".sqlite", ".sqlite3", ".mdb",
-            // Certificates & keys
-            ".snk", ".pfx", ".p12", ".cer", ".pem",
-            // Other binary
-            ".bin", ".dat", ".cache", ".coverage"
-        };
 
-        // Specific filenames to always exclude (large or not useful for AI context)
-        private static readonly HashSet<string> ExcludeFileNames = new(StringComparer.OrdinalIgnoreCase)
-        {
-            "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
-            ".DS_Store", "Thumbs.db", ".gitignore", ".aiignore", "ai-bridge-index.xml"
-        };
 
         // AI Bridge folders that should never be packed (regardless of git or fallback)
         private static readonly string[] AlwaysExcludePrefixes = new[]
@@ -198,7 +169,7 @@ namespace AIBridge
             }
         }
 
-        public static void Run()
+        public static void Run(bool incremental = false)
         {
             var projectPath = WorkspaceHelper.GetProjectRoot();
             var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
@@ -215,6 +186,30 @@ namespace AIBridge
             var rootFolderName = new DirectoryInfo(projectPath).Name;
             var (detectedProjects, ecosystem) = DetectProjects(projectPath);
             var projects = detectedProjects;
+
+            HashSet<string>? incrementalFiles = null;
+            if (incremental)
+            {
+                try
+                {
+                    var (modified, newFiles, _, _) = Indexer.GetChangedFiles();
+                    incrementalFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var f in modified) incrementalFiles.Add(f);
+                    foreach (var f in newFiles) incrementalFiles.Add(f);
+
+                    if (incrementalFiles.Count == 0)
+                    {
+                        ConsoleHelper.Success("✅ No files changed since last index update. Nothing to pack.");
+                        return;
+                    }
+                    ConsoleHelper.Info($"Found {incrementalFiles.Count} modified/new file(s) to pack incrementally.");
+                }
+                catch (Exception ex)
+                {
+                    ConsoleHelper.Error(ex.Message);
+                    return;
+                }
+            }
 
             // --- Step 1: Get file list (git-aware or fallback) ---
             var gitFiles = GetGitTrackedFiles(projectPath);
@@ -246,26 +241,7 @@ namespace AIBridge
                     .ToArray();
             }
 
-            // --- Step 2: Build .aiignore rules ---
-            var aiIgnoreExcludeFolders = new List<string>();
-            var aiIgnoreExcludeFilePatterns = new List<string>();
-
-            if (File.Exists(aiIgnorePath))
-            {
-                ConsoleHelper.Info("Loading additional ignore rules from .aiignore...");
-                foreach (var line in File.ReadAllLines(aiIgnorePath)
-                    .Select(l => l.Trim())
-                    .Where(l => !string.IsNullOrWhiteSpace(l) && !l.StartsWith("#")))
-                {
-                    var rule = line.Replace("\\", "/");
-                    bool isFolder = rule.EndsWith("/");
-                    if (isFolder) rule = rule.TrimEnd('/');
-
-                    var regexRule = Regex.Escape(rule).Replace(@"\*", ".*").Replace(@"\?", ".");
-                    if (isFolder) aiIgnoreExcludeFolders.Add($@"[\\/]{regexRule}[\\/]");
-                    else aiIgnoreExcludeFilePatterns.Add($@"^{regexRule}$");
-                }
-            }
+            var (aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns) = FileFilterHelper.LoadAiIgnoreRules(aiIgnorePath);
 
             // --- Step 3: Filter and pack files ---
             var outputData = new Dictionary<string, StringBuilder>();
@@ -283,18 +259,17 @@ namespace AIBridge
                     continue;
 
                 // Skip binary/non-text files
-                if (BinaryExtensions.Contains(extension)) continue;
+                if (FileFilterHelper.BinaryExtensions.Contains(extension)) continue;
 
                 // Skip excluded file names
-                if (ExcludeFileNames.Contains(fileName)) continue;
+                if (FileFilterHelper.ExcludeFileNames.Contains(fileName)) continue;
 
                 // Apply .aiignore rules
-                if (aiIgnoreExcludeFolders.Count > 0 || aiIgnoreExcludeFilePatterns.Count > 0)
-                {
-                    var paddedPath = "/" + relativePath + "/";
-                    if (aiIgnoreExcludeFolders.Any(f => Regex.IsMatch(paddedPath, f, RegexOptions.IgnoreCase))) continue;
-                    if (aiIgnoreExcludeFilePatterns.Any(p => Regex.IsMatch(fileName, p, RegexOptions.IgnoreCase))) continue;
-                }
+                if (FileFilterHelper.IsAiIgnored(relativePath, fileName, aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns)) continue;
+
+                // Skip if incremental and file hasn't changed
+                if (incremental && incrementalFiles != null && !incrementalFiles.Contains(relativePath))
+                    continue;
 
                 // Determine project grouping
                 string projectName = rootFolderName;
@@ -332,23 +307,47 @@ namespace AIBridge
             }
 
             // --- Step 4: Write output files ---
-            foreach (var key in outputData.Keys)
+            if (incremental)
             {
-                var outName = key == rootFolderName ? $"{key}-root-context.txt" : $"{key}-context.txt";
-                var outPath = Path.Combine(artifactsDir, outName);
-                var finalContent = $"<module name=\"{key}\" files=\"{outputFileCounts[key]}\">\n{outputData[key]}\n</module>\n";
-
-                File.WriteAllText(outPath, finalContent, Encoding.UTF8);
+                var sb = new StringBuilder();
+                int totalFiles = 0;
+                foreach (var key in outputData.Keys)
+                {
+                    sb.AppendLine($"<module name=\"{key}\" files=\"{outputFileCounts[key]}\">");
+                    sb.AppendLine(outputData[key].ToString());
+                    sb.AppendLine("</module>");
+                    totalFiles += outputFileCounts[key];
+                }
+                var outPath = Path.Combine(artifactsDir, "ai-incremental-context.txt");
+                File.WriteAllText(outPath, sb.ToString(), Encoding.UTF8);
 
                 var fileSizeKB = Math.Round(new FileInfo(outPath).Length / 1024.0, 1);
-                var approxTokens = finalContent.Length / 4;
-                ConsoleHelper.Success($"SUCCESS: {key} codebase packed ({outputFileCounts[key]} files, {fileSizeKB} KB, ~{approxTokens:N0} tokens) into {outName}");
+                var approxTokens = sb.Length / 4;
+                ConsoleHelper.Success($"SUCCESS: Incremental context packed ({totalFiles} files, {fileSizeKB} KB, ~{approxTokens:N0} tokens) into ai-incremental-context.txt");
+            }
+            else
+            {
+                foreach (var key in outputData.Keys)
+                {
+                    var outName = key == rootFolderName ? $"{key}-root-context.txt" : $"{key}-context.txt";
+                    var outPath = Path.Combine(artifactsDir, outName);
+                    var finalContent = $"<module name=\"{key}\" files=\"{outputFileCounts[key]}\">\n{outputData[key]}\n</module>\n";
+
+                    File.WriteAllText(outPath, finalContent, Encoding.UTF8);
+
+                    var fileSizeKB = Math.Round(new FileInfo(outPath).Length / 1024.0, 1);
+                    var approxTokens = finalContent.Length / 4;
+                    ConsoleHelper.Success($"SUCCESS: {key} codebase packed ({outputFileCounts[key]} files, {fileSizeKB} KB, ~{approxTokens:N0} tokens) into {outName}");
+                }
             }
 
             if (warningCount > 0)
             {
                 ConsoleHelper.Warning($"\nCompleted with {warningCount} warning(s) (see above).");
             }
+            
+            StateManager.UpdateEcosystem(ecosystem);
+            StateManager.UpdateLastPacked();
         }
     }
 

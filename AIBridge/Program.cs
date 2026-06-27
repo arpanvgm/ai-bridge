@@ -16,30 +16,31 @@ namespace AIBridge
             switch (command)
             {
                 case "pack":
-                    if (flags.Count > 0)
+                    var invalidPackFlags = flags.Except(new[] { "--incremental" }).ToList();
+                    if (invalidPackFlags.Count > 0)
                     {
-                        ConsoleHelper.Error($"Error: Unknown arguments for 'pack': {string.Join(", ", flags)}");
+                        ConsoleHelper.Error($"Error: Unknown arguments for 'pack': {string.Join(", ", invalidPackFlags)}");
                         return;
                     }
-                    if (!VersionChecker.EnsureUpToDate()) return;
-                    ConsoleHelper.Info("Packing AI context...");
-                    Packer.Run();
+                    if (!StateManager.EnsureUpToDate()) return;
+                    bool isIncremental = flags.Contains("--incremental");
+                    ConsoleHelper.Info(isIncremental ? "Packing incremental AI context..." : "Packing full AI context...");
+                    Packer.Run(incremental: isIncremental);
                     break;
 
                 case "apply":
-                    var allowedApplyFlags = new[] { "--dry-run", "--watch", "--paste" };
+                    var allowedApplyFlags = new[] { "--watch", "--paste" };
                     var invalidApplyFlags = flags.Except(allowedApplyFlags).ToList();
                     if (invalidApplyFlags.Count > 0)
                     {
                         ConsoleHelper.Error($"Error: Unknown arguments for 'apply': {string.Join(", ", invalidApplyFlags)}");
                         return;
                     }
-                    if (!VersionChecker.EnsureUpToDate()) return;
+                    if (!StateManager.EnsureUpToDate()) return;
                     ConsoleHelper.Info("Applying AI code changes...");
-                    bool dryRun = flags.Contains("--dry-run");
                     bool watch = flags.Contains("--watch");
                     bool paste = flags.Contains("--paste");
-                    Applier.Run(dryRun, watch, paste);
+                    Applier.Run(watch, paste);
                     break;
                 case "init":
                     if (flags.Count > 0)
@@ -61,16 +62,40 @@ namespace AIBridge
                     Initializer.Init(force: true);
                     break;
 
+                case "index":
+                    if (flags.Contains("--status"))
+                    {
+                        var invalidIndexFlags = flags.Except(new[] { "--status" }).ToList();
+                        if (invalidIndexFlags.Count > 0)
+                        {
+                            ConsoleHelper.Error($"Error: Unknown arguments for 'index --status': {string.Join(", ", invalidIndexFlags)}");
+                            return;
+                        }
+                        Indexer.Status();
+                    }
+                    else if (flags.Count > 0)
+                    {
+                        ConsoleHelper.Error($"Error: Unknown arguments for 'index': {string.Join(", ", flags)}");
+                    }
+                    else
+                    {
+                        Indexer.Display();
+                    }
+                    break;
+
                 default:
                     Console.WriteLine("Usage: ai-bridge [command]");
                     Console.WriteLine("Commands:");
                     Console.WriteLine("  init                - Scaffolds .aiignore, aiSkills/, and aiPrompts/ for a new project.");
                     Console.WriteLine("  update              - Syncs aiSkills/ and aiPrompts/ to match the currently installed tool version.");
-                    Console.WriteLine("  pack                - Packs source files into text context for AI.");
+                    Console.WriteLine("  index               - Displays the contents of the index XML file.");
+                    Console.WriteLine("  index --status      - Shows files changed since the last index update.");
+                    Console.WriteLine("  pack [options]      - Packs source files into text context for AI.");
                     Console.WriteLine("  apply [options]     - Applies ai-response.xml patches to the codebase.");
+                    Console.WriteLine("Pack Options:");
+                    Console.WriteLine("  --incremental       - Pack only files modified or added since the last index update.");
                     Console.WriteLine();
                     Console.WriteLine("Apply Options:");
-                    Console.WriteLine("  --dry-run           - Preview changes without modifying files.");
                     Console.WriteLine("  --watch             - Keep running and auto-apply when ai-response.xml is saved.");
                     Console.WriteLine("  --paste             - Skip file, read directly from clipboard (optional — auto-detected by default).");
                     break;

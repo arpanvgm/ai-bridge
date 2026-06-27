@@ -50,6 +50,17 @@ namespace AIBridge.Core
                 }
             }
 
+            var dockerignorePath = Path.Combine(projectPath, ".dockerignore");
+            if (File.Exists(dockerignorePath))
+            {
+                var content = File.ReadAllText(dockerignorePath);
+                if (!content.Contains("ai-bridge-*/"))
+                {
+                    File.AppendAllText(dockerignorePath, "\n# AI Bridge\nai-bridge-*/\n");
+                    ConsoleHelper.Success("✅ Patched .dockerignore to exclude AI Bridge workspace from Docker builds.");
+                }
+            }
+
             var aiIgnorePath = Path.Combine(projectPath, ".aiignore");
             if (!File.Exists(aiIgnorePath))
             {
@@ -85,7 +96,7 @@ namespace AIBridge.Core
             ExtractDirectory(sourceSkillsDir, skillsDir, force, projectPath);
             ExtractDirectory(sourcePromptsDir, promptsDir, force, projectPath);
 
-            VersionChecker.UpdateVersionFile();
+            StateManager.InitState();
         }
 
         private static void ExtractDirectory(string sourceDir, string targetDir, bool force, string projectPath)

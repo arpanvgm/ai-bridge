@@ -13,12 +13,19 @@ You must wrap the entire XML output in exactly ONE standard markdown code block 
 
 ## RESPONSE STRUCTURE
 
-Your entire response MUST be wrapped in a single `<ai-response>` root element:
+Your entire response MUST be wrapped in a single `<ai-response>` root element. Code changes (`<file>`, `<patch>`, `<delete>`) go inside an `<ai-edits>` block. If your changes affect any file's overall purpose in the index, include an `<update-ai-bridge-index>` block after `<ai-edits>` (see `ai-bridge-update-index-skill.md` for rules):
 
 ```xml
 <ai-response>
 
-  <!-- your <file>, <patch>, and <delete> blocks go here -->
+  <ai-edits>
+    <!-- your <file>, <patch>, and <delete> blocks go here -->
+  </ai-edits>
+
+  <!-- Optional: only if file purposes changed -->
+  <update-ai-bridge-index>
+    <!-- index delta as per ai-bridge-update-index-skill.md -->
+  </update-ai-bridge-index>
 
 </ai-response>
 ```
@@ -164,6 +171,7 @@ Using triple backticks inside the XML payload will prematurely close the chat UI
 | ❌ Wrong | ✅ Right |
 |---------|---------|
 | Missing `<ai-response>` root wrapper | Always wrap everything in `<ai-response>` |
+| Missing `<ai-edits>` wrapper around code changes | Always wrap `<file>`, `<patch>`, `<delete>` in `<ai-edits>` |
 | Missing `<![CDATA[...]]>` around code | Always use CDATA for all code content |
 | Using `<patch>` on a file under 100 lines | Use `<file>` |
 | Using `<patch>` on 4+ scattered spots | Use `<file>` |
@@ -177,6 +185,8 @@ Using triple backticks inside the XML payload will prematurely close the chat UI
 
 ```xml
 <ai-response>
+
+  <ai-edits>
 
   <file path="SectorAnalysis.SharedContracts/Models/SectorDto.cs"><![CDATA[
 namespace SectorAnalysis.SharedContracts.Models;
@@ -214,6 +224,15 @@ public record SectorDto(string Code, string Name, decimal Weight);
 
   <delete path="SectorAnalysis.WebApi/Controllers/OldController.cs" />
 
+  </ai-edits>
+
+  <update-ai-bridge-index>
+    <module name="SectorAnalysis.SharedContracts">
+      <file path="SectorAnalysis.SharedContracts/Models/SectorDto.cs" purpose="Defines the SectorDto record used as the API contract for sector data." />
+    </module>
+    <delete path="SectorAnalysis.WebApi/Controllers/OldController.cs" />
+  </update-ai-bridge-index>
+
 </ai-response>
 ```
 
@@ -224,12 +243,14 @@ public record SectorDto(string Code, string Name, decimal Weight);
 Before you output anything, answer these questions:
 
 1. Is the entire response wrapped in `<ai-response>...</ai-response>`?
-2. Is every code block (file contents, search text, replace text) inside `<![CDATA[...]]>`?
-3. For every `<file>` block: does it contain the **complete file** with zero truncation?
-4. For every `<patch>` block: is the `<search>` text a **character-for-character copy** from the source context (including all original whitespace and indentation)?
-5. Did I follow the **decision tree** to choose the right format for each file?
-6. Are all paths in **forward-slash format**, relative to the workspace root?
-7. Is the entire payload wrapped in EXACTLY ONE ````xml ```` block?
-8. Did I use `~~~` instead of backticks for code blocks inside markdown files?
+2. Are all `<file>`, `<patch>`, and `<delete>` blocks inside `<ai-edits>...</ai-edits>`?
+3. Is every code block (file contents, search text, replace text) inside `<![CDATA[...]]>`?
+4. For every `<file>` block: does it contain the **complete file** with zero truncation?
+5. For every `<patch>` block: is the `<search>` text a **character-for-character copy** from the source context (including all original whitespace and indentation)?
+6. Did I follow the **decision tree** to choose the right format for each file?
+7. Are all paths in **forward-slash format**, relative to the workspace root?
+8. Is the entire payload wrapped in EXACTLY ONE ````xml ```` block?
+9. Did I use `~~~` instead of backticks for code blocks inside markdown files?
+10. If my changes affect any file's overall purpose, did I include an `<update-ai-bridge-index>` block?
 
 If any answer is "no" — fix it before outputting.
