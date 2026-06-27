@@ -217,26 +217,7 @@ namespace AIBridge
                     .ToArray();
             }
 
-            // --- Step 2: Build .aiignore rules ---
-            var aiIgnoreExcludeFolders = new List<string>();
-            var aiIgnoreExcludeFilePatterns = new List<string>();
-
-            if (File.Exists(aiIgnorePath))
-            {
-                ConsoleHelper.Info("Loading additional ignore rules from .aiignore...");
-                foreach (var line in File.ReadAllLines(aiIgnorePath)
-                    .Select(l => l.Trim())
-                    .Where(l => !string.IsNullOrWhiteSpace(l) && !l.StartsWith("#")))
-                {
-                    var rule = line.Replace("\\", "/");
-                    bool isFolder = rule.EndsWith("/");
-                    if (isFolder) rule = rule.TrimEnd('/');
-
-                    var regexRule = Regex.Escape(rule).Replace(@"\*", ".*").Replace(@"\?", ".");
-                    if (isFolder) aiIgnoreExcludeFolders.Add($@"[\\/]{regexRule}[\\/]");
-                    else aiIgnoreExcludeFilePatterns.Add($@"^{regexRule}$");
-                }
-            }
+            var (aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns) = FileFilterHelper.LoadAiIgnoreRules(aiIgnorePath);
 
             // --- Step 3: Filter and pack files ---
             var outputData = new Dictionary<string, StringBuilder>();
@@ -260,12 +241,7 @@ namespace AIBridge
                 if (FileFilterHelper.ExcludeFileNames.Contains(fileName)) continue;
 
                 // Apply .aiignore rules
-                if (aiIgnoreExcludeFolders.Count > 0 || aiIgnoreExcludeFilePatterns.Count > 0)
-                {
-                    var paddedPath = "/" + relativePath + "/";
-                    if (aiIgnoreExcludeFolders.Any(f => Regex.IsMatch(paddedPath, f, RegexOptions.IgnoreCase))) continue;
-                    if (aiIgnoreExcludeFilePatterns.Any(p => Regex.IsMatch(fileName, p, RegexOptions.IgnoreCase))) continue;
-                }
+                if (FileFilterHelper.IsAiIgnored(relativePath, fileName, aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns)) continue;
 
                 // Determine project grouping
                 string projectName = rootFolderName;
