@@ -160,6 +160,9 @@ namespace AIBridge
                 }
             }
 
+            var aiIgnorePath = Path.Combine(projectRoot, ".aiignore");
+            var (aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns) = FileFilterHelper.LoadAiIgnoreRules(aiIgnorePath);
+
             // Check for new files via git
             try
             {
@@ -200,6 +203,10 @@ namespace AIBridge
 
                                 // Skip excluded filenames
                                 if (FileFilterHelper.ExcludeFileNames.Contains(fileName))
+                                    continue;
+
+                                // Apply .aiignore rules
+                                if (FileFilterHelper.IsAiIgnored(relativePath, fileName, aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns))
                                     continue;
 
                                 // If not in index, it's a new file
