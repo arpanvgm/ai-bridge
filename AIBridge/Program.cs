@@ -16,14 +16,16 @@ namespace AIBridge
             switch (command)
             {
                 case "pack":
-                    if (flags.Count > 0)
+                    var invalidPackFlags = flags.Except(new[] { "--incremental" }).ToList();
+                    if (invalidPackFlags.Count > 0)
                     {
-                        ConsoleHelper.Error($"Error: Unknown arguments for 'pack': {string.Join(", ", flags)}");
+                        ConsoleHelper.Error($"Error: Unknown arguments for 'pack': {string.Join(", ", invalidPackFlags)}");
                         return;
                     }
                     if (!StateManager.EnsureUpToDate()) return;
-                    ConsoleHelper.Info("Packing AI context...");
-                    Packer.Run();
+                    bool isIncremental = flags.Contains("--incremental");
+                    ConsoleHelper.Info(isIncremental ? "Packing incremental AI context..." : "Packing full AI context...");
+                    Packer.Run(incremental: isIncremental);
                     break;
 
                 case "apply":
@@ -89,8 +91,10 @@ namespace AIBridge
                     Console.WriteLine("  update              - Syncs aiSkills/ and aiPrompts/ to match the currently installed tool version.");
                     Console.WriteLine("  index               - Displays the contents of the index XML file.");
                     Console.WriteLine("  index --status      - Shows files changed since the last index update.");
-                    Console.WriteLine("  pack                - Packs source files into text context for AI.");
+                    Console.WriteLine("  pack [options]      - Packs source files into text context for AI.");
                     Console.WriteLine("  apply [options]     - Applies ai-response.xml patches to the codebase.");
+                    Console.WriteLine("Pack Options:");
+                    Console.WriteLine("  --incremental       - Pack only files modified or added since the last index update.");
                     Console.WriteLine();
                     Console.WriteLine("Apply Options:");
                     Console.WriteLine("  --dry-run           - Preview changes without modifying files.");

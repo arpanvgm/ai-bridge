@@ -169,7 +169,7 @@ namespace AIBridge
             }
         }
 
-        public static void Run()
+        public static void Run(bool incremental = false)
         {
             var projectPath = WorkspaceHelper.GetProjectRoot();
             var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
@@ -186,6 +186,30 @@ namespace AIBridge
             var rootFolderName = new DirectoryInfo(projectPath).Name;
             var (detectedProjects, ecosystem) = DetectProjects(projectPath);
             var projects = detectedProjects;
+
+            HashSet<string>? incrementalFiles = null;
+            if (incremental)
+            {
+                try
+                {
+                    var (modified, newFiles, _, _) = Indexer.GetChangedFiles();
+                    incrementalFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var f in modified) incrementalFiles.Add(f);
+                    foreach (var f in newFiles) incrementalFiles.Add(f);
+
+                    if (incrementalFiles.Count == 0)
+                    {
+                        ConsoleHelper.Success("✅ No files changed since last index update. Nothing to pack.");
+                        return;
+                    }
+                    ConsoleHelper.Info($"Found {incrementalFiles.Count} modified/new file(s) to pack incrementally.");
+                }
+                catch (Exception ex)
+                {
+                    ConsoleHelper.Error(ex.Message);
+                    return;
+                }
+            }
 
             // --- Step 1: Get file list (git-aware or fallback) ---
             var gitFiles = GetGitTrackedFiles(projectPath);
@@ -243,6 +267,10 @@ namespace AIBridge
                 // Apply .aiignore rules
                 if (FileFilterHelper.IsAiIgnored(relativePath, fileName, aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns)) continue;
 
+                // Skip if incremental and file hasn't changed
+                if (incremental && incrementalFiles != null && !incrementalFiles.Contains(relativePath))
+                    continue;
+
                 // Determine project grouping
                 string projectName = rootFolderName;
                 foreach (var proj in projects)
@@ -279,17 +307,38 @@ namespace AIBridge
             }
 
             // --- Step 4: Write output files ---
-            foreach (var key in outputData.Keys)
+            if (incremental)
             {
-                var outName = key == rootFolderName ? $"{key}-root-context.txt" : $"{key}-context.txt";
-                var outPath = Path.Combine(artifactsDir, outName);
-                var finalContent = $"<module name=\"{key}\" files=\"{outputFileCounts[key]}\">\n{outputData[key]}\n</module>\n";
-
-                File.WriteAllText(outPath, finalContent, Encoding.UTF8);
+                var sb = new StringBuilder();
+                int totalFiles = 0;
+                foreach (var key in outputData.Keys)
+                {
+                    sb.AppendLine($"<module name=\"{key}\" files=\"{outputFileCounts[key]}\">");
+                    sb.AppendLine(outputData[key].ToString());
+                    sb.AppendLine("</module>");
+                    totalFiles += outputFileCounts[key];
+                }
+                var outPath = Path.Combine(artifactsDir, "ai-incremental-context.txt");
+                File.WriteAllText(outPath, sb.ToString(), Encoding.UTF8);
 
                 var fileSizeKB = Math.Round(new FileInfo(outPath).Length / 1024.0, 1);
-                var approxTokens = finalContent.Length / 4;
-                ConsoleHelper.Success($"SUCCESS: {key} codebase packed ({outputFileCounts[key]} files, {fileSizeKB} KB, ~{approxTokens:N0} tokens) into {outName}");
+                var approxTokens = sb.Length / 4;
+                ConsoleHelper.Success($"SUCCESS: Incremental context packed ({totalFiles} files, {fileSizeKB} KB, ~{approxTokens:N0} tokens) into ai-incremental-context.txt");
+            }
+            else
+            {
+                foreach (var key in outputData.Keys)
+                {
+                    var outName = key == rootFolderName ? $"{key}-root-context.txt" : $"{key}-context.txt";
+                    var outPath = Path.Combine(artifactsDir, outName);
+                    var finalContent = $"<module name=\"{key}\" files=\"{outputFileCounts[key]}\">\n{outputData[key]}\n</module>\n";
+
+                    File.WriteAllText(outPath, finalContent, Encoding.UTF8);
+
+                    var fileSizeKB = Math.Round(new FileInfo(outPath).Length / 1024.0, 1);
+                    var approxTokens = finalContent.Length / 4;
+                    ConsoleHelper.Success($"SUCCESS: {key} codebase packed ({outputFileCounts[key]} files, {fileSizeKB} KB, ~{approxTokens:N0} tokens) into {outName}");
+                }
             }
 
             if (warningCount > 0)

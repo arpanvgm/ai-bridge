@@ -44,9 +44,10 @@ namespace AIBridge.Core
             {
                 content = ClipboardHelper.GetText();
             }
-            catch (Exception ex)
+            catch
             {
-                ConsoleHelper.Warning($"Could not access clipboard: {ex.Message}");
+                // Suppress clipboard errors in isolated environments (e.g. WSL without interop).
+                // It will automatically fall back to stdin prompting.
             }
 
             if (!string.IsNullOrWhiteSpace(content))

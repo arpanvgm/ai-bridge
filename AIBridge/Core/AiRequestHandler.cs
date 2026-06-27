@@ -103,10 +103,10 @@ namespace AIBridge.Core
                 ClipboardHelper.SetText(resultText);
                 ConsoleHelper.Info("The requested context has also been copied to your clipboard!");
             }
-            catch (Exception ex)
+            catch
             {
-                ConsoleHelper.Warning($"Could not copy to clipboard: {ex.Message}");
-                ConsoleHelper.Info($"The context is still saved to: {outputFile}");
+                // Suppress clipboard errors in isolated environments (e.g. WSL without interop).
+                // The context is already safely saved to disk.
             }
 
             var inputFile = Path.Combine(artifactsDir, "ai-response.xml");

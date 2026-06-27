@@ -79,17 +79,20 @@ namespace AIBridge
             ConsoleHelper.Info($"\nTotal: {moduleCount} module(s), {totalFileCount} file(s)");
         }
 
-        public static void Status()
+        public static (List<string> modified, List<string> newFiles, List<string> deleted, DateTime lastUpdated) GetChangedFiles()
         {
             var projectRoot = WorkspaceHelper.GetProjectRoot();
             var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectRoot);
             var indexFileName = WorkspaceHelper.GetIndexFileName(projectRoot);
             var indexFile = Path.Combine(aiWorkspace, indexFileName);
 
+            var modifiedFiles = new List<string>();
+            var newFiles = new List<string>();
+            var deletedFiles = new List<string>();
+
             if (!File.Exists(indexFile))
             {
-                ConsoleHelper.Error($"Error: {indexFileName} not found. Run 'ai-bridge init' and create your index first.");
-                return;
+                throw new Exception($"Error: {indexFileName} not found. Run 'ai-bridge init' and create your index first.");
             }
 
             var xml = new XmlDocument();
@@ -99,26 +102,22 @@ namespace AIBridge
             }
             catch (Exception ex)
             {
-                ConsoleHelper.Error($"Error parsing {indexFileName}: {ex.Message}");
-                return;
+                throw new Exception($"Error parsing {indexFileName}: {ex.Message}");
             }
 
             var indexRoot = xml.DocumentElement;
             if (indexRoot == null)
             {
-                ConsoleHelper.Error($"Error: {indexFileName} is malformed.");
-                return;
+                throw new Exception($"Error: {indexFileName} is malformed.");
             }
 
             var lastUpdatedStr = indexRoot.GetAttribute("lastUpdated");
             if (string.IsNullOrEmpty(lastUpdatedStr) || !DateTime.TryParse(lastUpdatedStr, null, System.Globalization.DateTimeStyles.RoundtripKind, out DateTime lastUpdated))
             {
-                ConsoleHelper.Warning($"Warning: No 'lastUpdated' attribute found on {indexFileName}. Cannot determine status.");
-                return;
+                throw new Exception($"Warning: No 'lastUpdated' attribute found on {indexFileName}. Cannot determine status.");
             }
             lastUpdated = lastUpdated.ToUniversalTime();
 
-            // Collect all indexed file paths
             var indexedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var fileNodes = indexRoot.SelectNodes("//file[@path]");
             if (fileNodes != null)
@@ -133,11 +132,6 @@ namespace AIBridge
                 }
             }
 
-            var modifiedFiles = new List<(string path, DateTime modified)>();
-            var deletedFiles = new List<string>();
-            var newFiles = new List<string>();
-
-            // Check modified and deleted files
             foreach (var relativePath in indexedPaths)
             {
                 var absolutePath = Path.Combine(projectRoot, relativePath.Replace('/', Path.DirectorySeparatorChar));
@@ -146,7 +140,7 @@ namespace AIBridge
                     var lastWrite = File.GetLastWriteTimeUtc(absolutePath);
                     if (lastWrite > lastUpdated)
                     {
-                        modifiedFiles.Add((relativePath, lastWrite));
+                        modifiedFiles.Add(relativePath);
                     }
                 }
                 else
@@ -158,7 +152,6 @@ namespace AIBridge
             var aiIgnorePath = Path.Combine(projectRoot, ".aiignore");
             var (aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns) = FileFilterHelper.LoadAiIgnoreRules(aiIgnorePath);
 
-            // Check for new files via git
             try
             {
                 var psi = new ProcessStartInfo
@@ -186,25 +179,20 @@ namespace AIBridge
                             {
                                 var relativePath = gitFile.Replace('\\', '/');
 
-                                // Skip ai-bridge- prefixed paths
                                 if (relativePath.StartsWith("ai-bridge-", StringComparison.OrdinalIgnoreCase))
                                     continue;
 
-                                // Skip binary extensions
                                 var fileName = Path.GetFileName(relativePath);
                                 var ext = Path.GetExtension(relativePath);
                                 if (FileFilterHelper.BinaryExtensions.Contains(ext))
                                     continue;
 
-                                // Skip excluded filenames
                                 if (FileFilterHelper.ExcludeFileNames.Contains(fileName))
                                     continue;
 
-                                // Apply .aiignore rules
                                 if (FileFilterHelper.IsAiIgnored(relativePath, fileName, aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns))
                                     continue;
 
-                                // If not in index, it's a new file
                                 if (!indexedPaths.Contains(relativePath))
                                 {
                                     newFiles.Add(relativePath);
@@ -217,6 +205,29 @@ namespace AIBridge
             catch
             {
                 ConsoleHelper.Warning("Warning: Could not run git. Skipping new file detection.");
+            }
+
+            return (modifiedFiles, newFiles, deletedFiles, lastUpdated);
+        }
+
+        public static void Status()
+        {
+            var projectRoot = WorkspaceHelper.GetProjectRoot();
+            var indexFileName = WorkspaceHelper.GetIndexFileName(projectRoot);
+
+            List<string> modifiedFiles;
+            List<string> newFiles;
+            List<string> deletedFiles;
+            DateTime lastUpdated;
+
+            try
+            {
+                (modifiedFiles, newFiles, deletedFiles, lastUpdated) = GetChangedFiles();
+            }
+            catch (Exception ex)
+            {
+                ConsoleHelper.Error(ex.Message);
+                return;
             }
 
             // Display results
@@ -232,8 +243,10 @@ namespace AIBridge
             if (modifiedFiles.Count > 0)
             {
                 ConsoleHelper.Warning($"⚠ {modifiedFiles.Count} file(s) modified since last index update:");
-                foreach (var (path, modified) in modifiedFiles)
+                foreach (var path in modifiedFiles)
                 {
+                    var absolutePath = Path.Combine(projectRoot, path.Replace('/', Path.DirectorySeparatorChar));
+                    var modified = File.GetLastWriteTimeUtc(absolutePath);
                     ConsoleHelper.Default($"  • {path}  (modified {modified:yyyy-MM-dd HH:mm:ss UTC})");
                 }
             }
