@@ -29,7 +29,7 @@ namespace AIBridge
                     break;
 
                 case "apply":
-                    var allowedApplyFlags = new[] { "--dry-run", "--watch", "--paste" };
+                    var allowedApplyFlags = new[] { "--watch", "--paste" };
                     var invalidApplyFlags = flags.Except(allowedApplyFlags).ToList();
                     if (invalidApplyFlags.Count > 0)
                     {
@@ -38,10 +38,9 @@ namespace AIBridge
                     }
                     if (!StateManager.EnsureUpToDate()) return;
                     ConsoleHelper.Info("Applying AI code changes...");
-                    bool dryRun = flags.Contains("--dry-run");
                     bool watch = flags.Contains("--watch");
                     bool paste = flags.Contains("--paste");
-                    Applier.Run(dryRun, watch, paste);
+                    Applier.Run(watch, paste);
                     break;
                 case "init":
                     if (flags.Count > 0)
@@ -97,7 +96,6 @@ namespace AIBridge
                     Console.WriteLine("  --incremental       - Pack only files modified or added since the last index update.");
                     Console.WriteLine();
                     Console.WriteLine("Apply Options:");
-                    Console.WriteLine("  --dry-run           - Preview changes without modifying files.");
                     Console.WriteLine("  --watch             - Keep running and auto-apply when ai-response.xml is saved.");
                     Console.WriteLine("  --paste             - Skip file, read directly from clipboard (optional — auto-detected by default).");
                     break;

@@ -8,9 +8,7 @@ description: >
 
 # AI Bridge Update Index — Formatting Reference
 
-Whenever you generate an `<ai-response>` containing code changes, evaluate whether any
-file's overall purpose in the index has changed. If so, include an `<update-ai-bridge-index>`
-block inside `<ai-response>`, placed after `<ai-edits>`.
+Whenever you generate an `<ai-response>` containing an `<ai-edits>` block, you **MUST** also output an `<update-ai-bridge-index>` block immediately after it.
 
 ---
 
@@ -38,15 +36,20 @@ For every `<file>`, `<patch>`, or `<delete>` in your current `<ai-edits>`:
 
 ---
 
-## When to omit this block
+## Mandatory Inclusion & Empty Blocks
 
-If your `<ai-edits>` consists *entirely* of minor changes (bug fixes, small refactors, formatting) and no file's overall purpose needs updating, you may omit the `<update-ai-bridge-index>` block entirely.
+You **must always** output the `<update-ai-bridge-index>` block if you output `<ai-edits>`.
+
+If your `<ai-edits>` consists *entirely* of minor patches to existing files (bug fixes, small refactors, formatting) and no file's overall purpose needs updating, you must output an **empty** block to explicitly signal that the index does not need structural changes:
+`<update-ai-bridge-index />`
+
+**CRITICAL RULE:** If you create any new files or delete any existing files in `<ai-edits>`, you **cannot** output an empty block. You must update the index to add or remove those files. If you fail to do this, the system will detect the mismatch and completely reject your edits.
 
 ---
 
 ## CRITICAL: Path Matching
 
-The `path` attribute is the unique identifier for every file in the index. The C# tooling uses exact string matching to find the file.
+The `path` attribute is the unique identifier for every file in the index. The system uses exact string matching to find the file.
 
 - When outputting a `<delete path="...">` or updating an existing `<file>`, the path you provide **MUST EXACTLY MATCH** the path as it appears in the original index XML file.
 - If the casing is wrong, or if you use backslashes instead of forward slashes, the index update will fail or create duplicate ghost entries.

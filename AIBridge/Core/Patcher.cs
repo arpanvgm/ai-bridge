@@ -24,7 +24,6 @@ namespace AIBridge.Core
         public static bool ApplyPatch(
             XmlNode node,
             string projectPath,
-            bool dryRun,
             List<string> failedFiles,
             List<XmlNode> failedPatchNodes)
         {
@@ -39,12 +38,6 @@ namespace AIBridge.Core
             var absPath = Path.Combine(projectPath, relPath.Replace('/', Path.DirectorySeparatorChar));
             var searchNode = node.SelectSingleNode("search");
             var replaceNode = node.SelectSingleNode("replace");
-
-            if (dryRun)
-            {
-                ConsoleHelper.Info($"  PATCH: {relPath}");
-                return true;
-            }
 
             if (!File.Exists(absPath) || searchNode == null || replaceNode == null)
             {
