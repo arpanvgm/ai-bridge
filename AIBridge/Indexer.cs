@@ -16,11 +16,12 @@ namespace AIBridge
         {
             var projectRoot = WorkspaceHelper.GetProjectRoot();
             var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectRoot);
-            var indexFile = Path.Combine(aiWorkspace, "ai-bridge-index.xml");
+            var indexFileName = WorkspaceHelper.GetIndexFileName(projectRoot);
+            var indexFile = Path.Combine(aiWorkspace, indexFileName);
 
             if (!File.Exists(indexFile))
             {
-                ConsoleHelper.Error("Error: ai-bridge-index.xml not found. Run 'ai-bridge init' and create your index first.");
+                ConsoleHelper.Error($"Error: {indexFileName} not found. Run 'ai-bridge init' and create your index first.");
                 return;
             }
 
@@ -82,11 +83,12 @@ namespace AIBridge
         {
             var projectRoot = WorkspaceHelper.GetProjectRoot();
             var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectRoot);
-            var indexFile = Path.Combine(aiWorkspace, "ai-bridge-index.xml");
+            var indexFileName = WorkspaceHelper.GetIndexFileName(projectRoot);
+            var indexFile = Path.Combine(aiWorkspace, indexFileName);
 
             if (!File.Exists(indexFile))
             {
-                ConsoleHelper.Error("Error: ai-bridge-index.xml not found. Run 'ai-bridge init' and create your index first.");
+                ConsoleHelper.Error($"Error: {indexFileName} not found. Run 'ai-bridge init' and create your index first.");
                 return;
             }
 
@@ -97,28 +99,21 @@ namespace AIBridge
             }
             catch (Exception ex)
             {
-                ConsoleHelper.Error($"Error parsing ai-bridge-index.xml: {ex.Message}");
+                ConsoleHelper.Error($"Error parsing {indexFileName}: {ex.Message}");
                 return;
             }
 
             var indexRoot = xml.DocumentElement;
             if (indexRoot == null)
             {
-                ConsoleHelper.Error("Error: ai-bridge-index.xml is malformed.");
+                ConsoleHelper.Error($"Error: {indexFileName} is malformed.");
                 return;
             }
 
             var lastUpdatedStr = indexRoot.GetAttribute("lastUpdated");
-            if (string.IsNullOrEmpty(lastUpdatedStr))
+            if (string.IsNullOrEmpty(lastUpdatedStr) || !DateTime.TryParse(lastUpdatedStr, null, System.Globalization.DateTimeStyles.RoundtripKind, out DateTime lastUpdated))
             {
-                ConsoleHelper.Warning("Warning: No 'lastUpdated' attribute found on ai-bridge-index.xml. Cannot determine status.");
-                return;
-            }
-
-            DateTime lastUpdated;
-            if (!DateTime.TryParse(lastUpdatedStr, null, System.Globalization.DateTimeStyles.RoundtripKind, out lastUpdated))
-            {
-                ConsoleHelper.Warning($"Warning: Could not parse 'lastUpdated' value: {lastUpdatedStr}");
+                ConsoleHelper.Warning($"Warning: No 'lastUpdated' attribute found on {indexFileName}. Cannot determine status.");
                 return;
             }
             lastUpdated = lastUpdated.ToUniversalTime();
@@ -226,7 +221,7 @@ namespace AIBridge
 
             // Display results
             var formatted = lastUpdated.ToString("yyyy-MM-dd HH:mm:ss UTC");
-            ConsoleHelper.Info($"📋 Index Status  (Last updated: {formatted})");
+            ConsoleHelper.Info($"📋 {indexFileName}  (Last updated: {formatted})");
 
             if (modifiedFiles.Count == 0 && newFiles.Count == 0 && deletedFiles.Count == 0)
             {

@@ -25,5 +25,11 @@ namespace AIBridge.Helpers
             var rootFolderName = new DirectoryInfo(projectRoot).Name;
             return Path.Combine(projectRoot, $"ai-bridge-{rootFolderName}");
         }
+
+        public static string GetIndexFileName(string projectRoot)
+        {
+            var rootFolderName = new DirectoryInfo(projectRoot).Name;
+            return $"{rootFolderName}-index.xml";
+        }
     }
 }

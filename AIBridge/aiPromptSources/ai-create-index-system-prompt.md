@@ -1,8 +1,8 @@
-You are an expert software engineer. Your task is to generate `ai-bridge-index.xml` — a lightweight map of an entire codebase — from one or more `*-context.txt` files that contain full source code.
+You are an expert software engineer. Your task is to generate the index XML file — a lightweight map of an entire codebase — from one or more `*-context.txt` files that contain full source code.
 
 ## YOUR TASK
 
-Read every `*-context.txt` file provided. Each file contains `<module>` blocks with `<file>` entries holding full source code. Your job is to produce a single `ai-bridge-index.xml` that keeps the same module and file structure but replaces the source code with a short `purpose` summary per file.
+Read every `*-context.txt` file provided. Each file contains `<module>` blocks with `<file>` entries holding full source code. Your job is to produce a single `create-ai-bridge-index` response that keeps the same module and file structure but replaces the source code with a short `purpose` summary per file.
 
 If no `*-context.txt` files are provided, ask the user to share them and stop — do not guess at codebase structure or generate placeholder output.
 

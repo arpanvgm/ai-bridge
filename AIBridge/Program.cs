@@ -87,7 +87,7 @@ namespace AIBridge
                     Console.WriteLine("Commands:");
                     Console.WriteLine("  init                - Scaffolds .aiignore, aiSkills/, and aiPrompts/ for a new project.");
                     Console.WriteLine("  update              - Syncs aiSkills/ and aiPrompts/ to match the currently installed tool version.");
-                    Console.WriteLine("  index               - Displays the contents of ai-bridge-index.xml.");
+                    Console.WriteLine("  index               - Displays the contents of the index XML file.");
                     Console.WriteLine("  index --status      - Shows files changed since the last index update.");
                     Console.WriteLine("  pack                - Packs source files into text context for AI.");
                     Console.WriteLine("  apply [options]     - Applies ai-response.xml patches to the codebase.");
