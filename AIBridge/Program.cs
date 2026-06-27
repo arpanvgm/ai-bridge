@@ -61,11 +61,34 @@ namespace AIBridge
                     Initializer.Init(force: true);
                     break;
 
+                case "index":
+                    if (flags.Contains("--status"))
+                    {
+                        var invalidIndexFlags = flags.Except(new[] { "--status" }).ToList();
+                        if (invalidIndexFlags.Count > 0)
+                        {
+                            ConsoleHelper.Error($"Error: Unknown arguments for 'index --status': {string.Join(", ", invalidIndexFlags)}");
+                            return;
+                        }
+                        Indexer.Status();
+                    }
+                    else if (flags.Count > 0)
+                    {
+                        ConsoleHelper.Error($"Error: Unknown arguments for 'index': {string.Join(", ", flags)}");
+                    }
+                    else
+                    {
+                        Indexer.Display();
+                    }
+                    break;
+
                 default:
                     Console.WriteLine("Usage: ai-bridge [command]");
                     Console.WriteLine("Commands:");
                     Console.WriteLine("  init                - Scaffolds .aiignore, aiSkills/, and aiPrompts/ for a new project.");
                     Console.WriteLine("  update              - Syncs aiSkills/ and aiPrompts/ to match the currently installed tool version.");
+                    Console.WriteLine("  index               - Displays the contents of ai-bridge-index.xml.");
+                    Console.WriteLine("  index --status      - Shows files changed since the last index update.");
                     Console.WriteLine("  pack                - Packs source files into text context for AI.");
                     Console.WriteLine("  apply [options]     - Applies ai-response.xml patches to the codebase.");
                     Console.WriteLine();

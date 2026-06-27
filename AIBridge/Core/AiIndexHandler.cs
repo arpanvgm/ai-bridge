@@ -15,7 +15,7 @@ namespace AIBridge.Core
 
             var sb = new StringBuilder();
             sb.AppendLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
-            sb.AppendLine("<ai-bridge-index>");
+            sb.AppendLine($"<ai-bridge-index lastUpdated=\"{DateTime.UtcNow.ToString("o")}\">");
             foreach (XmlNode node in root.ChildNodes)
             {
                 if (node.NodeType == XmlNodeType.Element)
@@ -169,6 +169,8 @@ namespace AIBridge.Core
                 OmitXmlDeclaration = false,
                 Encoding = new UTF8Encoding(false) // No BOM
             };
+
+            indexRoot.SetAttribute("lastUpdated", DateTime.UtcNow.ToString("o"));
 
             using (var writer = XmlWriter.Create(indexFile, settings))
             {
