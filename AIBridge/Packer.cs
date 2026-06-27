@@ -320,6 +320,9 @@ namespace AIBridge
             {
                 ConsoleHelper.Warning($"\nCompleted with {warningCount} warning(s) (see above).");
             }
+            
+            StateManager.UpdateEcosystem(ecosystem);
+            StateManager.UpdateLastPacked();
         }
     }
 

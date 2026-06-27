@@ -21,7 +21,7 @@ namespace AIBridge
                         ConsoleHelper.Error($"Error: Unknown arguments for 'pack': {string.Join(", ", flags)}");
                         return;
                     }
-                    if (!VersionChecker.EnsureUpToDate()) return;
+                    if (!StateManager.EnsureUpToDate()) return;
                     ConsoleHelper.Info("Packing AI context...");
                     Packer.Run();
                     break;
@@ -34,7 +34,7 @@ namespace AIBridge
                         ConsoleHelper.Error($"Error: Unknown arguments for 'apply': {string.Join(", ", invalidApplyFlags)}");
                         return;
                     }
-                    if (!VersionChecker.EnsureUpToDate()) return;
+                    if (!StateManager.EnsureUpToDate()) return;
                     ConsoleHelper.Info("Applying AI code changes...");
                     bool dryRun = flags.Contains("--dry-run");
                     bool watch = flags.Contains("--watch");

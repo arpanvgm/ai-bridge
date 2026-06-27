@@ -85,7 +85,7 @@ namespace AIBridge.Core
             ExtractDirectory(sourceSkillsDir, skillsDir, force, projectPath);
             ExtractDirectory(sourcePromptsDir, promptsDir, force, projectPath);
 
-            VersionChecker.UpdateVersionFile();
+            StateManager.InitState();
         }
 
         private static void ExtractDirectory(string sourceDir, string targetDir, bool force, string projectPath)
