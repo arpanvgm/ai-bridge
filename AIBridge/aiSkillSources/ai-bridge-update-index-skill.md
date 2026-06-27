@@ -91,5 +91,4 @@ Place the block inside `<ai-response>`, after `<ai-edits>`:
 | Situation | Action |
 |---|---|
 | A new file's path prefix doesn't match any existing module | Create a new `<module name="...">` block for it |
-| A `<patch>` touches a path not present in the baseline index | Treat as **Added** — the baseline was apparently incomplete for this path |
 | Same path added then deleted within the edits | Net effect: no entry — do not add it |
