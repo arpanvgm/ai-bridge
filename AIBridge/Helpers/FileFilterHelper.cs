@@ -33,7 +33,7 @@ namespace AIBridge.Helpers
         public static readonly HashSet<string> ExcludeFileNames = new(StringComparer.OrdinalIgnoreCase)
         {
             "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
-            ".DS_Store", "Thumbs.db", ".gitignore", ".aiignore", "ai-bridge-index.xml"
+            ".DS_Store", "Thumbs.db", ".gitignore", ".dockerignore", ".aiignore", "ai-bridge-index.xml"
         };
     }
 }
