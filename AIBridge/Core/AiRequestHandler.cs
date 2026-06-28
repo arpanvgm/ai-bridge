@@ -32,6 +32,10 @@ namespace AIBridge.Core
             var rootFolderName = new DirectoryInfo(projectPath).Name;
             var (projects, _) = Packer.DetectProjects(projectPath);
 
+            var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
+            var aiIgnorePath = Path.Combine(aiWorkspace, ".aiignore");
+            var (aiIgnoreFolders, aiIgnoreFiles) = FileFilterHelper.LoadAiIgnoreRules(aiIgnorePath);
+
             var moduleToFiles = new Dictionary<string, List<(string relativePath, string content)>>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var relPath in requestedFiles)
@@ -55,7 +59,12 @@ namespace AIBridge.Core
                 }
 
                 string fileContent;
-                if (File.Exists(absPath))
+                if (FileFilterHelper.IsAiIgnored(relPath, Path.GetFileName(absPath), aiIgnoreFolders, aiIgnoreFiles))
+                {
+                    fileContent = "// ACCESS DENIED: File is excluded by .aiignore rules.";
+                    ConsoleHelper.Warning($"Blocked AI request for ignored file: {relPath}");
+                }
+                else if (File.Exists(absPath))
                 {
                     fileContent = File.ReadAllText(absPath).TrimEnd();
                 }
@@ -87,7 +96,6 @@ namespace AIBridge.Core
 
             var resultText = sb.ToString().TrimEnd();
 
-            var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
             var artifactsDir = Path.Combine(aiWorkspace, "aiArtifacts");
             if (!Directory.Exists(artifactsDir)) Directory.CreateDirectory(artifactsDir);
 
