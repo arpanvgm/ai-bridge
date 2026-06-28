@@ -204,28 +204,12 @@ Once the AI generates the response, you have two ways to apply it:
 |------|-------------|
 | `--paste` | Reads the AI response from your clipboard (or stdin if clipboard is unavailable) and applies it. |
 | `--watch` | Continuous mode. Monitors `ai-response.xml` and auto-applies whenever you save it. |
-| `--dry-run` | Preview what changes would be made without modifying any files. |
 
 **Continuous Watch Mode (Recommended for save-to-file workflow):**
 ~~~bash
 ai-bridge apply --watch
 ~~~
 *Leave this running in a separate terminal. Every time you paste an AI response into `ai-response.xml` and save, your code is updated automatically.*
-
-**Dry-run example:**
-~~~bash
-ai-bridge apply --dry-run
-~~~
-Output:
-~~~text
-  CREATE: MyApp/Services/NewService.cs
-  OVERWRITE: MyApp/Controllers/OrderController.cs
-  PATCH: MyApp/Models/Order.cs
-  DELETE: MyApp/Services/OldService.cs
-
-Dry run complete: 2 file(s), 1 patch(es), 1 delete(s).
-No files were modified. Run 'ai-bridge apply' to apply for real.
-~~~
 
 ---
 
