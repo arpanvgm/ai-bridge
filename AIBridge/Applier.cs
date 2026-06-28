@@ -98,8 +98,8 @@ namespace AIBridge
             }
             catch (Exception ex)
             {
-                ConsoleHelper.Error($"Error: '{inputFile}' is not valid XML. {ex.Message}");
-                ConsoleHelper.Info("Ensure the file contains a valid <ai-response>, or use 'ai-bridge apply --paste'.");
+                ConsoleHelper.Error($"Error: Provided xml content is not valid XML. {ex.Message}");
+                ConsoleHelper.Error("The entire transaction was aborted. No partial changes were applied.");
                 return;
             }
 
