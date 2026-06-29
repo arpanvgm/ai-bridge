@@ -51,8 +51,11 @@ namespace AIBridge.Core
 
             if (!File.Exists(indexFile))
             {
-                ConsoleHelper.Error($"Error: {indexFileName} not found. Cannot update an index that does not exist.");
-                return;
+                // Create an empty index if it doesn't exist (e.g., brand new project)
+                var emptyDoc = new XmlDocument();
+                var emptyRoot = emptyDoc.CreateElement("ai-bridge-index");
+                emptyDoc.AppendChild(emptyRoot);
+                emptyDoc.Save(indexFile);
             }
 
             var xml = new XmlDocument();

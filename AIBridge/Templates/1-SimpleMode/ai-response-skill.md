@@ -13,7 +13,7 @@ You must wrap the entire XML output in exactly ONE standard markdown code block 
 
 ## RESPONSE STRUCTURE
 
-Your entire response MUST be wrapped in a single `<ai-response>` root element. Code changes (`<file>`, `<patch>`, `<delete>`) go inside an `<ai-edits>` block. If your changes affect any file's overall purpose in the index, include an `<update-ai-bridge-index>` block after `<ai-edits>` (see `ai-bridge-update-index-skill.md` for rules):
+Your entire response MUST be wrapped in a single `<ai-response>` root element. Code changes (`<file>`, `<patch>`, `<delete>`) go inside an `<ai-edits>` block:
 
 ```xml
 <ai-response>
@@ -21,11 +21,6 @@ Your entire response MUST be wrapped in a single `<ai-response>` root element. C
   <ai-edits>
     <!-- your <file>, <patch>, and <delete> blocks go here -->
   </ai-edits>
-
-  <!-- Optional: only if file purposes changed -->
-  <update-ai-bridge-index>
-    <!-- index delta as per ai-bridge-update-index-skill.md -->
-  </update-ai-bridge-index>
 
 </ai-response>
 ```
@@ -226,13 +221,6 @@ public record SectorDto(string Code, string Name, decimal Weight);
 
   </ai-edits>
 
-  <update-ai-bridge-index>
-    <module name="SectorAnalysis.SharedContracts">
-      <file path="SectorAnalysis.SharedContracts/Models/SectorDto.cs" purpose="Defines the SectorDto record used as the API contract for sector data." />
-    </module>
-    <delete path="SectorAnalysis.WebApi/Controllers/OldController.cs" />
-  </update-ai-bridge-index>
-
 </ai-response>
 ```
 
@@ -251,6 +239,5 @@ Before you output anything, answer these questions:
 7. Are all paths in **forward-slash format**, relative to the workspace root?
 8. Is the entire payload wrapped in EXACTLY ONE ````xml ```` block?
 9. Did I use `~~~` instead of backticks for code blocks inside markdown files?
-10. If my changes affect any file's overall purpose, did I include an `<update-ai-bridge-index>` block?
 
 If any answer is "no" — fix it before outputting.

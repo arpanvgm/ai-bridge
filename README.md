@@ -22,6 +22,8 @@ It offers two modes depending on your project size:
 - **Git** installed and on your PATH. AI Bridge uses `git ls-files` to automatically respect your `.gitignore` rules.
 - A browser AI account (Claude, Gemini, Qwen, or ChatGPT).
 
+> **💡 Model Recommendation:** We highly recommend using thinking or reasoning "High" models (e.g., Claude 4.6 Sonnet, Gemini 3.1 Pro, Qwen 3.7 Max/Plus). Writing high-quality code and safely navigating complex logic requires exceptional reasoning capabilities. Weaker models may struggle to provide bug-free implementations.
+
 Install the tool globally using the .NET CLI:
 ```bash
 dotnet tool install --global Tools.AIBridge
@@ -65,10 +67,10 @@ ai-bridge pack
 This generates `*-context.txt` files inside `ai-bridge/artifacts/`. (It automatically respects `.gitignore`, skips binary files, and applies `.aiignore`).
 
 ### 2. Chat with the AI
-1. Open your AI (ChatGPT, Claude, etc).
+1. Open your AI (Claude, Gemini, Qwen, or ChatGPT).
 2. Upload the **System Prompt**: `ai-bridge/1-SimpleMode/ai-system-prompt.md`
 3. Upload the **Protocol Skill**: `ai-bridge/1-SimpleMode/ai-response-skill.md`
-4. Upload your **Context Files**: The `*-context.txt` files from the `artifacts/` folder.
+4. Upload your **Context Files**: The `*-context.txt` files from the `artifacts/` folder. *(Skip this step if starting a brand new project!)*
 5. Ask the AI to write your feature or fix a bug.
 
 ### 3. Apply the Changes
@@ -85,24 +87,24 @@ ai-bridge apply --paste
 If you have a large codebase, uploading your entire project every time wastes tokens and degrades AI reasoning. Advanced Mode solves this by creating a lightweight `index.xml` map of your project.
 
 ### Phase 1: Create the Index (One-Time Setup)
-Before chatting, the AI needs to map out your project.
+*(Skip Phase 1 entirely if you are starting a brand new project from scratch)*
+Before chatting, the AI needs to map out your existing project.
 1. Run `ai-bridge pack` to gather your full context.
 2. Start a new AI chat and upload:
    - `ai-bridge/2-AdvancedMode/Phase1-CreateIndex/ai-create-index-system-prompt.md`
    - All the `*-context.txt` files from `artifacts/`.
 3. The AI will output an XML map of your project. Save this output exactly as **`ai-bridge/index.xml`**.
-*(Note: You should commit this `index.xml` file to Git so your whole team can use it!)*
 
 ### Phase 2: The Daily Workflow
 Now that you have an index, you never need to upload huge context files again!
 1. Start a fresh AI Chat. 
-2. Upload the System Prompt and your new Index:
+2. Upload the System Prompt and your Index:
    - `ai-bridge/2-AdvancedMode/Phase2-DailyChat/ai-index-system-prompt.md`
-   - `ai-bridge/index.xml`
+   - `ai-bridge/index.xml` *(Skip uploading this if starting a brand new project)*
 3. Upload the 3 Required Skills (so the AI knows how to communicate):
-   - `ai-request-skill.md`
-   - `ai-response-skill.md`
-   - `ai-update-index-skill.md`
+   - `ai-bridge/2-AdvancedMode/Phase2-DailyChat/ai-request-skill.md`
+   - `ai-bridge/2-AdvancedMode/Phase2-DailyChat/ai-response-skill.md`
+   - `ai-bridge/2-AdvancedMode/Phase2-DailyChat/ai-update-index-skill.md`
 4. **Ask for a feature.** 
 5. **Fulfill the Request:**
    - The AI will output an XML request for files (e.g., `<ai-request><file>src/app.js</file></ai-request>`).

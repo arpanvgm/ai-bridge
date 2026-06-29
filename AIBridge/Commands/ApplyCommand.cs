@@ -143,7 +143,11 @@ namespace AIBridge.Commands
 
             if (aiEditsNode != null)
             {
-                if (indexUpdateNode == null)
+                var indexFileName = WorkspaceHelper.GetIndexFileName(projectPath);
+                var indexFile = Path.Combine(aiWorkspace, indexFileName);
+                bool isAdvancedMode = File.Exists(indexFile) || indexUpdateNode != null;
+
+                if (isAdvancedMode && indexUpdateNode == null)
                 {
                     ConsoleHelper.Error("Error: AI provided <ai-edits> but completely forgot to provide an <update-ai-bridge-index> block.");
                     ConsoleHelper.Info("Please ask the AI to regenerate the response and include the mandatory index update block.");
@@ -171,10 +175,10 @@ namespace AIBridge.Commands
                     }
                 }
 
-                if (actualCreates || hasDeletes)
+                if (isAdvancedMode && (actualCreates || hasDeletes))
                 {
-                    var hasIndexChanges = indexUpdateNode.SelectNodes(".//file | .//delete")?.Count > 0;
-                    if (!hasIndexChanges)
+                    var hasIndexChanges = indexUpdateNode?.SelectNodes(".//file | .//delete")?.Count > 0;
+                    if (hasIndexChanges != true)
                     {
                         ConsoleHelper.Error("Error: AI created or deleted files in <ai-edits>, but sent an empty <update-ai-bridge-index> block.");
                         ConsoleHelper.Info("The index must be structurally updated when files are added or removed. Please ask the AI to fix its response.");
