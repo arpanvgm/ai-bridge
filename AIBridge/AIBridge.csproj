@@ -24,8 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="aiPromptSources\**" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="aiSkillSources\**" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Templates\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 

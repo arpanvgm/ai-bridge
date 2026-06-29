@@ -8,9 +8,9 @@ using System.Xml;
 using AIBridge.Core;
 using AIBridge.Helpers;
 
-namespace AIBridge
+namespace AIBridge.Commands
 {
-    public static class Applier
+    public static class ApplyCommand
     {
         public static void Run(bool watch = false, bool paste = false)
         {
@@ -28,7 +28,7 @@ namespace AIBridge
 
                 var projectRoot = WorkspaceHelper.GetProjectRoot();
                 var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectRoot);
-                var watchDir = Path.Combine(aiWorkspace, "aiArtifacts");
+                var watchDir = Path.Combine(aiWorkspace, "artifacts");
                 if (!Directory.Exists(watchDir)) Directory.CreateDirectory(watchDir);
 
                 using var watcher = new FileSystemWatcher(watchDir)
@@ -75,7 +75,7 @@ namespace AIBridge
         {
             var projectPath = WorkspaceHelper.GetProjectRoot();
             var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
-            var artifactsDir = Path.Combine(aiWorkspace, "aiArtifacts");
+            var artifactsDir = Path.Combine(aiWorkspace, "artifacts");
             var inputFile = Path.Combine(artifactsDir, "ai-response.xml");
             var failedLogFile = Path.Combine(artifactsDir, "failed-patches.txt");
 

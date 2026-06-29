@@ -1,17 +1,18 @@
 using System;
 using System.IO;
 using AIBridge.Helpers;
+using AIBridge.Core;
 
-namespace AIBridge.Core
+namespace AIBridge.Commands
 {
-    public static class Initializer
+    public static class InitCommand
     {
         public static void Init(bool force = false)
         {
             var projectPath = WorkspaceHelper.GetProjectRoot();
             var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
 
-            var artifactsDir = Path.Combine(aiWorkspace, "aiArtifacts");
+            var artifactsDir = Path.Combine(aiWorkspace, "artifacts");
             if (!Directory.Exists(artifactsDir))
             {
                 Directory.CreateDirectory(artifactsDir);
@@ -28,19 +29,19 @@ namespace AIBridge.Core
             {
                 var content = File.ReadAllText(gitignorePath);
                 bool gitignoreChanged = false;
-                if (!content.Contains("ai-bridge-*/aiArtifacts/"))
+                if (!content.Contains("ai-bridge/artifacts/"))
                 {
-                    File.AppendAllText(gitignorePath, "\n# AI Bridge\nai-bridge-*/aiArtifacts/\n");
+                    File.AppendAllText(gitignorePath, "\n# AI Bridge\nai-bridge/artifacts/\n");
                     gitignoreChanged = true;
                 }
-                if (!content.Contains("ai-bridge-*/aiSkills/"))
+                if (!content.Contains("ai-bridge/1-SimpleMode/"))
                 {
-                    File.AppendAllText(gitignorePath, "ai-bridge-*/aiSkills/\n");
+                    File.AppendAllText(gitignorePath, "ai-bridge/1-SimpleMode/\n");
                     gitignoreChanged = true;
                 }
-                if (!content.Contains("ai-bridge-*/aiPrompts/"))
+                if (!content.Contains("ai-bridge/2-AdvancedMode/"))
                 {
-                    File.AppendAllText(gitignorePath, "ai-bridge-*/aiPrompts/\n");
+                    File.AppendAllText(gitignorePath, "ai-bridge/2-AdvancedMode/\n");
                     gitignoreChanged = true;
                 }
                 
@@ -54,9 +55,9 @@ namespace AIBridge.Core
             if (File.Exists(dockerignorePath))
             {
                 var content = File.ReadAllText(dockerignorePath);
-                if (!content.Contains("ai-bridge-*/"))
+                if (!content.Contains("ai-bridge/"))
                 {
-                    File.AppendAllText(dockerignorePath, "\n# AI Bridge\nai-bridge-*/\n");
+                    File.AppendAllText(dockerignorePath, "\n# AI Bridge\nai-bridge/\n");
                     ConsoleHelper.Success("✅ Patched .dockerignore to exclude AI Bridge workspace from Docker builds.");
                 }
             }
@@ -64,7 +65,7 @@ namespace AIBridge.Core
             var aiIgnorePath = Path.Combine(projectPath, ".aiignore");
             if (!File.Exists(aiIgnorePath))
             {
-                var defaultIgnore = "# Additional ignore rules for AI Bridge packing (works alongside .gitignore)\n# Folders should end with /\nai-bridge-*/\nTestResults/\n*.g.cs\n*.log\n*.tmp\n";
+                var defaultIgnore = "# Additional ignore rules for AI Bridge packing (works alongside .gitignore)\n# Folders should end with /\nai-bridge/\nTestResults/\n*.g.cs\n*.log\n*.tmp\n";
                 File.WriteAllText(aiIgnorePath, defaultIgnore);
                 ConsoleHelper.Success("✅ Created default .aiignore file.");
             }
@@ -73,28 +74,19 @@ namespace AIBridge.Core
                 ConsoleHelper.Info("ℹ .aiignore already exists.");
             }
 
-            // Create aiSkills and aiPrompts folders and extract from source folders
-            var skillsDir = Path.Combine(aiWorkspace, "aiSkills");
-            var promptsDir = Path.Combine(aiWorkspace, "aiPrompts");
+            var simpleModeDir = Path.Combine(aiWorkspace, "1-SimpleMode");
+            var advancedModeDir = Path.Combine(aiWorkspace, "2-AdvancedMode");
 
             if (force)
             {
-                if (Directory.Exists(skillsDir))
-                {
-                    foreach (var existingFile in Directory.GetFiles(skillsDir)) File.Delete(existingFile);
-                }
-                if (Directory.Exists(promptsDir))
-                {
-                    foreach (var existingFile in Directory.GetFiles(promptsDir)) File.Delete(existingFile);
-                }
+                if (Directory.Exists(simpleModeDir)) Directory.Delete(simpleModeDir, true);
+                if (Directory.Exists(advancedModeDir)) Directory.Delete(advancedModeDir, true);
             }
 
             string baseDir = AppContext.BaseDirectory;
-            string sourceSkillsDir = Path.Combine(baseDir, "aiSkillSources");
-            string sourcePromptsDir = Path.Combine(baseDir, "aiPromptSources");
+            string sourceTemplatesDir = Path.Combine(baseDir, "Templates");
 
-            ExtractDirectory(sourceSkillsDir, skillsDir, force, projectPath);
-            ExtractDirectory(sourcePromptsDir, promptsDir, force, projectPath);
+            ExtractDirectory(sourceTemplatesDir, aiWorkspace, force, projectPath);
 
             StateManager.InitState();
         }

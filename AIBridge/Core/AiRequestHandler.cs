@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Xml;
+using AIBridge.Commands;
 using AIBridge.Helpers;
 
 namespace AIBridge.Core
@@ -30,7 +31,7 @@ namespace AIBridge.Core
             }
 
             var rootFolderName = new DirectoryInfo(projectPath).Name;
-            var (projects, _) = Packer.DetectProjects(projectPath);
+            var (projects, _) = PackCommand.DetectProjects(projectPath);
 
             var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
             var aiIgnorePath = Path.Combine(aiWorkspace, ".aiignore");
@@ -96,7 +97,7 @@ namespace AIBridge.Core
 
             var resultText = sb.ToString().TrimEnd();
 
-            var artifactsDir = Path.Combine(aiWorkspace, "aiArtifacts");
+            var artifactsDir = Path.Combine(aiWorkspace, "artifacts");
             if (!Directory.Exists(artifactsDir)) Directory.CreateDirectory(artifactsDir);
 
             var outputFile = Path.Combine(artifactsDir, "ai-requested-context.txt");

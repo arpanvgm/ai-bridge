@@ -8,9 +8,9 @@ using System.Text.RegularExpressions;
 using AIBridge.Core;
 using AIBridge.Helpers;
 
-namespace AIBridge
+namespace AIBridge.Commands
 {
-    public static class Packer
+    public static class PackCommand
     {
 
 
@@ -173,7 +173,7 @@ namespace AIBridge
         {
             var projectPath = WorkspaceHelper.GetProjectRoot();
             var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
-            var artifactsDir = Path.Combine(aiWorkspace, "aiArtifacts");
+            var artifactsDir = Path.Combine(aiWorkspace, "artifacts");
             var aiIgnorePath = Path.Combine(projectPath, ".aiignore");
 
             if (!Directory.Exists(artifactsDir) || !Directory.Exists(Path.Combine(aiWorkspace, "aiSkills")))
@@ -192,7 +192,7 @@ namespace AIBridge
             {
                 try
                 {
-                    var (modified, newFiles, _, _) = Indexer.GetChangedFiles();
+                    var (modified, newFiles, _, _) = IndexCommand.GetChangedFiles();
                     incrementalFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                     foreach (var f in modified) incrementalFiles.Add(f);
                     foreach (var f in newFiles) incrementalFiles.Add(f);

@@ -18,7 +18,7 @@ namespace AIBridge.Core
         {
             var projectPath = WorkspaceHelper.GetProjectRoot();
             var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
-            return Path.Combine(aiWorkspace, "ai-bridge-state.xml");
+            return Path.Combine(aiWorkspace, "state.xml");
         }
         
 

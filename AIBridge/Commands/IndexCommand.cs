@@ -6,9 +6,9 @@ using System.Linq;
 using System.Xml;
 using AIBridge.Helpers;
 
-namespace AIBridge
+namespace AIBridge.Commands
 {
-    public static class Indexer
+    public static class IndexCommand
     {
 
 

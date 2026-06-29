@@ -22,14 +22,12 @@ namespace AIBridge.Helpers
 
         public static string GetAiWorkspacePath(string projectRoot)
         {
-            var rootFolderName = new DirectoryInfo(projectRoot).Name;
-            return Path.Combine(projectRoot, $"ai-bridge-{rootFolderName}");
+            return Path.Combine(projectRoot, "ai-bridge");
         }
 
         public static string GetIndexFileName(string projectRoot)
         {
-            var rootFolderName = new DirectoryInfo(projectRoot).Name;
-            return $"{rootFolderName}-index.xml";
+            return "index.xml";
         }
     }
 }

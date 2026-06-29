@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using AIBridge.Core;
+using AIBridge.Commands;
 using AIBridge.Helpers;
 
 namespace AIBridge
@@ -25,7 +26,7 @@ namespace AIBridge
                     if (!StateManager.EnsureUpToDate()) return;
                     bool isIncremental = flags.Contains("--incremental");
                     ConsoleHelper.Info(isIncremental ? "Packing incremental AI context..." : "Packing full AI context...");
-                    Packer.Run(incremental: isIncremental);
+                    PackCommand.Run(incremental: isIncremental);
                     break;
 
                 case "apply":
@@ -40,7 +41,7 @@ namespace AIBridge
                     ConsoleHelper.Info("Applying AI code changes...");
                     bool watch = flags.Contains("--watch");
                     bool paste = flags.Contains("--paste");
-                    Applier.Run(watch, paste);
+                    ApplyCommand.Run(watch, paste);
                     break;
                 case "init":
                     if (flags.Count > 0)
@@ -49,7 +50,7 @@ namespace AIBridge
                         return;
                     }
                     ConsoleHelper.Info("Initializing AI Bridge for this project...");
-                    Initializer.Init(force: false);
+                    InitCommand.Init(force: false);
                     break;
 
                 case "update":
@@ -59,7 +60,7 @@ namespace AIBridge
                         return;
                     }
                     ConsoleHelper.Info("Updating AI Bridge default templates...");
-                    Initializer.Init(force: true);
+                    InitCommand.Init(force: true);
                     break;
 
                 case "index":
@@ -71,7 +72,7 @@ namespace AIBridge
                             ConsoleHelper.Error($"Error: Unknown arguments for 'index --status': {string.Join(", ", invalidIndexFlags)}");
                             return;
                         }
-                        Indexer.Status();
+                        IndexCommand.Status();
                     }
                     else if (flags.Count > 0)
                     {
@@ -79,7 +80,7 @@ namespace AIBridge
                     }
                     else
                     {
-                        Indexer.Display();
+                        IndexCommand.Display();
                     }
                     break;
 
