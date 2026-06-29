@@ -8,11 +8,11 @@ Works with **any language or technology** — .NET, Node.js, Python, React, or a
 
 ## 🌟 The Big Picture
 
-AI Bridge is a fast, language-agnostic CLI tool that bridges the gap between your local codebase and web-based LLMs (like ChatGPT, Claude, and Gemini). 
+AI Bridge is a fast, language-agnostic CLI tool that bridges the gap between your local codebase and web-based LLMs (like Claude, Gemini, Qwen, and ChatGPT). 
 
 It offers two modes depending on your project size:
 1. **Simple Mode (Quick Start):** Perfect for small projects. You pack your entire codebase, give it to the AI, and get code back.
-2. **Advanced Mode (Index Flow):** Designed for massive enterprise codebases. You map your project once, and then only upload the specific files the AI requests, saving millions of tokens and preventing AI confusion.
+2. **Advanced Mode (Index Flow):** Designed for large codebases. You map your project once, and then only upload the specific files the AI requests, saving millions of tokens and preventing AI confusion.
 
 ---
 
@@ -20,7 +20,7 @@ It offers two modes depending on your project size:
 
 - **.NET 10 SDK** installed on your machine.
 - **Git** installed and on your PATH. AI Bridge uses `git ls-files` to automatically respect your `.gitignore` rules.
-- A browser AI account (ChatGPT, Claude, or Gemini).
+- A browser AI account (Claude, Gemini, Qwen, or ChatGPT).
 
 Install the tool globally using the .NET CLI:
 ```bash
@@ -82,7 +82,7 @@ ai-bridge apply --paste
 
 ## 🔴 Advanced Mode (For Large Projects)
 
-If you have a massive monorepo, uploading your entire codebase every time wastes tokens and degrades AI reasoning. Advanced Mode solves this by creating a lightweight `index.xml` map of your project.
+If you have a large codebase, uploading your entire project every time wastes tokens and degrades AI reasoning. Advanced Mode solves this by creating a lightweight `index.xml` map of your project.
 
 ### Phase 1: Create the Index (One-Time Setup)
 Before chatting, the AI needs to map out your project.
@@ -104,7 +104,11 @@ Now that you have an index, you never need to upload huge context files again!
    - `ai-response-skill.md`
    - `ai-update-index-skill.md`
 4. **Ask for a feature.** 
-5. The AI will look at the `index.xml` and ask you for specific files (e.g., `<request><file>src/app.js</file></request>`). Provide the contents of those files to the AI.
+5. **Fulfill the Request:**
+   - The AI will output an XML request for files (e.g., `<ai-request><file>src/app.js</file></ai-request>`).
+   - Copy the request and run `ai-bridge apply --paste`.
+   - The tool will automatically gather those files and bundle them into **`ai-bridge/artifacts/ai-requested-context.txt`**.
+   - Upload that text file back to the AI chat.
 6. The AI generates the final code changes. Copy them and run `ai-bridge apply --paste`.
 
 ---
