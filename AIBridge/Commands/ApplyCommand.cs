@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using System.Xml;
 using AIBridge.Core;
 using AIBridge.Helpers;
+using AIBridge.Constants;
 
 namespace AIBridge.Commands
 {
@@ -28,12 +29,12 @@ namespace AIBridge.Commands
 
                 var projectRoot = WorkspaceHelper.GetProjectRoot();
                 var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectRoot);
-                var watchDir = Path.Combine(aiWorkspace, "artifacts");
+                var watchDir = Path.Combine(aiWorkspace, FolderNames.Artifacts);
                 if (!Directory.Exists(watchDir)) Directory.CreateDirectory(watchDir);
 
                 using var watcher = new FileSystemWatcher(watchDir)
                 {
-                    Filter = "ai-response.xml",
+                    Filter = FileNames.ResponseXml,
                     NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.CreationTime,
                     EnableRaisingEvents = true
                 };
@@ -42,10 +43,10 @@ namespace AIBridge.Commands
 
                 void OnChanged(object s, FileSystemEventArgs e)
                 {
-                    if ((DateTime.Now - lastRun).TotalMilliseconds < 1000) return;
+                    if ((DateTime.Now - lastRun).TotalMilliseconds < Timings.WatchDebounceMs) return;
                     lastRun = DateTime.Now;
 
-                    System.Threading.Thread.Sleep(500); // debounce file lock
+                    System.Threading.Thread.Sleep(Timings.FileLockWaitMs); // debounce file lock
                     Console.WriteLine();
                     ConsoleHelper.Info("Change detected in ai-response.xml. Applying...");
                     ApplyInternal(paste);
@@ -75,9 +76,9 @@ namespace AIBridge.Commands
         {
             var projectPath = WorkspaceHelper.GetProjectRoot();
             var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
-            var artifactsDir = Path.Combine(aiWorkspace, "artifacts");
-            var inputFile = Path.Combine(artifactsDir, "ai-response.xml");
-            var failedLogFile = Path.Combine(artifactsDir, "failed-patches.txt");
+            var artifactsDir = Path.Combine(aiWorkspace, FolderNames.Artifacts);
+            var inputFile = Path.Combine(artifactsDir, FileNames.ResponseXml);
+            var failedLogFile = Path.Combine(artifactsDir, FileNames.FailedPatches);
 
             // --- Step 1: Resolve input content into ai-response.xml ---
             if (!InputResolver.Resolve(inputFile, paste))
@@ -110,27 +111,27 @@ namespace AIBridge.Commands
                 ConsoleHelper.Info("Paste a valid <ai-response> into the file, or use 'ai-bridge apply --paste'.");
                 return;
             }
-            if (root.Name != "ai-response" && root.Name != "ai-request" && root.Name != "create-ai-bridge-index" && root.Name != "update-ai-bridge-index")
+            if (root.Name != XmlTags.AiResponse && root.Name != XmlTags.AiRequest && root.Name != XmlTags.CreateIndex && root.Name != XmlTags.UpdateIndex)
             {
-                ConsoleHelper.Error($"Error: Root element must be <ai-response>, <ai-request>, <create-ai-bridge-index>, or <update-ai-bridge-index>, found <{root.Name}>.");
+                ConsoleHelper.Error($"Error: Root element must be <{XmlTags.AiResponse}>, <{XmlTags.AiRequest}>, <{XmlTags.CreateIndex}>, or <{XmlTags.UpdateIndex}>, found <{root.Name}>.");
                 return;
             }
 
             // --- Step 3: Delegate to ai-request handler if needed ---
-            if (root.Name == "ai-request")
+            if (root.Name == XmlTags.AiRequest)
             {
                 AiRequestHandler.Handle(root, projectPath, paste);
                 return;
             }
 
-            if (root.Name == "create-ai-bridge-index")
+            if (root.Name == XmlTags.CreateIndex)
             {
                 AiIndexHandler.HandleCreate(root, projectPath);
                 InputResolver.ResetInputFile(inputFile);
                 return;
             }
 
-            if (root.Name == "update-ai-bridge-index")
+            if (root.Name == XmlTags.UpdateIndex)
             {
                 AiIndexHandler.HandleUpdate(root, projectPath);
                 InputResolver.ResetInputFile(inputFile);
@@ -138,8 +139,8 @@ namespace AIBridge.Commands
             }
 
             // --- Step 4.5: Validate index update rules ---
-            var aiEditsNode = root.SelectSingleNode("ai-edits");
-            var indexUpdateNode = root.SelectSingleNode("update-ai-bridge-index");
+            var aiEditsNode = root.SelectSingleNode(XmlTags.AiEdits);
+            var indexUpdateNode = root.SelectSingleNode(XmlTags.UpdateIndex);
 
             if (aiEditsNode != null)
             {
@@ -154,10 +155,10 @@ namespace AIBridge.Commands
                     return;
                 }
 
-                var hasDeletes = aiEditsNode.SelectNodes("delete")?.Count > 0;
+                var hasDeletes = aiEditsNode.SelectNodes(XmlTags.Delete)?.Count > 0;
                 bool actualCreates = false;
                 
-                var fileNodes = aiEditsNode.SelectNodes("file");
+                var fileNodes = aiEditsNode.SelectNodes(XmlTags.File);
                 if (fileNodes != null)
                 {
                     foreach (XmlNode fileNode in fileNodes)
@@ -192,9 +193,9 @@ namespace AIBridge.Commands
             {
                 if (node.NodeType == XmlNodeType.Element)
                 {
-                    if (node.Name != "ai-edits" && node.Name != "update-ai-bridge-index")
+                    if (node.Name != XmlTags.AiEdits && node.Name != XmlTags.UpdateIndex)
                     {
-                        ConsoleHelper.Error($"Error: Unknown element '<{node.Name}>' found. Only <ai-edits> and <update-ai-bridge-index> are allowed.");
+                        ConsoleHelper.Error($"Error: Unknown element '<{node.Name}>' found. Only <{XmlTags.AiEdits}> and <{XmlTags.UpdateIndex}> are allowed.");
                         return;
                     }
                 }
@@ -205,7 +206,7 @@ namespace AIBridge.Commands
             var failedPatchNodes = new List<XmlNode>();
 
             // --- Step 5: Process <file> elements (full file creation/overwrite) ---
-            foreach (XmlNode node in root.SelectNodes("ai-edits/file")!)
+            foreach (XmlNode node in root.SelectNodes($"{XmlTags.AiEdits}/{XmlTags.File}")!)
             {
                 var relPath = node.Attributes?["path"]?.Value?.Trim();
                 if (string.IsNullOrEmpty(relPath))
@@ -224,7 +225,7 @@ namespace AIBridge.Commands
             }
 
             // --- Step 6: Process <patch> elements ---
-            foreach (XmlNode node in root.SelectNodes("ai-edits/patch")!)
+            foreach (XmlNode node in root.SelectNodes($"{XmlTags.AiEdits}/{XmlTags.Patch}")!)
             {
                 if (Patcher.ApplyPatch(node, projectPath, failedFiles, failedPatchNodes))
                     countPatchOk++;
@@ -233,7 +234,7 @@ namespace AIBridge.Commands
             }
 
             // --- Step 7: Process <delete> elements ---
-            foreach (XmlNode node in root.SelectNodes("ai-edits/delete")!)
+            foreach (XmlNode node in root.SelectNodes($"{XmlTags.AiEdits}/{XmlTags.Delete}")!)
             {
                 var relPath = node.Attributes?["path"]?.Value?.Trim();
                 if (string.IsNullOrEmpty(relPath))

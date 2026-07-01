@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text;
 using AIBridge.Helpers;
+using AIBridge.Constants;
 
 namespace AIBridge.Core
 {
@@ -11,8 +12,6 @@ namespace AIBridge.Core
     /// </summary>
     public static class InputResolver
     {
-        private const string Placeholder = "<!-- Paste the AI response XML here -->";
-
         /// <summary>
         /// Resolves AI response content into the ai-response.xml file.
         /// Without --paste: reads strictly from the file (no fallback).
@@ -29,12 +28,12 @@ namespace AIBridge.Core
             {
                 if (File.Exists(inputFile))
                 {
-                    ConsoleHelper.Info("Reading AI response from ai-response.xml.");
+                    ConsoleHelper.Info($"Reading AI response from {FileNames.ResponseXml}.");
                     return true;
                 }
 
-                ConsoleHelper.Error("File not found: ai-response.xml");
-                ConsoleHelper.Info("Paste content into the file, or use 'ai-bridge apply --paste'.");
+                ConsoleHelper.Error($"File not found: {FileNames.ResponseXml}");
+                ConsoleHelper.Info($"Paste content into the file, or use 'ai-bridge apply --paste'.");
                 return false;
             }
 
@@ -53,7 +52,7 @@ namespace AIBridge.Core
             if (!string.IsNullOrWhiteSpace(content))
             {
                 File.WriteAllText(inputFile, content, Encoding.UTF8);
-                ConsoleHelper.Info("Read AI response from clipboard → saved to ai-response.xml.");
+                ConsoleHelper.Info($"Read AI response from clipboard → saved to {FileNames.ResponseXml}.");
                 return true;
             }
 
@@ -65,12 +64,12 @@ namespace AIBridge.Core
             if (!string.IsNullOrWhiteSpace(content))
             {
                 File.WriteAllText(inputFile, content, Encoding.UTF8);
-                ConsoleHelper.Info("Read AI response from stdin → saved to ai-response.xml.");
+                ConsoleHelper.Info($"Read AI response from stdin → saved to {FileNames.ResponseXml}.");
                 return true;
             }
 
             ConsoleHelper.Error("Error: No content received.");
-            ConsoleHelper.Info("Save the AI response to 'ai-response.xml' and run 'ai-bridge apply'.");
+            ConsoleHelper.Info($"Save the AI response to '{FileNames.ResponseXml}' and run 'ai-bridge apply'.");
             return false;
         }
 
@@ -79,8 +78,9 @@ namespace AIBridge.Core
         /// </summary>
         public static void ResetInputFile(string inputFile)
         {
-            File.WriteAllText(inputFile, Placeholder + "\n");
-            ConsoleHelper.Success("✅ Cleared ai-response.xml to prevent accidental re-application.");
+            var content = "<!-- Paste the AI response XML here -->\n";
+            File.WriteAllText(inputFile, content);
+            ConsoleHelper.Info($"\nReset {FileNames.ResponseXml} for the next prompt.");
         }
     }
 }

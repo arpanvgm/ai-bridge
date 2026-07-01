@@ -3,6 +3,7 @@ using System.IO;
 using System.Text;
 using System.Xml;
 using AIBridge.Helpers;
+using AIBridge.Constants;
 
 namespace AIBridge.Core
 {
@@ -81,7 +82,7 @@ namespace AIBridge.Core
             int deletedCount = 0;
 
             // Process all <delete> nodes anywhere inside <update-ai-bridge-index>
-            var deleteNodes = root.SelectNodes("//delete");
+            var deleteNodes = root.SelectNodes($"//{XmlTags.Delete}");
             if (deleteNodes != null)
             {
                 foreach (XmlNode delNode in deleteNodes)
@@ -97,7 +98,7 @@ namespace AIBridge.Core
                             deletedCount++;
 
                             // Clean up empty module
-                            if (moduleNode != null && moduleNode.SelectNodes("file")?.Count == 0)
+                            if (moduleNode != null && moduleNode.SelectNodes(XmlTags.File)?.Count == 0)
                             {
                                 indexRoot.RemoveChild(moduleNode);
                             }
@@ -107,7 +108,7 @@ namespace AIBridge.Core
             }
 
             // Process <file> additions/updates inside <module> tags
-            var moduleNodes = root.SelectNodes("module");
+            var moduleNodes = root.SelectNodes(XmlTags.Module);
             if (moduleNodes != null)
             {
                 foreach (XmlNode moduleNode in moduleNodes)
@@ -115,17 +116,17 @@ namespace AIBridge.Core
                     var moduleName = moduleNode.Attributes?["name"]?.Value;
                     if (string.IsNullOrEmpty(moduleName)) continue;
 
-                    var targetModule = indexRoot.SelectSingleNode($"module[@name='{moduleName}']");
+                    var targetModule = indexRoot.SelectSingleNode($"{XmlTags.Module}[@name='{moduleName}']");
                     if (targetModule == null)
                     {
-                        targetModule = xml.CreateElement("module");
+                        targetModule = xml.CreateElement(XmlTags.Module);
                         var nameAttr = xml.CreateAttribute("name");
                         nameAttr.Value = moduleName;
                         targetModule.Attributes?.Append(nameAttr);
                         indexRoot.AppendChild(targetModule);
                     }
 
-                    foreach (XmlNode fileNode in moduleNode.SelectNodes("file")!)
+                    foreach (XmlNode fileNode in moduleNode.SelectNodes(XmlTags.File)!)
                     {
                         var path = fileNode.Attributes?["path"]?.Value;
                         if (string.IsNullOrEmpty(path)) continue;
@@ -155,7 +156,7 @@ namespace AIBridge.Core
             }
 
             // Process floating <file> nodes not in a module (only for updates of existing files)
-            var floatingFiles = root.SelectNodes("file");
+            var floatingFiles = root.SelectNodes(XmlTags.File);
             if (floatingFiles != null)
             {
                 foreach (XmlNode fileNode in floatingFiles)

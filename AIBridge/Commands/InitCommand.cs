@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using AIBridge.Helpers;
 using AIBridge.Core;
+using AIBridge.Constants;
 
 namespace AIBridge.Commands
 {
@@ -12,13 +13,13 @@ namespace AIBridge.Commands
             var projectPath = WorkspaceHelper.GetProjectRoot();
             var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
 
-            var artifactsDir = Path.Combine(aiWorkspace, "artifacts");
+            var artifactsDir = Path.Combine(aiWorkspace, FolderNames.Artifacts);
             if (!Directory.Exists(artifactsDir))
             {
                 Directory.CreateDirectory(artifactsDir);
             }
 
-            var responseFilePath = Path.Combine(artifactsDir, "ai-response.xml");
+            var responseFilePath = Path.Combine(artifactsDir, FileNames.ResponseXml);
             if (!File.Exists(responseFilePath))
             {
                 File.WriteAllText(responseFilePath, "<!-- Paste the AI response XML here -->\n");
@@ -62,7 +63,7 @@ namespace AIBridge.Commands
                 }
             }
 
-            var aiIgnorePath = Path.Combine(projectPath, ".aiignore");
+            var aiIgnorePath = Path.Combine(projectPath, FileNames.AiIgnore);
             if (!File.Exists(aiIgnorePath))
             {
                 var defaultIgnore = "# Additional ignore rules for AI Bridge packing (works alongside .gitignore)\n# Folders should end with /\nai-bridge/\nTestResults/\n*.g.cs\n*.log\n*.tmp\n";
@@ -74,8 +75,8 @@ namespace AIBridge.Commands
                 ConsoleHelper.Info("ℹ .aiignore already exists.");
             }
 
-            var simpleModeDir = Path.Combine(aiWorkspace, "1-SimpleMode");
-            var advancedModeDir = Path.Combine(aiWorkspace, "2-AdvancedMode");
+            var simpleModeDir = Path.Combine(aiWorkspace, FolderNames.SimpleMode);
+            var advancedModeDir = Path.Combine(aiWorkspace, FolderNames.AdvancedMode);
 
             if (force)
             {

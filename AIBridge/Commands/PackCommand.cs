@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using AIBridge.Core;
 using AIBridge.Helpers;
+using AIBridge.Constants;
 
 namespace AIBridge.Commands
 {
@@ -17,7 +18,7 @@ namespace AIBridge.Commands
         // AI Bridge folders that should never be packed (regardless of git or fallback)
         private static readonly string[] AlwaysExcludePrefixes = new[]
         {
-            "ai-bridge-"
+            $"{FolderNames.AiBridge}-"
         };
 
         // Hardcoded folder patterns for fallback when git is not available
@@ -173,8 +174,8 @@ namespace AIBridge.Commands
         {
             var projectPath = WorkspaceHelper.GetProjectRoot();
             var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
-            var artifactsDir = Path.Combine(aiWorkspace, "artifacts");
-            var aiIgnorePath = Path.Combine(projectPath, ".aiignore");
+            var artifactsDir = Path.Combine(aiWorkspace, FolderNames.Artifacts);
+            var aiIgnorePath = Path.Combine(projectPath, FileNames.AiIgnore);
 
             if (!Directory.Exists(artifactsDir) || !Directory.Exists(Path.Combine(aiWorkspace, "aiSkills")))
             {
@@ -313,12 +314,12 @@ namespace AIBridge.Commands
                 int totalFiles = 0;
                 foreach (var key in outputData.Keys)
                 {
-                    sb.AppendLine($"<module name=\"{key}\" files=\"{outputFileCounts[key]}\">");
+                    sb.AppendLine($"<{XmlTags.Module} name=\"{key}\" files=\"{outputFileCounts[key]}\">");
                     sb.AppendLine(outputData[key].ToString());
-                    sb.AppendLine("</module>");
+                    sb.AppendLine($"</{XmlTags.Module}>");
                     totalFiles += outputFileCounts[key];
                 }
-                var outPath = Path.Combine(artifactsDir, "ai-incremental-context.txt");
+                var outPath = Path.Combine(artifactsDir, FileNames.IncrementalContext);
                 File.WriteAllText(outPath, sb.ToString(), Encoding.UTF8);
 
                 var fileSizeKB = Math.Round(new FileInfo(outPath).Length / 1024.0, 1);
@@ -331,7 +332,7 @@ namespace AIBridge.Commands
                 {
                     var outName = key == rootFolderName ? $"{key}-root-context.txt" : $"{key}-context.txt";
                     var outPath = Path.Combine(artifactsDir, outName);
-                    var finalContent = $"<module name=\"{key}\" files=\"{outputFileCounts[key]}\">\n{outputData[key]}\n</module>\n";
+                    var finalContent = $"<{XmlTags.Module} name=\"{key}\" files=\"{outputFileCounts[key]}\">\n{outputData[key]}\n</{XmlTags.Module}>\n";
 
                     File.WriteAllText(outPath, finalContent, Encoding.UTF8);
 

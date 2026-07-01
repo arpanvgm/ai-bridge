@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using AIBridge.Constants;
 
 namespace AIBridge.Helpers
 {
@@ -11,7 +12,7 @@ namespace AIBridge.Helpers
             while (currentDir != null)
             {
                 if (Directory.Exists(Path.Combine(currentDir.FullName, ".git")) ||
-                    File.Exists(Path.Combine(currentDir.FullName, ".aiignore")))
+                    File.Exists(Path.Combine(currentDir.FullName, FileNames.AiIgnore)))
                 {
                     return currentDir.FullName;
                 }
@@ -22,12 +23,12 @@ namespace AIBridge.Helpers
 
         public static string GetAiWorkspacePath(string projectRoot)
         {
-            return Path.Combine(projectRoot, "ai-bridge");
+            return Path.Combine(projectRoot, FolderNames.AiBridge);
         }
 
         public static string GetIndexFileName(string projectRoot)
         {
-            return "index.xml";
+            return FileNames.Index;
         }
     }
 }
