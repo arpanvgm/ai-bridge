@@ -4,6 +4,7 @@ using System.Linq;
 using AIBridge.Core;
 using AIBridge.Commands;
 using AIBridge.Helpers;
+using AIBridge.Constants;
 
 namespace AIBridge
 {
@@ -16,21 +17,21 @@ namespace AIBridge
 
             switch (command)
             {
-                case "pack":
-                    var invalidPackFlags = flags.Except(new[] { "--incremental" }).ToList();
+                case CliCommands.Pack:
+                    var invalidPackFlags = flags.Except(new[] { CliFlags.Incremental }).ToList();
                     if (invalidPackFlags.Count > 0)
                     {
                         ConsoleHelper.Error($"Error: Unknown arguments for 'pack': {string.Join(", ", invalidPackFlags)}");
                         return;
                     }
                     if (!StateManager.EnsureUpToDate()) return;
-                    bool isIncremental = flags.Contains("--incremental");
+                    bool isIncremental = flags.Contains(CliFlags.Incremental);
                     ConsoleHelper.Info(isIncremental ? "Packing incremental AI context..." : "Packing full AI context...");
                     PackCommand.Run(incremental: isIncremental);
                     break;
 
-                case "apply":
-                    var allowedApplyFlags = new[] { "--watch", "--paste" };
+                case CliCommands.Apply:
+                    var allowedApplyFlags = new[] { CliFlags.Watch, CliFlags.Paste };
                     var invalidApplyFlags = flags.Except(allowedApplyFlags).ToList();
                     if (invalidApplyFlags.Count > 0)
                     {
@@ -39,11 +40,11 @@ namespace AIBridge
                     }
                     if (!StateManager.EnsureUpToDate()) return;
                     ConsoleHelper.Info("Applying AI code changes...");
-                    bool watch = flags.Contains("--watch");
-                    bool paste = flags.Contains("--paste");
+                    bool watch = flags.Contains(CliFlags.Watch);
+                    bool paste = flags.Contains(CliFlags.Paste);
                     ApplyCommand.Run(watch, paste);
                     break;
-                case "init":
+                case CliCommands.Init:
                     if (flags.Count > 0)
                     {
                         ConsoleHelper.Error($"Error: Unknown arguments for 'init': {string.Join(", ", flags)}");
@@ -53,7 +54,7 @@ namespace AIBridge
                     InitCommand.Init(force: false);
                     break;
 
-                case "update":
+                case CliCommands.Update:
                     if (flags.Count > 0)
                     {
                         ConsoleHelper.Error($"Error: Unknown arguments for 'update': {string.Join(", ", flags)}");
@@ -63,10 +64,10 @@ namespace AIBridge
                     InitCommand.Init(force: true);
                     break;
 
-                case "index":
-                    if (flags.Contains("--status"))
+                case CliCommands.Index:
+                    if (flags.Contains(CliFlags.Status))
                     {
-                        var invalidIndexFlags = flags.Except(new[] { "--status" }).ToList();
+                        var invalidIndexFlags = flags.Except(new[] { CliFlags.Status }).ToList();
                         if (invalidIndexFlags.Count > 0)
                         {
                             ConsoleHelper.Error($"Error: Unknown arguments for 'index --status': {string.Join(", ", invalidIndexFlags)}");
