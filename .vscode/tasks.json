@@ -7,7 +7,7 @@
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/AIBridge/AIBridge.csproj",
+                "${workspaceFolder}/ai-bridge.slnx",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
@@ -23,7 +23,7 @@
             "type": "process",
             "args": [
                 "pack",
-                "${workspaceFolder}/AIBridge/AIBridge.csproj",
+                "${workspaceFolder}/src/AIBridge.Cli/AIBridge.Cli.csproj",
                 "-c",
                 "Release"
             ],
@@ -32,15 +32,15 @@
         {
             "label": "🚀 test locally (uninstall -> pack -> install)",
             "type": "shell",
-            "command": "dotnet tool uninstall --global Tools.AIBridge; dotnet pack ${workspaceFolder}/AIBridge/AIBridge.csproj -c Release; dotnet tool install --global --add-source ${workspaceFolder}/AIBridge/bin/Release/ Tools.AIBridge",
+            "command": "dotnet tool uninstall --global Tools.AIBridge; dotnet pack ${workspaceFolder}/src/AIBridge.Cli/AIBridge.Cli.csproj -c Release; dotnet tool install --global --add-source ${workspaceFolder}/src/AIBridge.Cli/bin/Release/ Tools.AIBridge",
             "problemMatcher": "$msCompile"
         },
         {
             "label": "☁️ publish nuget",
             "type": "shell",
-            "command": "dotnet nuget push ${workspaceFolder}/AIBridge/bin/Release/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${input:nugetKey} --skip-duplicate",
+            "command": "dotnet nuget push ${workspaceFolder}/src/AIBridge.Cli/bin/Release/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${input:nugetKey} --skip-duplicate",
             "windows": {
-                "command": "dotnet nuget push \"${workspaceFolder}\\AIBridge\\bin\\Release\\*.nupkg\" --source https://api.nuget.org/v3/index.json --api-key ${input:nugetKey} --skip-duplicate"
+                "command": "dotnet nuget push \"${workspaceFolder}\\src\\AIBridge.Cli\\bin\\Release\\*.nupkg\" --source https://api.nuget.org/v3/index.json --api-key ${input:nugetKey} --skip-duplicate"
             },
             "problemMatcher": []
         }
