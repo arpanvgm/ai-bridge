@@ -1,0 +1,56 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "🔨 build",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "build",
+                "${workspaceFolder}/ai-bridge.slnx",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
+            ],
+            "problemMatcher": "$msCompile",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "📦 pack",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "pack",
+                "${workspaceFolder}/src/AIBridge.Cli/AIBridge.Cli.csproj",
+                "-c",
+                "Release"
+            ],
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "🚀 test locally (uninstall -> pack -> install)",
+            "type": "shell",
+            "command": "dotnet tool uninstall --global Tools.AIBridge; dotnet pack ${workspaceFolder}/src/AIBridge.Cli/AIBridge.Cli.csproj -c Release; dotnet tool install --global --add-source ${workspaceFolder}/src/AIBridge.Cli/bin/Release/ Tools.AIBridge",
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "☁️ publish nuget",
+            "type": "shell",
+            "command": "dotnet nuget push ${workspaceFolder}/src/AIBridge.Cli/bin/Release/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${input:nugetKey} --skip-duplicate",
+            "windows": {
+                "command": "dotnet nuget push \"${workspaceFolder}\\src\\AIBridge.Cli\\bin\\Release\\*.nupkg\" --source https://api.nuget.org/v3/index.json --api-key ${input:nugetKey} --skip-duplicate"
+            },
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "nugetKey",
+            "type": "promptString",
+            "description": "Enter your NuGet API Key",
+            "password": true
+        }
+    ]
+}
