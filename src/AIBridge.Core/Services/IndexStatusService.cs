@@ -7,62 +7,6 @@ namespace AIBridge.Core.Services;
 
 public class IndexStatusService(IAIBridgeLogger logger)
 {
-    public void Display(string projectRoot)
-    {
-        var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectRoot);
-        var indexFileName = WorkspaceHelper.GetIndexFileName(projectRoot);
-        var indexFile = Path.Combine(aiWorkspace, indexFileName);
-
-        if (!File.Exists(indexFile))
-        {
-            logger.Error($"Error: {indexFileName} not found. Run 'ai-bridge init' and create your index first.");
-            return;
-        }
-
-        var xml = new XmlDocument();
-        try { xml.Load(indexFile); }
-        catch (Exception ex)
-        {
-            logger.Error($"Error parsing ai-bridge-index.xml: {ex.Message}");
-            return;
-        }
-
-        var indexRoot = xml.DocumentElement;
-        if (indexRoot == null) { logger.Error("Error: ai-bridge-index.xml is malformed."); return; }
-
-        var lastUpdated = indexRoot.GetAttribute("lastUpdated");
-        if (string.IsNullOrEmpty(lastUpdated)) lastUpdated = "unknown";
-
-        logger.Info($"📋 ai-bridge-index.xml  (Last updated: {lastUpdated})");
-
-        int moduleCount = 0, totalFileCount = 0;
-        var modules = indexRoot.SelectNodes("module");
-        if (modules != null)
-        {
-            foreach (XmlElement module in modules)
-            {
-                moduleCount++;
-                var moduleName = module.GetAttribute("name");
-                var files = module.SelectNodes("file");
-                int fileCount = files?.Count ?? 0;
-                totalFileCount += fileCount;
-
-                logger.Info($"\nModule: {moduleName} ({fileCount} files)");
-
-                if (files != null)
-                {
-                    foreach (XmlElement file in files)
-                    {
-                        var path = file.GetAttribute("path");
-                        var purpose = file.GetAttribute("purpose");
-                        logger.Output($"  • {path}  — {purpose}");
-                    }
-                }
-            }
-        }
-
-        logger.Info($"\nTotal: {moduleCount} module(s), {totalFileCount} file(s)");
-    }
 
     public async Task<(List<string> modified, List<string> newFiles, List<string> deleted, DateTime lastUpdated)> GetChangedFilesAsync(string projectRoot)
     {

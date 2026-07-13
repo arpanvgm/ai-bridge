@@ -110,10 +110,9 @@ updateCommand.SetHandler(async () =>
 });
 
 // ── Index ──
-var indexCommand = new Command("index", "Displays the contents of the index XML file.");
+var indexCommand = new Command("index", "Commands for managing your project index.");
 var statusCommand = new Command("status", "Shows files changed since the last index update.");
 indexCommand.AddCommand(statusCommand);
-indexCommand.SetHandler(() => { indexStatusService.Display(projectRoot); });
 statusCommand.SetHandler(async () => { await indexStatusService.StatusAsync(projectRoot); });
 
 rootCommand.AddCommand(packCommand);
