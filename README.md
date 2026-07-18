@@ -11,7 +11,7 @@ It works with **any language or technology** — .NET, Node.js, Python, React, G
 
 ## 🎬 Quick Demo
 
-[DEMO GIF/RECORDING HERE]
+> 📺 Demo walkthrough coming soon.
 
 ---
 
