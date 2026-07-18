@@ -1,18 +1,25 @@
-# AI Bridge — Usage Guide
+# AI Bridge
 
-A no-agent, no-extension workflow for applying AI-generated code changes to any project directly from your browser using the `ai-bridge` .NET Global Tool.
+[![NuGet](https://img.shields.io/nuget/v/Tools.AIBridge?label=NuGet&logo=nuget)](https://www.nuget.org/packages/Tools.AIBridge)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Works with **any language or technology** — .NET, Node.js, Python, React, or any project with a sensible folder structure.
+**AI Bridge** is a lightweight, language-agnostic CLI tool that connects your local codebase to web-based AI chatbots — no extensions, no agents, no API keys required.
+You pack your project into AI-readable context, paste it into any browser-based LLM (Claude, Gemini, Qwen, ChatGPT), and apply the AI's code changes back to disk with a single command.
+It works with **any language or technology** — .NET, Node.js, Python, React, Go, Rust, or any project with a sensible folder structure.
+
+---
+
+## 🎬 Quick Demo
+
+> 📺 Demo walkthrough coming soon.
 
 ---
 
 ## 🌟 The Big Picture
 
-AI Bridge is a fast, language-agnostic CLI tool that bridges the gap between your local codebase and web-based LLMs (like Claude, Gemini, Qwen, and ChatGPT). 
-
-It offers two modes depending on your project size:
+AI Bridge offers two modes depending on your project size:
 1. **Simple Mode (Quick Start):** Perfect for small projects. You pack your entire codebase, give it to the AI, and get code back.
-2. **Advanced Mode (Index Flow):** Designed for large codebases. You map your project once, and then only upload the specific files the AI requests, saving millions of tokens and preventing AI confusion.
+2. **Advanced Mode (Index Flow):** Designed for large codebases. You map your project once, and then only upload the specific files the AI requests — saving tokens and reducing noise.
 
 ---
 
@@ -115,6 +122,22 @@ Now that you have an index, you never need to upload huge context files again!
 
 ---
 
+## 📖 Command Reference
+
+| Command | Description |
+|---------|-------------|
+| `ai-bridge init` | Scaffolds the `ai-bridge/` workspace, `.aiignore`, and templates |
+| `ai-bridge pack` | Packs source files into `*-context.txt` for AI consumption |
+| `ai-bridge pack --incremental` | Packs only files changed since the last index update |
+| `ai-bridge apply` | Applies `ai-response.xml` patches from the artifacts folder |
+| `ai-bridge apply --paste` | Reads the AI response directly from clipboard |
+| `ai-bridge apply --watch` | Watches `ai-response.xml` and auto-applies on save |
+| `ai-bridge apply --dry-run` | Shows what would change without writing to disk |
+| `ai-bridge update` | Refreshes `1-SimpleMode/` and `2-AdvancedMode/` templates to match the installed tool version |
+| `ai-bridge index status` | Shows files changed since the last index update |
+
+---
+
 ## 🛠️ Ecosystem Detection
 
 When you run `ai-bridge pack`, it groups files intelligently based on your ecosystem to keep contexts organized:
@@ -151,3 +174,13 @@ Because the AI prompts are closely tied to the CLI's parsing engine, you may nee
 ai-bridge update
 ```
 This will refresh your `1-SimpleMode` and `2-AdvancedMode` folders with the latest prompts.
+
+---
+
+## 🤝 Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for build instructions and how to submit a PR.
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
