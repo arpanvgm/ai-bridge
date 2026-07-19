@@ -11,7 +11,9 @@
 
 ## 🎬 Quick Demo
 
-> 📺 Demo walkthrough coming soon.
+[![AI Bridge Simple Mode Demo](https://img.youtube.com/vi/9u7JEi7WwUg/maxresdefault.jpg)](https://youtu.be/9u7JEi7WwUg)
+
+> 🎥 [Watch on YouTube →](https://youtu.be/9u7JEi7WwUg)
 
 ---
 
