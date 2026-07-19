@@ -3,9 +3,9 @@
 [![NuGet](https://img.shields.io/nuget/v/Tools.AIBridge?label=NuGet&logo=nuget)](https://www.nuget.org/packages/Tools.AIBridge)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**AI Bridge** is a lightweight, language-agnostic CLI tool that connects your local codebase to web-based AI chatbots — no extensions, no agents, no API keys required.
-You pack your project into AI-readable context, paste it into any browser-based LLM (Claude, Gemini, Qwen, ChatGPT), and apply the AI's code changes back to disk with a single command.
-It works with **any language or technology** — .NET, Node.js, Python, React, Go, Rust, or any project with a sensible folder structure.
+> **Pack your code → Paste into any AI chatbot → Apply changes back.** No API keys, no extensions, no lock-in.
+
+**AI Bridge** is a lightweight CLI tool that bridges your local codebase and browser-based AI chatbots (Claude, Gemini, Qwen, ChatGPT). It works with **any language or technology** — .NET, Node.js, Python, React, Go, Rust, or any project with a sensible folder structure.
 
 ---
 
@@ -35,7 +35,22 @@ Install the tool globally using the .NET CLI:
 ```bash
 dotnet tool install --global Tools.AIBridge
 ```
-*(To update later: `dotnet tool update --global Tools.AIBridge`)*
+*(To update later: `dotnet tool update --global Tools.AIBridge`)* — [View on NuGet →](https://www.nuget.org/packages/Tools.AIBridge)
+
+<details>
+<summary><b>⚡ TL;DR — Try it in 60 seconds</b></summary>
+
+```bash
+dotnet tool install --global Tools.AIBridge
+cd /path/to/your-project
+ai-bridge init
+ai-bridge pack
+# Upload ai-bridge/1-SimpleMode/*.md + ai-bridge/artifacts/*-context.txt to your AI
+# Copy the AI's XML response, then:
+ai-bridge apply --paste
+```
+
+</details>
 
 ---
 
@@ -60,11 +75,23 @@ YourProjectRoot/
     └── artifacts/                      <-- Scratchpad for context and AI responses
 ```
 
+### Excluding Files with `.aiignore`
+
+The `.aiignore` file (created by `ai-bridge init`) works like `.gitignore` — add glob patterns to exclude files from being packed into AI context. Use it for test fixtures, generated code, large data files, or anything the AI doesn't need to see.
+
 ---
 
 ## 🟢 Simple Mode (For Small Projects)
 
 Use this mode if your codebase is small enough to fit comfortably inside a single AI prompt window.
+
+```mermaid
+flowchart LR
+    A["🗂️ Codebase"] -- "ai-bridge pack" --> B["📄 *-context.txt"]
+    B -- "Upload + Prompts" --> C["🤖 AI Chatbot"]
+    C -- "Copy XML Response" --> D["ai-bridge apply --paste"]
+    D --> E["✅ Files Updated"]
+```
 
 ### 1. Pack Your Project
 Run the pack command to bundle your codebase into text files.
@@ -99,7 +126,10 @@ ai-bridge apply
 If you have a large codebase, uploading your entire project every time wastes tokens and degrades AI reasoning. Advanced Mode solves this by creating a lightweight `index.xml` map of your project.
 
 ### Phase 1: Create the Index (One-Time Setup)
-*(Skip Phase 1 entirely if you are starting a brand new project from scratch)*
+
+> [!TIP]
+> **Starting a brand new project?** Skip Phase 1 entirely and jump straight to [Phase 2](#phase-2-the-daily-workflow) — no index needed when there's no existing code to map.
+
 Before chatting, the AI needs to map out your existing project.
 1. Run `ai-bridge pack` to gather your full context.
 2. Start a new AI chat and upload:
@@ -109,6 +139,14 @@ Before chatting, the AI needs to map out your existing project.
 
 ### Phase 2: The Daily Workflow
 Now that you have an index, you never need to upload huge context files again!
+
+```mermaid
+flowchart LR
+    A["💬 Ask feature"] -->|AI requests files| B["ai-bridge apply --paste"]
+    B -->|Upload context| C["🤖 AI generates code"]
+    C -->|Copy response| D["ai-bridge apply --paste"]
+    D --> E["✅ Updated"]
+```
 1. Start a fresh AI Chat. 
 2. Upload the System Prompt and your Index:
    - `ai-bridge/2-AdvancedMode/Phase2-DailyChat/ai-index-system-prompt.md`
@@ -122,7 +160,7 @@ Now that you have an index, you never need to upload huge context files again!
    - The AI will output an XML request for files (e.g., `<ai-request><file>src/app.js</file></ai-request>`).
    - Copy the request and run `ai-bridge apply --paste`.
    - The tool will automatically gather those files and bundle them into **`ai-bridge/artifacts/ai-requested-context.txt`**.
-   - Upload that text file back to the AI chat.
+   - Upload or paste that context back into the AI chat.
 6. The AI generates the final code changes. Copy them and run `ai-bridge apply --paste`.
 
 ---
