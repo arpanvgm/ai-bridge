@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Questions & Discussions
+    url: https://github.com/arpanvgm/ai-bridge/issues
+    about: For general questions, open a regular issue.

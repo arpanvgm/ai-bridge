@@ -1,11 +1,22 @@
 # AI Bridge
 
 [![NuGet](https://img.shields.io/nuget/v/Tools.AIBridge?label=NuGet&logo=nuget)](https://www.nuget.org/packages/Tools.AIBridge)
+[![.NET](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet)](https://dotnet.microsoft.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > **Pack your code → Paste into any AI chatbot → Apply changes back.** No API keys, no extensions, no lock-in.
 
 **AI Bridge** is a lightweight CLI tool that bridges your local codebase and browser-based AI chatbots (Claude, Gemini, Qwen, ChatGPT). It works with **any language or technology** — .NET, Node.js, Python, React, Go, Rust, or any project with a sensible folder structure.
+
+---
+
+## 💡 Why AI Bridge?
+
+- **No API keys** — Use the free tiers of Claude, Gemini, Qwen, or ChatGPT directly in your browser.
+- **No vendor lock-in** — Switch AI providers mid-conversation. Your workflow stays the same.
+- **Language-agnostic** — Works with any language or framework, not just the ones your IDE supports.
+- **No extensions or agents** — Just a CLI tool and a browser-based AI chat. Nothing running in the background.
+- **You stay in control** — Every change is explicit: you see it, you paste it, you apply it.
 
 ---
 
@@ -27,11 +38,12 @@ AI Bridge offers two modes depending on your project size:
 
 ## ⚙️ Prerequisites & Installation
 
-- **.NET 10 SDK** installed on your machine.
+- **[.NET 10 SDK](https://dotnet.microsoft.com/download)** installed on your machine.
 - **Git** installed and on your PATH. AI Bridge uses `git ls-files` to automatically respect your `.gitignore` rules.
 - A browser AI account (Claude, Gemini, Qwen, or ChatGPT).
 
-> **💡 Model Recommendation:** We highly recommend using thinking or reasoning "High" models (e.g., Claude 4.6 Sonnet, Gemini 3.1 Pro, Qwen 3.7 Max/Plus). Writing high-quality code and safely navigating complex logic requires exceptional reasoning capabilities. Weaker models may struggle to provide bug-free implementations.
+> [!TIP]
+> **Which AI model should I use?** Pick a thinking or reasoning "High" model (e.g., Claude 4.6 Sonnet, Gemini 3.1 Pro, Qwen 3.7 Max/Plus) — they produce significantly better, bug-free code.
 
 Install the tool globally using the .NET CLI:
 ```bash
@@ -66,7 +78,7 @@ ai-bridge init
 ```
 
 **What it does:**
-It creates a clean, tracked `ai-bridge/` folder in your project containing two paths you can take, plus a safe `artifacts/` sandbox for the AI's inputs and outputs.
+It scaffolds the following structure in your project:
 
 ```text
 YourProjectRoot/
@@ -125,7 +137,7 @@ ai-bridge apply
 
 ## 🔴 Advanced Mode (For Large Projects)
 
-If you have a large codebase, uploading your entire project every time wastes tokens and degrades AI reasoning. Advanced Mode solves this by creating a lightweight `index.xml` map of your project.
+If you have a large codebase, uploading your entire project every time uses more tokens and can reduce AI response quality. Advanced Mode solves this by creating a lightweight `index.xml` map of your project.
 
 ### Phase 1: Create the Index (One-Time Setup)
 
