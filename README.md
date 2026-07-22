@@ -141,7 +141,7 @@ If you have a large codebase, uploading your entire project every time uses more
 
 ### Phase 1: Create the Index (One-Time Setup)
 
-> [!TIP]
+> [!IMPORTANT]
 > **Starting a brand new project?** Skip Phase 1 entirely and jump straight to [Phase 2](#phase-2-the-daily-workflow) — no index needed when there's no existing code to map.
 
 Before chatting, the AI needs to map out your existing project.
