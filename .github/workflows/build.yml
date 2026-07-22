@@ -3,22 +3,8 @@ name: Build
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - '**/*.md'
-      - 'Notes/**'
-      - 'docs/**'
-      - 'LICENSE'
-      - '.gitignore'
-      - '.editorconfig'
   pull_request:
     branches: [main]
-    paths-ignore:
-      - '**/*.md'
-      - 'Notes/**'
-      - 'docs/**'
-      - 'LICENSE'
-      - '.gitignore'
-      - '.editorconfig'
 
 jobs:
   build:
