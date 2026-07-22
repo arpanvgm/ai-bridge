@@ -37,4 +37,4 @@ jobs:
         run: dotnet restore ai-bridge.slnx
 
       - name: Build
-        run: dotnet build ai-bridge.slnx --no-restore --warnaserrors
+        run: dotnet build ai-bridge.slnx --no-restore /p:TreatWarningsAsErrors=true
