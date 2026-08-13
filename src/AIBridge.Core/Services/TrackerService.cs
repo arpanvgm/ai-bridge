@@ -2,6 +2,7 @@ using System.Text;
 using System.Xml;
 using AIBridge.Core.Abstractions;
 using AIBridge.Core.Constants;
+using AIBridge.Core.Helpers;
 
 namespace AIBridge.Core.Services;
 
@@ -13,7 +14,9 @@ public class TrackerService(IAIBridgeLogger logger)
     /// </summary>
     public void HandleCreate(XmlNode root, string projectRoot)
     {
-        var trackerFile = Path.Combine(projectRoot, FileNames.TrackerXml);
+        var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectRoot);
+        var artifactsDir = Path.Combine(aiWorkspace, FolderNames.Artifacts);
+        var trackerFile = Path.Combine(artifactsDir, FileNames.TrackerXml);
 
         if (File.Exists(trackerFile))
             logger.Info("Overwriting existing tracker for new scope.");
@@ -81,7 +84,9 @@ public class TrackerService(IAIBridgeLogger logger)
     /// </summary>
     public void HandleUpdate(XmlNode root, string projectRoot)
     {
-        var trackerFile = Path.Combine(projectRoot, FileNames.TrackerXml);
+        var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectRoot);
+        var artifactsDir = Path.Combine(aiWorkspace, FolderNames.Artifacts);
+        var trackerFile = Path.Combine(artifactsDir, FileNames.TrackerXml);
         if (!File.Exists(trackerFile))
         {
             logger.Error("No tracker.xml found. The AI must create a tracker first using <tracker>.");

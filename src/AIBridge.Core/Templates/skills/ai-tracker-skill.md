@@ -22,7 +22,7 @@ Do NOT wrap it in `<ai-response>`. Present the tracker to the user and **wait fo
 
 ```xml
 <tracker>
-  <scope>Brief description of what this session is working on and the tech stack</scope>
+  <scope>Description of the feature, fix, or task this session is working on</scope>
 
   <decisions>
     <decision id="1">First key design or architecture decision</decision>
@@ -41,7 +41,7 @@ Do NOT wrap it in `<ai-response>`. Present the tracker to the user and **wait fo
 
 ### Section rules:
 
-- **`<scope>`**: One or two sentences. What are we doing and with what tech stack? This does not change frequently.
+- **`<scope>`**: Describe what is being requested to be done by the AI and any relevant context. This does not change frequently in the same chat session.
 - **`<decisions>`**: Key design/architecture decisions made during discussion. Sequential IDs starting from 1. Can be omitted entirely if no decisions have been made yet.
 - **`<tasks>`**: All implementation steps in execution order. Sequential IDs starting from 1. Do NOT include `status` attributes — all tasks start as `todo` automatically.
 - **`<focus>`**: The ID of the first task to work on.
@@ -105,7 +105,7 @@ Continue the work using `<tracker-update>` in your responses. Do NOT create a ne
 
 ```xml
 <tracker>
-  <scope>Fix login redirect loop when JWT token expires — ASP.NET Core 10 Minimal API</scope>
+  <scope>Fix login redirect loop when JWT token expires</scope>
 
   <decisions>
     <decision id="1">Root cause is missing token refresh check before redirect</decision>
