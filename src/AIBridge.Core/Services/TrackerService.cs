@@ -14,6 +14,14 @@ public class TrackerService(IAIBridgeLogger logger)
     /// </summary>
     public void HandleCreate(XmlNode root, string projectRoot)
     {
+        var scopeNode = root.SelectSingleNode("scope");
+        var tasksNode = root.SelectSingleNode("tasks");
+        if (scopeNode == null || tasksNode == null)
+        {
+            logger.Error("Malformed <tracker>: Missing <scope> or <tasks>. Tracker creation aborted to prevent data loss.");
+            return;
+        }
+
         var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectRoot);
         var artifactsDir = Path.Combine(aiWorkspace, FolderNames.Artifacts);
         var trackerFile = Path.Combine(artifactsDir, FileNames.TrackerXml);
@@ -27,7 +35,6 @@ public class TrackerService(IAIBridgeLogger logger)
 
         var trackerRoot = doc.CreateElement("tracker");
 
-        var scopeNode = root.SelectSingleNode("scope");
         if (scopeNode != null)
         {
             var imported = doc.ImportNode(scopeNode, deep: true);
@@ -41,7 +48,6 @@ public class TrackerService(IAIBridgeLogger logger)
             trackerRoot.AppendChild(imported);
         }
 
-        var tasksNode = root.SelectSingleNode("tasks");
         if (tasksNode != null)
         {
             var tasksElement = doc.CreateElement("tasks");
@@ -76,6 +82,7 @@ public class TrackerService(IAIBridgeLogger logger)
         var scope = scopeNode?.InnerText.Trim() ?? "No scope specified";
         logger.Success($"✅ Tracker created: \"{scope}\"");
         logger.Info($"   {taskCount} tasks tracked. Focus: Task {focusNode?.InnerText.Trim() ?? "1"}");
+        logger.Info($"   Saved to: {Path.GetRelativePath(projectRoot, trackerFile)}");
     }
 
     /// <summary>

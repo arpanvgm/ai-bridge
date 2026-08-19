@@ -17,12 +17,13 @@ If the chat session ends unexpectedly, the user can resume in any AI chat — th
 
 ## FORMAT 1 — CREATE TRACKER
 
-When starting new multi-step work, respond with `<tracker>` as the **root element** of your response.
-Do NOT wrap it in `<ai-response>`. Present the tracker to the user and **wait for approval** before starting implementation.
+When starting new multi-step work, respond with a `<tracker>` block wrapped inside your standard `<ai-response>` element.
+Present the tracker to the user and **wait for approval** before starting implementation.
 
 ```xml
-<tracker>
-  <scope>Description of the feature, fix, or task this session is working on</scope>
+<ai-response>
+  <tracker>
+    <scope>Description of the feature, fix, or task this session is working on</scope>
 
   <decisions>
     <decision id="1">First key design or architecture decision</decision>
@@ -36,7 +37,8 @@ Do NOT wrap it in `<ai-response>`. Present the tracker to the user and **wait fo
   </tasks>
 
   <focus>1</focus>
-</tracker>
+  </tracker>
+</ai-response>
 ```
 
 ### Section rules:
@@ -104,8 +106,9 @@ Continue the work using `<tracker-update>` in your responses. Do NOT create a ne
 ### Example 1: Create tracker for a bug fix
 
 ```xml
-<tracker>
-  <scope>Fix login redirect loop when JWT token expires</scope>
+<ai-response>
+  <tracker>
+    <scope>Fix login redirect loop when JWT token expires</scope>
 
   <decisions>
     <decision id="1">Root cause is missing token refresh check before redirect</decision>
@@ -118,7 +121,8 @@ Continue the work using `<tracker-update>` in your responses. Do NOT create a ne
   </tasks>
 
   <focus>1</focus>
-</tracker>
+  </tracker>
+</ai-response>
 ```
 
 ### Example 2: Implementation response with tracker update

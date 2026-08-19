@@ -211,9 +211,9 @@ async Task RunApplyAsync(bool paste, bool dryRun)
 
     var root = xml.DocumentElement;
     if (root == null) { logger.Error("Error: No XML content found."); return; }
-    if (root.Name is not (XmlTags.AiResponse or XmlTags.AiRequest or XmlTags.CreateIndex or XmlTags.UpdateIndex or XmlTags.Tracker))
+    if (root.Name is not (XmlTags.AiResponse or XmlTags.AiRequest or XmlTags.CreateIndex or XmlTags.UpdateIndex))
     {
-        logger.Error($"Error: Root element must be <{XmlTags.AiResponse}>, <{XmlTags.AiRequest}>, <{XmlTags.CreateIndex}>, <{XmlTags.UpdateIndex}>, or <{XmlTags.Tracker}>, found <{root.Name}>.");
+        logger.Error($"Error: Root element must be <{XmlTags.AiResponse}>, <{XmlTags.AiRequest}>, <{XmlTags.CreateIndex}>, or <{XmlTags.UpdateIndex}>, found <{root.Name}>.");
         return;
     }
 
@@ -232,7 +232,6 @@ async Task RunApplyAsync(bool paste, bool dryRun)
     }
     if (root.Name == XmlTags.CreateIndex) { indexService.HandleCreate(root, projectRoot); await inputService.ResetInputFileAsync(inputFile); return; }
     if (root.Name == XmlTags.UpdateIndex) { indexService.HandleUpdate(root, projectRoot); await inputService.ResetInputFileAsync(inputFile); return; }
-    if (root.Name == XmlTags.Tracker) { trackerService.HandleCreate(root, projectRoot); await inputService.ResetInputFileAsync(inputFile); return; }
 
     var aiEditsNode = root.SelectSingleNode(XmlTags.AiEdits);
     var indexUpdateNode = root.SelectSingleNode(XmlTags.UpdateIndex);
@@ -280,9 +279,9 @@ async Task RunApplyAsync(bool paste, bool dryRun)
 
     foreach (XmlNode node in root.ChildNodes)
     {
-        if (node.NodeType == XmlNodeType.Element && node.Name != XmlTags.AiEdits && node.Name != XmlTags.UpdateIndex && node.Name != XmlTags.TrackerUpdate)
+        if (node.NodeType == XmlNodeType.Element && node.Name != XmlTags.AiEdits && node.Name != XmlTags.UpdateIndex && node.Name != XmlTags.TrackerUpdate && node.Name != XmlTags.Tracker)
         {
-            logger.Error($"Error: Unknown element '<{node.Name}>' found. Only <{XmlTags.AiEdits}>, <{XmlTags.UpdateIndex}>, and <{XmlTags.TrackerUpdate}> are allowed.");
+            logger.Error($"Error: Unknown element '<{node.Name}>' found. Only <{XmlTags.AiEdits}>, <{XmlTags.UpdateIndex}>, <{XmlTags.TrackerUpdate}>, and <{XmlTags.Tracker}> are allowed.");
             return;
         }
     }
@@ -329,6 +328,10 @@ async Task RunApplyAsync(bool paste, bool dryRun)
 
     if (countPatchFailed == 0 && indexUpdateNode is XmlElement indexUpdateElement)
         indexService.HandleUpdate(indexUpdateElement, projectRoot);
+
+    var trackerNode = root.SelectSingleNode(XmlTags.Tracker);
+    if (trackerNode != null)
+        trackerService.HandleCreate(trackerNode, projectRoot);
 
     var trackerUpdateNode = root.SelectSingleNode(XmlTags.TrackerUpdate);
     if (trackerUpdateNode != null)
