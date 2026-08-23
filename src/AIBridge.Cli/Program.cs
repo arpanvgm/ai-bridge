@@ -21,6 +21,7 @@ var requestService = new RequestService(logger, projectDetector);
 var templateService = new TemplateService(logger);
 var packerService = new PackerService(logger, projectDetector);
 var indexStatusService = new IndexStatusService(logger);
+var trackerService = new TrackerService(logger);
 
 var rootCommand = new RootCommand("AI Bridge - Connects your local codebase to AI chatbots.");
 
@@ -94,7 +95,7 @@ applyCommand.SetHandler(async (bool watch, bool paste, bool dryRun) =>
 }, watchOption, pasteOption, dryRunOption);
 
 // ── Init ──
-var initCommand = new Command("init", $"Scaffolds {FileNames.AiIgnore}, {FolderNames.SimpleMode}/, and {FolderNames.AdvancedMode}/ for a new project.");
+var initCommand = new Command("init", $"Scaffolds {FileNames.AiIgnore}, {FolderNames.SimpleMode}/, {FolderNames.AdvancedMode}/, and {FolderNames.Skills}/ for a new project.");
 initCommand.SetHandler(async () =>
 {
     logger.Info("Initializing AI Bridge for this project...");
@@ -102,7 +103,7 @@ initCommand.SetHandler(async () =>
 });
 
 // ── Update ──
-var updateCommand = new Command("update", $"Syncs {FolderNames.SimpleMode}/ and {FolderNames.AdvancedMode}/ to match the currently installed tool version.");
+var updateCommand = new Command("update", $"Syncs {FolderNames.SimpleMode}/, {FolderNames.AdvancedMode}/, and {FolderNames.Skills}/ to match the currently installed tool version.");
 updateCommand.SetHandler(async () =>
 {
     logger.Info("Updating AI Bridge default templates...");
@@ -139,12 +140,8 @@ async Task RunInitAsync(bool force)
         await File.WriteAllTextAsync(responseFilePath, "<!-- Paste the AI response XML here -->\n");
 
     var innerGitignorePath = Path.Combine(aiWorkspace, ".gitignore");
-    if (!File.Exists(innerGitignorePath))
-    {
-        var innerGitignoreContent = $"# Ignore templates and artifacts to prevent Git conflicts\n{FolderNames.Artifacts}/\n{FolderNames.SimpleMode}/\n{FolderNames.AdvancedMode}/\n";
-        await File.WriteAllTextAsync(innerGitignorePath, innerGitignoreContent);
-        logger.Success("✅ Created internal .gitignore for the AI Bridge workspace.");
-    }
+    var innerGitignoreContent = $"# Ignore templates and artifacts to prevent Git conflicts\n{FolderNames.Artifacts}/\n{FolderNames.SimpleMode}/\n{FolderNames.AdvancedMode}/\n{FolderNames.Skills}/\n";
+    await File.WriteAllTextAsync(innerGitignorePath, innerGitignoreContent);
 
     var dockerignorePath = Path.Combine(projectRoot, ".dockerignore");
     if (File.Exists(dockerignorePath))
@@ -282,9 +279,9 @@ async Task RunApplyAsync(bool paste, bool dryRun)
 
     foreach (XmlNode node in root.ChildNodes)
     {
-        if (node.NodeType == XmlNodeType.Element && node.Name != XmlTags.AiEdits && node.Name != XmlTags.UpdateIndex)
+        if (node.NodeType == XmlNodeType.Element && node.Name != XmlTags.AiEdits && node.Name != XmlTags.UpdateIndex && node.Name != XmlTags.TrackerUpdate && node.Name != XmlTags.Tracker)
         {
-            logger.Error($"Error: Unknown element '<{node.Name}>' found. Only <{XmlTags.AiEdits}> and <{XmlTags.UpdateIndex}> are allowed.");
+            logger.Error($"Error: Unknown element '<{node.Name}>' found. Only <{XmlTags.AiEdits}>, <{XmlTags.UpdateIndex}>, <{XmlTags.TrackerUpdate}>, and <{XmlTags.Tracker}> are allowed.");
             return;
         }
     }
@@ -331,6 +328,14 @@ async Task RunApplyAsync(bool paste, bool dryRun)
 
     if (countPatchFailed == 0 && indexUpdateNode is XmlElement indexUpdateElement)
         indexService.HandleUpdate(indexUpdateElement, projectRoot);
+
+    var trackerNode = root.SelectSingleNode(XmlTags.Tracker);
+    if (trackerNode != null)
+        trackerService.HandleCreate(trackerNode, projectRoot);
+
+    var trackerUpdateNode = root.SelectSingleNode(XmlTags.TrackerUpdate);
+    if (trackerUpdateNode != null)
+        trackerService.HandleUpdate(trackerUpdateNode, projectRoot);
 
     if (countDeleted > 0 && !dryRun)
         CleanEmptyFolders(deletedFileDirs, projectRoot);

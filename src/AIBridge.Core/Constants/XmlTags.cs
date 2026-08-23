@@ -11,4 +11,6 @@ public static class XmlTags
     public const string Patch = "patch";
     public const string Delete = "delete";
     public const string Module = "module";
+    public const string Tracker = "tracker";
+    public const string TrackerUpdate = "tracker-update";
 }
