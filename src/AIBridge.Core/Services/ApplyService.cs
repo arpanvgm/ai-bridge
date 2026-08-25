@@ -141,8 +141,9 @@ public class ApplyService(
         // ── Apply edits ──
         int countFullFiles = 0, countPatchOk = 0, countPatchFailed = 0, countDeleted = 0;
         var failedFiles = new List<string>();
-        var failedPatchNodes = new List<XmlNode>();
+        var failedPatchesXml = new List<string>();
 
+        // SelectNodes only returns null when called on a null context node; root is non-null here.
         foreach (XmlNode node in root.SelectNodes($"{XmlTags.AiEdits}/{XmlTags.File}")!)
         {
             var relPath = node.Attributes?["path"]?.Value?.Trim();
@@ -156,14 +157,16 @@ public class ApplyService(
             countFullFiles++;
         }
 
+        // SelectNodes only returns null when called on a null context node; root is non-null here.
         foreach (XmlNode node in root.SelectNodes($"{XmlTags.AiEdits}/{XmlTags.Patch}")!)
         {
             if (dryRun) { logger.Info($"[dry-run] Would patch: {node.Attributes?["path"]?.Value?.Trim()}"); countPatchOk++; continue; }
-            if (await patcherService.ApplyPatchAsync(node, projectRoot, failedFiles, failedPatchNodes)) countPatchOk++;
+            if (await patcherService.ApplyPatchAsync(node, projectRoot, failedFiles, failedPatchesXml)) countPatchOk++;
             else countPatchFailed++;
         }
 
         var deletedFileDirs = new HashSet<string>();
+        // SelectNodes only returns null when called on a null context node; root is non-null here.
         foreach (XmlNode node in root.SelectNodes($"{XmlTags.AiEdits}/{XmlTags.Delete}")!)
         {
             var relPath = node.Attributes?["path"]?.Value?.Trim();
@@ -208,7 +211,7 @@ public class ApplyService(
             Deleted: countDeleted,
             PatchFailed: countPatchFailed,
             FailedFiles: countPatchFailed > 0 ? failedFiles : null,
-            FailedPatchNodes: countPatchFailed > 0 ? failedPatchNodes : null);
+            FailedPatchesXml: countPatchFailed > 0 ? failedPatchesXml : null);
     }
 
     private void CleanEmptyFolders(IEnumerable<string> dirs, string rootPath)

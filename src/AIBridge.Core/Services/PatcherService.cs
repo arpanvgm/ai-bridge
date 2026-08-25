@@ -11,13 +11,13 @@ public class PatcherService(IAIBridgeLogger logger)
         XmlNode node,
         string projectPath,
         List<string> failedFiles,
-        List<XmlNode> failedPatchNodes)
+        List<string> failedPatchesXml)
     {
         var relPath = node.Attributes?["path"]?.Value?.Trim();
         if (string.IsNullOrEmpty(relPath))
         {
             logger.Error("Patch failed: missing 'path' attribute on <patch> tag.");
-            failedPatchNodes.Add(node);
+            failedPatchesXml.Add(node.OuterXml);
             return false;
         }
 
@@ -29,7 +29,7 @@ public class PatcherService(IAIBridgeLogger logger)
         {
             logger.Error($"Patch failed: File not found or invalid XML -> {relPath}");
             failedFiles.Add(relPath);
-            failedPatchNodes.Add(node);
+            failedPatchesXml.Add(node.OuterXml);
             return false;
         }
 
@@ -59,21 +59,21 @@ public class PatcherService(IAIBridgeLogger logger)
         {
             logger.Error($"Patch failed: Match not found -> {relPath}");
             failedFiles.Add(relPath);
-            failedPatchNodes.Add(node);
+            failedPatchesXml.Add(node.OuterXml);
             return false;
         }
     }
 
-    public static async Task RebuildResponseWithFailedPatchesAsync(string inputFile, List<XmlNode> failedPatchNodes)
+    public static async Task RebuildResponseWithFailedPatchesAsync(string inputFile, List<string> failedPatchesXml)
     {
         var sb = new StringBuilder();
         sb.AppendLine("<ai-response>");
         sb.AppendLine("<ai-edits>");
         sb.AppendLine();
 
-        foreach (var node in failedPatchNodes)
+        foreach (var patchXml in failedPatchesXml)
         {
-            sb.AppendLine(node.OuterXml);
+            sb.AppendLine(patchXml);
             sb.AppendLine();
         }
 

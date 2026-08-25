@@ -201,13 +201,17 @@ async Task RunApplyAsync(bool paste, bool dryRun)
             await inputProvider.SetOutputContextAsync(result.ContextPayload);
             logger.Info("The requested context has also been copied to your output buffer (e.g. clipboard)!");
         }
-        catch { /* Suppress clipboard errors */ }
+        catch (Exception ex)
+        {
+            // Clipboard APIs are unavailable in headless/SSH environments; this is safe to ignore.
+            System.Diagnostics.Debug.WriteLine($"Clipboard error suppressed: {ex.Message}");
+        }
     }
 
     // CLI-specific post-processing: rebuild response file with only failed patches
-    if (result.PatchFailed > 0 && result.FailedPatchNodes != null)
+    if (result.PatchFailed > 0 && result.FailedPatchesXml != null)
     {
-        await PatcherService.RebuildResponseWithFailedPatchesAsync(inputFile, result.FailedPatchNodes);
+        await PatcherService.RebuildResponseWithFailedPatchesAsync(inputFile, result.FailedPatchesXml);
         logger.Warning($"⚠ ai-response.xml now contains only the {result.PatchFailed} failed patch(es). Fix and re-run 'ai-bridge apply'.");
     }
     else

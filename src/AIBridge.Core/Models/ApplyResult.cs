@@ -1,5 +1,3 @@
-using System.Xml;
-
 namespace AIBridge.Core.Models;
 
 /// <summary>
@@ -14,7 +12,10 @@ public record ApplyResult(
     int PatchFailed = 0,
     List<string>? FailedFiles = null,
     string? ErrorMessage = null,
-    /// <summary>Carries requested file contents when processing an ai-request XML.</summary>
+    /// <summary>Carries requested file contents when processing an &lt;ai-request&gt; XML.</summary>
     string? ContextPayload = null,
-    /// <summary>Holds failed patch XmlNodes so CLI can rebuild ai-response.xml with only failures.</summary>
-    List<XmlNode>? FailedPatchNodes = null);
+    /// <summary>
+    /// Serialised outer XML of each patch that failed to apply.
+    /// Callers can use this to reconstruct the response file with only the failures.
+    /// </summary>
+    List<string>? FailedPatchesXml = null);
