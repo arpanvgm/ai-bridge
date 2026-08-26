@@ -196,6 +196,8 @@ async Task RunApplyAsync(bool paste, bool dryRun)
 
     var rawContent = await File.ReadAllTextAsync(inputFile);
     var result = await applyService.ExecuteAsync(rawContent, projectRoot, dryRun);
+    if (!result.IsSuccess)
+        Environment.ExitCode = 1;
 
     // CLI-specific post-processing: copy requested context to clipboard
     if (result.ContextPayload != null)
@@ -218,4 +220,3 @@ async Task RunApplyAsync(bool paste, bool dryRun)
     // re-running the old file and causing previously successful patches to fail.
     await inputService.ResetInputFileAsync(inputFile);
 }
-

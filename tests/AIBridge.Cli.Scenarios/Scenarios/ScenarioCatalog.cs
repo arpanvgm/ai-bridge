@@ -16,9 +16,9 @@ public static class ScenarioCatalog
         new("pack respects aiignore gitignore and binaries", PackRespectsIgnoresAsync),
         new("apply creates patches deletes and resets response", ApplyCreatePatchDeleteAsync),
         new("apply dry run leaves files unchanged", ApplyDryRunAsync),
-        new("apply rejects invalid xml", ApplyInvalidXmlAsync),
+        new("apply rejects invalid xml and resets response", ApplyInvalidXmlAsync),
         new("apply blocks file path traversal", ApplyBlocksFileTraversalAsync),
-        new("apply records failed patches", ApplyFailedPatchAsync),
+        new("apply reports failed patches and resets response", ApplyFailedPatchAsync),
         new("request creates requested context", RequestCreatesContextAsync),
         new("create index writes index xml", CreateIndexAsync),
         new("update index changes index xml", UpdateIndexAsync),
@@ -219,11 +219,12 @@ public static class ScenarioCatalog
 
         var result = await context.Cli.RunAsync(workspace, "apply");
 
+        ScenarioAssert.NotEqual(0, result.ExitCode, "Invalid XML should return a non-zero exit code.");
         ScenarioAssert.Contains("not valid XML", result.CombinedOutput, "Invalid XML should be reported.");
         ScenarioAssert.Contains(
-            "<ai-response>",
+            "Paste the AI response XML here",
             workspace.ReadText("ai-bridge/artifacts/ai-response.xml"),
-            "Invalid response should remain for correction.");
+            "Invalid response should reset after the failed apply attempt.");
     }
 
     private static async Task ApplyBlocksFileTraversalAsync(ScenarioContext context)
@@ -270,12 +271,14 @@ public static class ScenarioCatalog
 
         var result = await context.Cli.RunAsync(workspace, "apply");
 
-        ScenarioAssert.Contains("Failed patches", result.CombinedOutput, "Failed patch should be reported.");
-        ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/artifacts/failed-patches.txt"));
+        ScenarioAssert.NotEqual(0, result.ExitCode, "Failed patch should return a non-zero exit code.");
+        ScenarioAssert.Contains("Patch failed: Program.cs", result.CombinedOutput, "Failed patch should be reported.");
+        ScenarioAssert.DoesNotContain("replacement", workspace.ReadText("Program.cs"), "Failed patch should not modify the target file.");
+        ScenarioAssert.FileDoesNotExist(workspace.PathFor("ai-bridge/artifacts/failed-patches.txt"));
         ScenarioAssert.Contains(
-            "<patch",
+            "Paste the AI response XML here",
             workspace.ReadText("ai-bridge/artifacts/ai-response.xml"),
-            "Response should be rebuilt with failed patch.");
+            "Response should reset after the failed patch attempt.");
     }
 
     private static async Task RequestCreatesContextAsync(ScenarioContext context)
@@ -439,6 +442,7 @@ public static class ScenarioCatalog
 
         var result = await context.Cli.RunAsync(workspace, "apply");
 
+        ScenarioAssert.NotEqual(0, result.ExitCode, "Advanced mode rejection should return a non-zero exit code.");
         ScenarioAssert.Contains("forgot to provide", result.CombinedOutput, "Advanced mode should require index update.");
         ScenarioAssert.FileDoesNotExist(workspace.PathFor("Generated/MissingIndexUpdate.cs"));
     }
