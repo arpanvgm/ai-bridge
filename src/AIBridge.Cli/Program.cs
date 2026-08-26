@@ -119,7 +119,11 @@ rootCommand.AddCommand(initCommand);
 rootCommand.AddCommand(updateCommand);
 rootCommand.AddCommand(indexCommand);
 
-try { return await rootCommand.InvokeAsync(args); }
+try 
+{ 
+    var result = await rootCommand.InvokeAsync(args); 
+    return Environment.ExitCode != 0 ? Environment.ExitCode : result; 
+}
 catch (Exception ex) { logger.Error($"Fatal error: {ex.Message}"); return 2; }
 
 // ═══════════════════════════════════════════════════════════
