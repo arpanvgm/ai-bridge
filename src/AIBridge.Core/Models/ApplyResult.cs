@@ -15,7 +15,8 @@ public record ApplyResult(
     /// <summary>Carries requested file contents when processing an &lt;ai-request&gt; XML.</summary>
     string? ContextPayload = null,
     /// <summary>
-    /// Serialised outer XML of each patch that failed to apply.
-    /// Callers can use this to reconstruct the response file with only the failures.
+    /// Partial operation errors that did not abort the entire run
+    /// (e.g. a &lt;file&gt; or &lt;delete&gt; node with a missing path attribute).
+    /// Non-null when at least one such error occurred; IsSuccess is false in that case.
     /// </summary>
-    List<string>? FailedPatchesXml = null);
+    List<string>? Errors = null);

@@ -30,8 +30,6 @@ public class ApplyService(
     public async Task<ApplyResult> ExecuteAsync(string rawContent, string projectRoot, bool dryRun = false)
     {
         var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectRoot);
-        var failedLogFile = Path.Combine(aiWorkspace, FolderNames.Artifacts, FileNames.FailedPatches);
-        if (File.Exists(failedLogFile)) File.Delete(failedLogFile);
 
         // Strip markdown code fences that AI sometimes wraps around XML
         rawContent = Regex.Replace(rawContent, @"(?m)^```[a-zA-Z]*\s*$", "");
@@ -141,13 +139,19 @@ public class ApplyService(
         // ── Apply edits ──
         int countFullFiles = 0, countPatchOk = 0, countPatchFailed = 0, countDeleted = 0;
         var failedFiles = new List<string>();
-        var failedPatchesXml = new List<string>();
+        var errors = new List<string>();
 
         // SelectNodes only returns null when called on a null context node; root is non-null here.
         foreach (XmlNode node in root.SelectNodes($"{XmlTags.AiEdits}/{XmlTags.File}")!)
         {
             var relPath = node.Attributes?["path"]?.Value?.Trim();
-            if (string.IsNullOrEmpty(relPath)) { logger.Error("File creation failed: missing 'path' attribute."); continue; }
+            if (string.IsNullOrEmpty(relPath))
+            {
+                var err = "File creation failed: missing 'path' attribute.";
+                logger.Error(err);
+                errors.Add(err);
+                continue;
+            }
             var absPath = WorkspaceHelper.SafeResolvePath(projectRoot, relPath);
             if (dryRun) { logger.Info($"[dry-run] Would create/overwrite: {relPath}"); countFullFiles++; continue; }
             Directory.CreateDirectory(Path.GetDirectoryName(absPath)!);
@@ -161,7 +165,7 @@ public class ApplyService(
         foreach (XmlNode node in root.SelectNodes($"{XmlTags.AiEdits}/{XmlTags.Patch}")!)
         {
             if (dryRun) { logger.Info($"[dry-run] Would patch: {node.Attributes?["path"]?.Value?.Trim()}"); countPatchOk++; continue; }
-            if (await patcherService.ApplyPatchAsync(node, projectRoot, failedFiles, failedPatchesXml)) countPatchOk++;
+            if (await patcherService.ApplyPatchAsync(node, projectRoot, failedFiles)) countPatchOk++;
             else countPatchFailed++;
         }
 
@@ -170,7 +174,13 @@ public class ApplyService(
         foreach (XmlNode node in root.SelectNodes($"{XmlTags.AiEdits}/{XmlTags.Delete}")!)
         {
             var relPath = node.Attributes?["path"]?.Value?.Trim();
-            if (string.IsNullOrEmpty(relPath)) { logger.Error("Delete failed: missing 'path' attribute."); continue; }
+            if (string.IsNullOrEmpty(relPath))
+            {
+                var err = "Delete failed: missing 'path' attribute.";
+                logger.Error(err);
+                errors.Add(err);
+                continue;
+            }
             var absPath = WorkspaceHelper.SafeResolvePath(projectRoot, relPath);
             if (File.Exists(absPath))
             {
@@ -199,19 +209,18 @@ public class ApplyService(
         logger.Info($"\nSummary: {countFullFiles} written, {countPatchOk} patched, {countDeleted} deleted.");
 
         if (countPatchFailed > 0)
-        {
-            logger.Error($"Failed patches: {countPatchFailed}. Check {failedLogFile}");
-            await File.WriteAllLinesAsync(failedLogFile, failedFiles.Distinct());
-        }
+            foreach (var f in failedFiles.Distinct())
+                logger.Error($"Patch failed: {f}");
 
+        bool isSuccess = countPatchFailed == 0 && errors.Count == 0;
         return new ApplyResult(
-            IsSuccess: countPatchFailed == 0,
+            IsSuccess: isSuccess,
             Created: countFullFiles,
             Patched: countPatchOk,
             Deleted: countDeleted,
             PatchFailed: countPatchFailed,
             FailedFiles: countPatchFailed > 0 ? failedFiles : null,
-            FailedPatchesXml: countPatchFailed > 0 ? failedPatchesXml : null);
+            Errors: errors.Count > 0 ? errors : null);
     }
 
     private void CleanEmptyFolders(IEnumerable<string> dirs, string rootPath)

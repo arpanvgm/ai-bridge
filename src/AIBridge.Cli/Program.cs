@@ -208,15 +208,9 @@ async Task RunApplyAsync(bool paste, bool dryRun)
         }
     }
 
-    // CLI-specific post-processing: rebuild response file with only failed patches
-    if (result.PatchFailed > 0 && result.FailedPatchesXml != null)
-    {
-        await PatcherService.RebuildResponseWithFailedPatchesAsync(inputFile, result.FailedPatchesXml);
-        logger.Warning($"⚠ ai-response.xml now contains only the {result.PatchFailed} failed patch(es). Fix and re-run 'ai-bridge apply'.");
-    }
-    else
-    {
+    // Reset the response file on success so its empty state signals completion.
+    // On failure the file is left as-is — the non-empty file signals something went wrong.
+    if (result.IsSuccess)
         await inputService.ResetInputFileAsync(inputFile);
-    }
 }
 
