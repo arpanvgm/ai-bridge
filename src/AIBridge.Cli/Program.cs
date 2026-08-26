@@ -208,9 +208,10 @@ async Task RunApplyAsync(bool paste, bool dryRun)
         }
     }
 
-    // Reset the response file on success so its empty state signals completion.
-    // On failure the file is left as-is — the non-empty file signals something went wrong.
-    if (result.IsSuccess)
-        await inputService.ResetInputFileAsync(inputFile);
+    // Always reset the response file after running, regardless of success or failure.
+    // Since patches are not idempotent, if a run partially fails, we want the user
+    // to ask the AI for a NEW response containing only the fixes, rather than 
+    // re-running the old file and causing previously successful patches to fail.
+    await inputService.ResetInputFileAsync(inputFile);
 }
 
