@@ -22,7 +22,37 @@ If you prefer to use consistent credentials so you don't have to reconfigure you
 ai-bridge-mcp --OAuth:ClientId="my-custom-client" --OAuth:ClientSecret="my-secure-secret-key"
 ```
 
-> **Tip:** A great way to use this is to save these arguments inside a specific codebase's `.vscode/tasks.json`. This allows you to launch the server with consistent credentials via a simple 1-click VS Code task.
+> **Tip:** You can automate this using a VS Code Task that securely prompts you for the secret so it is never saved in your source code. 
+> 
+> Add this to any project's `.vscode/tasks.json`:
+> ```json
+> {
+>     "version": "2.0.0",
+>     "tasks": [
+>         {
+>             "label": "Start AI Bridge MCP Server",
+>             "type": "shell",
+>             "command": "ai-bridge-mcp",
+>             "args": [
+>                 "--OAuth:ClientId=my-custom-client",
+>                 "--OAuth:ClientSecret=${input:mcpClientSecret}"
+>             ],
+>             "isBackground": true,
+>             "presentation": { "reveal": "always", "panel": "new", "clear": true },
+>             "problemMatcher": []
+>         }
+>     ],
+>     "inputs": [
+>         {
+>             "id": "mcpClientSecret",
+>             "type": "promptString",
+>             "description": "Enter your AI Bridge MCP Client Secret:",
+>             "password": true
+>         }
+>     ]
+> }
+> ```
+> Now, whenever you run this task, VS Code will pop up a secure password box for you to paste your secret before launching the server!
 
 ## Port Configuration
 
