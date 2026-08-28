@@ -10,6 +10,18 @@ Once installed globally (e.g., using the `test MCP locally` VS Code task), open 
 ai-bridge-mcp
 ```
 
+## Security & API Keys
+
+By default, every time you start the server, it generates a highly secure **ephemeral API Key** in memory and prints it to the console. You must provide this key to your AI Client (as a Bearer token) for it to connect successfully.
+
+If you prefer to use a consistent, static API Key so you don't have to reconfigure your AI Client on every restart, you can override the random generation by passing the `--ApiKey` argument:
+
+```bash
+ai-bridge-mcp --ApiKey="my-secure-static-key"
+```
+
+> **Tip:** A great way to use this is to save the argument inside a specific codebase's `.vscode/tasks.json`. This allows you to launch the server with a consistent API key via a simple 1-click VS Code task, avoiding the need to ever copy and paste the key!
+
 ## Port Configuration
 
 By default, ASP.NET Core automatically binds the server to port **`5000`** (`http://localhost:5000`). 
@@ -22,11 +34,14 @@ ai-bridge-mcp --urls "http://localhost:8080"
 
 ## Testing the Server
 
-You can quickly verify the server is running and responding to MCP protocol requests by opening a second terminal and sending a standard `tools/list` JSON-RPC payload using `curl`:
+You can quickly verify the server is running and responding to MCP protocol requests by opening a second terminal and sending a standard `tools/list` JSON-RPC payload using `curl`. 
+
+**Note:** You must replace `YOUR_API_KEY` in the command below with the API key printed to your console when the server started.
 
 ```bash
 curl -X POST http://localhost:5000/mcp \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}'
 ```
 
