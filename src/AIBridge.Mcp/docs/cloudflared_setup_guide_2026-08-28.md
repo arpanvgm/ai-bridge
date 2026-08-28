@@ -52,7 +52,7 @@ docker run -d \
 2. Click the **Add route** button.
 3. When prompted, select **Published application**.
 4. Fill out the configuration exactly as follows:
-   * **Subdomain:** Enter your desired prefix (e.g., `mcp`).
+   * **Subdomain:** Enter your desired prefix (e.g., `local-ai-bridge`).
    * **Domain:** Select your registered domain from the dropdown.
    * **Path:** Leave this completely **EMPTY**.
    * **Service Type:** Select **`HTTP`**.
@@ -80,7 +80,7 @@ ai-bridge-mcp
 Open a second terminal and run this `curl` command to verify traffic is flowing from the internet, through Cloudflare, into Docker, and hitting your `.NET` server:
 
 ```bash
-curl -X POST https://mcp.yourdomain.com/mcp \
+curl -X POST https://local-ai-bridge.yourdomain.com/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}'
 ```
@@ -98,4 +98,4 @@ If you ever need to start over, you can freely delete your tunnel and recreate i
    docker stop cloudflared
    docker rm cloudflared
    ```
-2. **Clean up DNS Records:** When you assign a Public Hostname, Cloudflare creates a hidden `CNAME` DNS record linking that subdomain to the specific tunnel ID. If you delete the tunnel, you must go to your main **Cloudflare Dashboard -> DNS -> Records** and manually delete the leftover record (e.g., the one for `mcp` pointing to `.cfargotunnel.com`). If you skip this, Cloudflare won't let you use the same subdomain on your new tunnel.
+2. **Clean up DNS Records:** When you assign a Public Hostname, Cloudflare creates a hidden `CNAME` DNS record linking that subdomain to the specific tunnel ID. If you delete the tunnel, you must go to your main **Cloudflare Dashboard -> DNS -> Records** and manually delete the leftover record (e.g., the one for `local-ai-bridge` pointing to `.cfargotunnel.com`). If you skip this, Cloudflare won't let you use the same subdomain on your new tunnel.
