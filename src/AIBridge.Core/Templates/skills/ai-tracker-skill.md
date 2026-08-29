@@ -89,7 +89,15 @@ After the tracker is created and approved, every `<ai-response>` that contains c
 
 ## RESUMING FROM AN EXISTING TRACKER
 
-If the user provides a `tracker.xml` file in the context, read it carefully:
+If the user asks to resume from a tracker, or states there are pending tasks, but hasn't provided the tracker file yet, your very first step must be to output an `<ai-request>` exactly like this:
+
+```xml
+<ai-request>
+  <file path="ai-bridge/artifacts/tracker.xml" />
+</ai-request>
+```
+
+Once you have the `tracker.xml` file, read it carefully:
 
 - **`<scope>`** tells you what work is being done.
 - **`<decisions>`** tells you what decisions were already made — follow them.
