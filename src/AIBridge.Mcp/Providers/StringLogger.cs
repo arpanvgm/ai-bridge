@@ -8,8 +8,24 @@ public class StringLogger : IAIBridgeLogger
 {
     private readonly StringBuilder _sb = new();
 
-    public void Success(string message) => Log("SUCCESS", message);
-    public void Warning(string message) => Log("WARNING", message);
+    public void Success(string message) 
+    {
+        if (message.StartsWith("Created/Overwritten:", StringComparison.OrdinalIgnoreCase) ||
+            message.StartsWith("Deleted:", StringComparison.OrdinalIgnoreCase) ||
+            message.StartsWith("Patched:", StringComparison.OrdinalIgnoreCase))
+            return;
+            
+        Log("SUCCESS", message);
+    }
+
+    public void Warning(string message) 
+    {
+        if (message.StartsWith("Patched (fuzzy):", StringComparison.OrdinalIgnoreCase))
+            return;
+            
+        Log("WARNING", message);
+    }
+
     public void Error(string message) => Log("ERROR", message);
     public void Info(string message) => Log("INFO", message);
     public void Output(string message) => Log("OUTPUT", message);
