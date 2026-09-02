@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/AIBridge.Cli/AIBridge.Cli.csproj" />
     <Project Path="src/AIBridge.Core/AIBridge.Core.csproj" />
+    <Project Path="src/AIBridge.Mcp/AIBridge.Mcp.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/AIBridge.Cli.Scenarios/AIBridge.Cli.Scenarios.csproj" />

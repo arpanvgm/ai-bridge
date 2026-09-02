@@ -43,6 +43,33 @@
                 "command": "dotnet nuget push \"${workspaceFolder}\\src\\AIBridge.Cli\\bin\\Release\\*.nupkg\" --source https://api.nuget.org/v3/index.json --api-key ${input:nugetKey} --skip-duplicate"
             },
             "problemMatcher": []
+        },
+        {
+            "label": "📦 pack MCP",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "pack",
+                "${workspaceFolder}/src/AIBridge.Mcp/AIBridge.Mcp.csproj",
+                "-c",
+                "Release"
+            ],
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "🚀 test MCP locally (uninstall -> pack -> install)",
+            "type": "shell",
+            "command": "dotnet tool uninstall --global Tools.AIBridge.Mcp; dotnet pack ${workspaceFolder}/src/AIBridge.Mcp/AIBridge.Mcp.csproj -c Release; dotnet tool install --global --add-source ${workspaceFolder}/src/AIBridge.Mcp/bin/Release/ Tools.AIBridge.Mcp",
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "☁️ publish MCP nuget",
+            "type": "shell",
+            "command": "dotnet nuget push ${workspaceFolder}/src/AIBridge.Mcp/bin/Release/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${input:nugetKey} --skip-duplicate",
+            "windows": {
+                "command": "dotnet nuget push \"${workspaceFolder}\\src\\AIBridge.Mcp\\bin\\Release\\*.nupkg\" --source https://api.nuget.org/v3/index.json --api-key ${input:nugetKey} --skip-duplicate"
+            },
+            "problemMatcher": []
         }
     ],
     "inputs": [
