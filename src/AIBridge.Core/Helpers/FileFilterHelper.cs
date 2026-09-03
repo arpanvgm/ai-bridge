@@ -4,6 +4,28 @@ namespace AIBridge.Core.Helpers;
 
 public static class FileFilterHelper
 {
+    // Paths prefixed with these strings will be unconditionally excluded
+    public static readonly string[] AlwaysExcludePrefixes = [$"ai-bridge/", $"ai-bridge-"];
+
+    // Directories to exclude when git is not available
+    public static readonly List<string> FallbackExcludeFolders =
+    [
+        @"[\\/]\.git[\\/]", @"[\\/]\.vs[\\/]", @"[\\/]\.idea[\\/]", @"[\\/]\.vscode[\\/]",
+        @"[\\/]bin[\\/]", @"[\\/]obj[\\/]", @"[\\/]node_modules[\\/]",
+        @"[\\/]dist[\\/]", @"[\\/]out[\\/]", @"[\\/]build[\\/]",
+        @"[\\/]packages[\\/]", @"[\\/]TestResults[\\/]",
+        @"[\\/]ai-bridge-[^\\/]+[\\/]",
+        @"[\\/]__pycache__[\\/]", @"[\\/]\.mypy_cache[\\/]",
+        @"[\\/]target[\\/]", @"[\\/]vendor[\\/]"
+    ];
+
+    // File patterns to exclude when git is not available
+    public static readonly List<string> FallbackExcludeFilePatterns =
+    [
+        @"\.g\.cs$", @"\.g\.i\.cs$", @"\.designer\.cs$", @"AssemblyInfo\.cs$",
+        @"\.user$", @"\.suo$", @"\.log$", @"\.tmp$"
+    ];
+
     // Binary/non-text extensions to always exclude from packing
     public static readonly HashSet<string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -68,5 +90,60 @@ public static class FileFilterHelper
             if (aiIgnoreExcludeFilePatterns.Any(p => Regex.IsMatch(fileName, p, RegexOptions.IgnoreCase))) return true;
         }
         return false;
+    }
+
+    /// <summary>
+    /// Retrieves a list of source files to include in the AI context.
+    /// It primarily relies on 'git ls-files' to perfectly respect the user's .gitignore 
+    /// and avoid packing massive ignored folders (like node_modules or bin/).
+    /// If git is not installed or the directory is not a git repository, 
+    /// it falls back to a standard recursive directory search using built-in exclusion rules.
+    /// </summary>
+    /// <param name="projectRoot">The absolute path to the root of the project.</param>
+    /// <param name="logger">The logger used to warn if git fallback is activated.</param>
+    /// <returns>An array of absolute file paths.</returns>
+
+    public static async Task<string[]> GetTrackedFilesAsync(string projectRoot, AIBridge.Core.Abstractions.IAIBridgeLogger logger)
+    {
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "git",
+                Arguments = "ls-files --cached --others --exclude-standard",
+                WorkingDirectory = projectRoot,
+                UseShellExecute = false, RedirectStandardOutput = true,
+                RedirectStandardError = true, CreateNoWindow = true
+            };
+
+            using var process = System.Diagnostics.Process.Start(psi);
+            if (process != null)
+            {
+                var output = await process.StandardOutput.ReadToEndAsync();
+                await process.WaitForExitAsync();
+                if (process.ExitCode == 0)
+                {
+                    return output
+                        .Split(['\n', '\r'], StringSplitOptions.RemoveEmptyEntries)
+                        .Select(f => Path.GetFullPath(Path.Combine(projectRoot, f)))
+                        .ToArray();
+                }
+            }
+        }
+        catch { /* ignore */ }
+
+        logger.Warning("⚠ Git not available — using built-in exclusion rules...");
+        return Directory.GetFiles(projectRoot, "*.*", SearchOption.AllDirectories)
+            .Where(f =>
+            {
+                var paddedPath = "/" + Path.GetRelativePath(projectRoot, f).Replace("\\", "/") + "/";
+                return !FallbackExcludeFolders.Any(pattern => Regex.IsMatch(paddedPath, pattern, RegexOptions.IgnoreCase));
+            })
+            .Where(f =>
+            {
+                var fileName = Path.GetFileName(f);
+                return !FallbackExcludeFilePatterns.Any(pattern => Regex.IsMatch(fileName, pattern, RegexOptions.IgnoreCase));
+            })
+            .ToArray();
     }
 }

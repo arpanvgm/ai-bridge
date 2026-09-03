@@ -6,8 +6,154 @@ using AIBridge.Core.Helpers;
 
 namespace AIBridge.Core.Services;
 
-public class IndexService(IAIBridgeLogger logger)
+public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetector)
 {
+    public async Task GenerateIndexAsync(string projectRoot)
+    {
+        var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectRoot);
+        var indexFileName = WorkspaceHelper.GetIndexFileName(projectRoot);
+        var indexFile = Path.Combine(aiWorkspace, indexFileName);
+        var aiIgnorePath = Path.Combine(projectRoot, FileNames.AiIgnore);
+
+        var (detectedProjects, _) = projectDetector.DetectProjects(projectRoot);
+        var rootFolderName = new DirectoryInfo(projectRoot).Name;
+        var warnings = new List<string>();
+
+        var allFiles = await FileFilterHelper.GetTrackedFilesAsync(projectRoot, logger);
+
+        var (aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns) = FileFilterHelper.LoadAiIgnoreRules(aiIgnorePath);
+
+        var indexData = new Dictionary<string, List<(string relativePath, long tokens)>>();
+        int totalFileCount = 0;
+        long totalTokens = 0;
+
+        foreach (var file in allFiles.OrderBy(f => f))
+        {
+            var relativePath = Path.GetRelativePath(projectRoot, file).Replace("\\", "/");
+            var fileName = Path.GetFileName(file);
+            var extension = Path.GetExtension(file);
+
+            if (FileFilterHelper.AlwaysExcludePrefixes.Any(prefix => relativePath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+                continue;
+            if (FileFilterHelper.BinaryExtensions.Contains(extension)) continue;
+            if (FileFilterHelper.ExcludeFileNames.Contains(fileName)) continue;
+            if (FileFilterHelper.IsAiIgnored(relativePath, fileName, aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns)) continue;
+
+            string projectName = rootFolderName;
+            foreach (var proj in detectedProjects)
+            {
+                if (file.StartsWith(proj.DirectoryPrefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    projectName = proj.Name;
+                    break;
+                }
+            }
+
+            if (!indexData.TryGetValue(projectName, out var fileList))
+            {
+                fileList = new List<(string, long)>();
+                indexData[projectName] = fileList;
+            }
+
+            long fileTokens = 0;
+            try
+            {
+                fileTokens = new FileInfo(file).Length / 4;
+            }
+            catch { /* ignore */ }
+
+            fileList.Add((relativePath, fileTokens));
+            totalFileCount++;
+            totalTokens += fileTokens;
+        }
+
+        var doc = new XmlDocument();
+        XmlNode? indexRoot = null;
+        int addedCount = 0;
+        int preservedCount = 0;
+
+        if (File.Exists(indexFile))
+        {
+            try
+            {
+                doc.Load(indexFile);
+                indexRoot = doc.DocumentElement;
+            }
+            catch (Exception ex)
+            {
+                logger.Warning($"⚠ Failed to load existing index: {ex.Message}. Rebuilding from scratch.");
+                doc = new XmlDocument();
+            }
+        }
+
+        if (indexRoot == null || indexRoot.Name != "ai-bridge-index")
+        {
+            indexRoot = doc.CreateElement("ai-bridge-index");
+            doc.AppendChild(indexRoot);
+        }
+
+        indexRoot.Attributes?.RemoveNamedItem("lastUpdated");
+        var attr = doc.CreateAttribute("lastUpdated");
+        attr.Value = DateTime.UtcNow.ToString("o");
+        indexRoot.Attributes?.Append(attr);
+        
+        indexRoot.Attributes?.RemoveNamedItem("estimatedTokens");
+        var attrTokens = doc.CreateAttribute("estimatedTokens");
+        attrTokens.Value = totalTokens.ToString();
+        indexRoot.Attributes?.Append(attrTokens);
+
+        foreach (var kvp in indexData.OrderBy(k => k.Key))
+        {
+            var moduleName = kvp.Key;
+            var targetModule = indexRoot.SelectSingleNode($"{XmlTags.Module}[@name='{moduleName}']");
+            if (targetModule == null)
+            {
+                targetModule = doc.CreateElement(XmlTags.Module);
+                var nameAttr = doc.CreateAttribute("name");
+                nameAttr.Value = moduleName;
+                targetModule.Attributes?.Append(nameAttr);
+                indexRoot.AppendChild(targetModule);
+            }
+
+            foreach (var fileItem in kvp.Value)
+            {
+                var existingFile = targetModule.SelectSingleNode($"file[@path='{fileItem.relativePath}']") as XmlElement;
+                if (existingFile == null)
+                {
+                    var fileNode = doc.CreateElement("file");
+                    fileNode.SetAttribute("path", fileItem.relativePath);
+                    fileNode.SetAttribute("purpose", "");
+                    fileNode.SetAttribute("tokens", fileItem.tokens.ToString());
+                    targetModule.AppendChild(fileNode);
+                    addedCount++;
+                }
+                else
+                {
+                    existingFile.SetAttribute("tokens", fileItem.tokens.ToString());
+                    preservedCount++;
+                }
+            }
+        }
+
+        var settings = new XmlWriterSettings
+        {
+            Indent = true,
+            IndentChars = "  ",
+            OmitXmlDeclaration = false,
+            Encoding = new UTF8Encoding(false)
+        };
+
+        using (var writer = XmlWriter.Create(indexFile, settings))
+        {
+            doc.Save(writer);
+        }
+
+        if (preservedCount > 0)
+            logger.Success($"✅ Synced {indexFileName}: {addedCount} new files added, {preservedCount} existing summaries preserved.");
+        else
+            logger.Success($"✅ Generated new index at {indexFileName} tracking {addedCount} files.");
+    }
+
     public void HandleCreate(XmlNode root, string projectPath)
     {
         var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
@@ -17,14 +163,45 @@ public class IndexService(IAIBridgeLogger logger)
         var indexRoot = doc.CreateElement("ai-bridge-index");
         indexRoot.SetAttribute("lastUpdated", DateTime.UtcNow.ToString("o"));
 
+        long totalTokens = 0;
         foreach (XmlNode node in root.ChildNodes)
         {
             if (node.NodeType == XmlNodeType.Element)
             {
                 var importedNode = doc.ImportNode(node, true);
+                
+                // Add tokens attribute to all files in the module
+                var fileNodes = importedNode.SelectNodes(".//file");
+                if (fileNodes != null)
+                {
+                    foreach (XmlNode fNode in fileNodes)
+                    {
+                        var path = fNode.Attributes?["path"]?.Value;
+                        if (!string.IsNullOrEmpty(path))
+                        {
+                            long fileTokens = 0;
+                            var absPath = WorkspaceHelper.SafeResolvePath(projectPath, path);
+                            if (File.Exists(absPath))
+                            {
+                                try { fileTokens = new FileInfo(absPath).Length / 4; } catch { /* ignore */ }
+                            }
+                            
+                            var attr = doc.CreateAttribute("tokens");
+                            attr.Value = fileTokens.ToString();
+                            fNode.Attributes?.Append(attr);
+                            totalTokens += fileTokens;
+                        }
+                    }
+                }
+                
                 indexRoot.AppendChild(importedNode);
             }
         }
+        
+        var attrTotal = doc.CreateAttribute("estimatedTokens");
+        attrTotal.Value = totalTokens.ToString();
+        indexRoot.Attributes?.Append(attrTotal);
+
         doc.AppendChild(indexRoot);
 
         var settings = new XmlWriterSettings
@@ -123,9 +300,17 @@ public class IndexService(IAIBridgeLogger logger)
                         purpose = fileNode.InnerText.Trim();
 
                     var targetFile = targetModule?.SelectSingleNode($"file[@path='{path}']") as XmlElement;
+                    long fileTokens = 0;
+                    var absPath = WorkspaceHelper.SafeResolvePath(projectPath, path);
+                    if (File.Exists(absPath))
+                    {
+                        try { fileTokens = new FileInfo(absPath).Length / 4; } catch { /* ignore */ }
+                    }
+
                     if (targetFile != null)
                     {
                         targetFile.SetAttribute("purpose", purpose);
+                        targetFile.SetAttribute("tokens", fileTokens.ToString());
                         updatedCount++;
                     }
                     else
@@ -133,6 +318,7 @@ public class IndexService(IAIBridgeLogger logger)
                         targetFile = xml.CreateElement("file");
                         targetFile.SetAttribute("path", path);
                         targetFile.SetAttribute("purpose", purpose);
+                        targetFile.SetAttribute("tokens", fileTokens.ToString());
                         targetModule?.AppendChild(targetFile);
                         addedCount++;
                     }
@@ -151,9 +337,17 @@ public class IndexService(IAIBridgeLogger logger)
                 if (string.IsNullOrEmpty(purpose)) purpose = fileNode.InnerText.Trim();
 
                 var targetFile = indexRoot.SelectSingleNode($"//file[@path='{path}']") as XmlElement;
+                long fileTokens = 0;
+                var absPath = WorkspaceHelper.SafeResolvePath(projectPath, path);
+                if (File.Exists(absPath))
+                {
+                    try { fileTokens = new FileInfo(absPath).Length / 4; } catch { /* ignore */ }
+                }
+
                 if (targetFile != null)
                 {
                     targetFile.SetAttribute("purpose", purpose);
+                    targetFile.SetAttribute("tokens", fileTokens.ToString());
                     updatedCount++;
                 }
                 else
@@ -162,6 +356,21 @@ public class IndexService(IAIBridgeLogger logger)
                 }
             }
         }
+
+        long totalTokens = 0;
+        var allFileNodes = indexRoot.SelectNodes("//file");
+        if (allFileNodes != null)
+        {
+            foreach (XmlNode fNode in allFileNodes)
+            {
+                if (long.TryParse(fNode.Attributes?["tokens"]?.Value, out long t))
+                    totalTokens += t;
+            }
+        }
+        indexRoot.Attributes?.RemoveNamedItem("estimatedTokens");
+        var attrTokens = xml.CreateAttribute("estimatedTokens");
+        attrTokens.Value = totalTokens.ToString();
+        indexRoot.Attributes?.Append(attrTokens);
 
         indexRoot.SetAttribute("lastUpdated", DateTime.UtcNow.ToString("o"));
 

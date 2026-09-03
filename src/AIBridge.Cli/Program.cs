@@ -13,7 +13,7 @@ var stateService = new StateService(projectRoot, logger);
 var projectDetector = new ProjectDetector(logger);
 var inputService = new InputService(logger, inputProvider);
 var patcherService = new PatcherService(logger);
-var indexService = new IndexService(logger);
+var indexService = new IndexService(logger, projectDetector);
 var requestService = new RequestService(logger, projectDetector);
 var templateService = new TemplateService(logger);
 var packerService = new PackerService(logger, projectDetector);
@@ -110,8 +110,13 @@ updateCommand.SetHandler(async () =>
 // ── Index ──
 var indexCommand = new Command("index", "Commands for managing your project index.");
 var statusCommand = new Command("status", "Shows files changed since the last index update.");
+var syncCommand = new Command("sync", "Generates or safely syncs the ai-bridge-index.xml with your local files.");
+
 indexCommand.AddCommand(statusCommand);
+indexCommand.AddCommand(syncCommand);
+
 statusCommand.SetHandler(async () => { await indexStatusService.StatusAsync(projectRoot); });
+syncCommand.SetHandler(async () => { await indexService.GenerateIndexAsync(projectRoot); });
 
 rootCommand.AddCommand(packCommand);
 rootCommand.AddCommand(applyCommand);
