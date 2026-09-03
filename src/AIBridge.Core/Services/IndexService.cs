@@ -25,7 +25,6 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
 
         var indexData = new Dictionary<string, List<string>>();
         int totalFileCount = 0;
-        
 
         foreach (var file in allFiles.OrderBy(f => f))
         {
@@ -88,8 +87,6 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
         var attr = doc.CreateAttribute("lastUpdated");
         attr.Value = DateTime.UtcNow.ToString("o");
         indexRoot.Attributes?.Append(attr);
-        
-        
 
         foreach (var kvp in indexData.OrderBy(k => k.Key))
         {
@@ -150,20 +147,14 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
         var indexRoot = doc.CreateElement("ai-bridge-index");
         indexRoot.SetAttribute("lastUpdated", DateTime.UtcNow.ToString("o"));
 
-        
         foreach (XmlNode node in root.ChildNodes)
         {
             if (node.NodeType == XmlNodeType.Element)
             {
                 var importedNode = doc.ImportNode(node, true);
-                
-                
-                
                 indexRoot.AppendChild(importedNode);
             }
         }
-        
-        
 
         doc.AppendChild(indexRoot);
 
@@ -263,7 +254,6 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
                         purpose = fileNode.InnerText.Trim();
 
                     var targetFile = targetModule?.SelectSingleNode($"file[@path='{path}']") as XmlElement;
-                    
 
                     if (targetFile != null)
                     {
@@ -293,8 +283,7 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
                 if (string.IsNullOrEmpty(purpose)) purpose = fileNode.InnerText.Trim();
 
                 var targetFile = indexRoot.SelectSingleNode($"//file[@path='{path}']") as XmlElement;
-                
-
+  
                 if (targetFile != null)
                 {
                     targetFile.SetAttribute("purpose", purpose);
@@ -306,9 +295,6 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
                 }
             }
         }
-
-        
-
 
         indexRoot.SetAttribute("lastUpdated", DateTime.UtcNow.ToString("o"));
 
