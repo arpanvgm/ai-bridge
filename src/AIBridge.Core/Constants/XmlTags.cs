@@ -13,4 +13,5 @@ public static class XmlTags
     public const string Module = "module";
     public const string Tracker = "tracker";
     public const string TrackerUpdate = "tracker-update";
+    public const string OutOfSyncIndexFiles = "out-of-sync-index-files";
 }

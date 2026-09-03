@@ -17,7 +17,6 @@ var indexService = new IndexService(logger, projectDetector);
 var requestService = new RequestService(logger, projectDetector, indexService);
 var templateService = new TemplateService(logger);
 var packerService = new PackerService(logger, projectDetector);
-var indexStatusService = new IndexStatusService(logger);
 var trackerService = new TrackerService(logger);
 var applyService = new ApplyService(logger, patcherService, indexService, requestService, trackerService);
 var rootCommand = new RootCommand("AI Bridge - Connects your local codebase to AI chatbots.");
@@ -115,7 +114,7 @@ var syncCommand = new Command("sync", "Generates or safely syncs the ai-bridge-i
 indexCommand.AddCommand(statusCommand);
 indexCommand.AddCommand(syncCommand);
 
-statusCommand.SetHandler(async () => { await indexStatusService.StatusAsync(projectRoot); });
+statusCommand.SetHandler(async () => { await indexService.StatusAsync(projectRoot); });
 syncCommand.SetHandler(async () => { await indexService.GenerateIndexAsync(projectRoot); });
 
 rootCommand.AddCommand(packCommand);

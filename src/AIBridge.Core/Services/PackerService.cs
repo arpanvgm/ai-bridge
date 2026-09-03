@@ -28,7 +28,7 @@ public class PackerService(IAIBridgeLogger logger, ProjectDetector projectDetect
         {
             try
             {
-                var idxStatusSvc = new IndexStatusService(logger);
+                var idxStatusSvc = new IndexService(logger, projectDetector);
                 var (modified, newFiles, _, _) = await idxStatusSvc.GetChangedFilesAsync(projectRoot);
                 incrementalFiles = new HashSet<string>(modified.Concat(newFiles), StringComparer.OrdinalIgnoreCase);
 
