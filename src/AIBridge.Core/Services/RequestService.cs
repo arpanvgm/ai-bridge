@@ -6,7 +6,7 @@ using AIBridge.Core.Helpers;
 
 namespace AIBridge.Core.Services;
 
-public class RequestService(IAIBridgeLogger logger, ProjectDetector projectDetector)
+public class RequestService(IAIBridgeLogger logger, ProjectDetector projectDetector, IndexService indexService)
 {
     public async Task<string> HandleAsync(XmlElement root, string projectPath)
     {
@@ -21,6 +21,17 @@ public class RequestService(IAIBridgeLogger logger, ProjectDetector projectDetec
         {
             logger.Warning("No valid <file path=\"...\"> tags found in <ai-request>.");
             return string.Empty;
+        }
+
+        var indexRelPath = $"{FolderNames.AiBridge}/{FileNames.Index}";
+        if (requestedFiles.Contains(indexRelPath, StringComparer.OrdinalIgnoreCase))
+        {
+            var indexAbsPath = WorkspaceHelper.SafeResolvePath(projectPath, indexRelPath);
+            if (!File.Exists(indexAbsPath))
+            {
+                logger.Info("Index file requested but does not exist. Generating it on the fly...");
+                await indexService.GenerateIndexAsync(projectPath);
+            }
         }
 
         var rootFolderName = new DirectoryInfo(projectPath).Name;

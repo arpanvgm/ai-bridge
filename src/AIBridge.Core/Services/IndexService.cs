@@ -23,9 +23,9 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
 
         var (aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns) = FileFilterHelper.LoadAiIgnoreRules(aiIgnorePath);
 
-        var indexData = new Dictionary<string, List<(string relativePath, long tokens)>>();
+        var indexData = new Dictionary<string, List<string>>();
         int totalFileCount = 0;
-        long totalTokens = 0;
+        
 
         foreach (var file in allFiles.OrderBy(f => f))
         {
@@ -51,20 +51,12 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
 
             if (!indexData.TryGetValue(projectName, out var fileList))
             {
-                fileList = new List<(string, long)>();
+                fileList = new List<string>();
                 indexData[projectName] = fileList;
             }
 
-            long fileTokens = 0;
-            try
-            {
-                fileTokens = new FileInfo(file).Length / 4;
-            }
-            catch { /* ignore */ }
-
-            fileList.Add((relativePath, fileTokens));
+            fileList.Add(relativePath);
             totalFileCount++;
-            totalTokens += fileTokens;
         }
 
         var doc = new XmlDocument();
@@ -97,10 +89,7 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
         attr.Value = DateTime.UtcNow.ToString("o");
         indexRoot.Attributes?.Append(attr);
         
-        indexRoot.Attributes?.RemoveNamedItem("estimatedTokens");
-        var attrTokens = doc.CreateAttribute("estimatedTokens");
-        attrTokens.Value = totalTokens.ToString();
-        indexRoot.Attributes?.Append(attrTokens);
+        
 
         foreach (var kvp in indexData.OrderBy(k => k.Key))
         {
@@ -117,19 +106,17 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
 
             foreach (var fileItem in kvp.Value)
             {
-                var existingFile = targetModule.SelectSingleNode($"file[@path='{fileItem.relativePath}']") as XmlElement;
+                var existingFile = targetModule.SelectSingleNode($"file[@path='{fileItem}']") as XmlElement;
                 if (existingFile == null)
                 {
                     var fileNode = doc.CreateElement("file");
-                    fileNode.SetAttribute("path", fileItem.relativePath);
+                    fileNode.SetAttribute("path", fileItem);
                     fileNode.SetAttribute("purpose", "");
-                    fileNode.SetAttribute("tokens", fileItem.tokens.ToString());
                     targetModule.AppendChild(fileNode);
                     addedCount++;
                 }
                 else
                 {
-                    existingFile.SetAttribute("tokens", fileItem.tokens.ToString());
                     preservedCount++;
                 }
             }
@@ -163,44 +150,20 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
         var indexRoot = doc.CreateElement("ai-bridge-index");
         indexRoot.SetAttribute("lastUpdated", DateTime.UtcNow.ToString("o"));
 
-        long totalTokens = 0;
+        
         foreach (XmlNode node in root.ChildNodes)
         {
             if (node.NodeType == XmlNodeType.Element)
             {
                 var importedNode = doc.ImportNode(node, true);
                 
-                // Add tokens attribute to all files in the module
-                var fileNodes = importedNode.SelectNodes(".//file");
-                if (fileNodes != null)
-                {
-                    foreach (XmlNode fNode in fileNodes)
-                    {
-                        var path = fNode.Attributes?["path"]?.Value;
-                        if (!string.IsNullOrEmpty(path))
-                        {
-                            long fileTokens = 0;
-                            var absPath = WorkspaceHelper.SafeResolvePath(projectPath, path);
-                            if (File.Exists(absPath))
-                            {
-                                try { fileTokens = new FileInfo(absPath).Length / 4; } catch { /* ignore */ }
-                            }
-                            
-                            var attr = doc.CreateAttribute("tokens");
-                            attr.Value = fileTokens.ToString();
-                            fNode.Attributes?.Append(attr);
-                            totalTokens += fileTokens;
-                        }
-                    }
-                }
+                
                 
                 indexRoot.AppendChild(importedNode);
             }
         }
         
-        var attrTotal = doc.CreateAttribute("estimatedTokens");
-        attrTotal.Value = totalTokens.ToString();
-        indexRoot.Attributes?.Append(attrTotal);
+        
 
         doc.AppendChild(indexRoot);
 
@@ -300,17 +263,11 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
                         purpose = fileNode.InnerText.Trim();
 
                     var targetFile = targetModule?.SelectSingleNode($"file[@path='{path}']") as XmlElement;
-                    long fileTokens = 0;
-                    var absPath = WorkspaceHelper.SafeResolvePath(projectPath, path);
-                    if (File.Exists(absPath))
-                    {
-                        try { fileTokens = new FileInfo(absPath).Length / 4; } catch { /* ignore */ }
-                    }
+                    
 
                     if (targetFile != null)
                     {
                         targetFile.SetAttribute("purpose", purpose);
-                        targetFile.SetAttribute("tokens", fileTokens.ToString());
                         updatedCount++;
                     }
                     else
@@ -318,7 +275,6 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
                         targetFile = xml.CreateElement("file");
                         targetFile.SetAttribute("path", path);
                         targetFile.SetAttribute("purpose", purpose);
-                        targetFile.SetAttribute("tokens", fileTokens.ToString());
                         targetModule?.AppendChild(targetFile);
                         addedCount++;
                     }
@@ -337,17 +293,11 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
                 if (string.IsNullOrEmpty(purpose)) purpose = fileNode.InnerText.Trim();
 
                 var targetFile = indexRoot.SelectSingleNode($"//file[@path='{path}']") as XmlElement;
-                long fileTokens = 0;
-                var absPath = WorkspaceHelper.SafeResolvePath(projectPath, path);
-                if (File.Exists(absPath))
-                {
-                    try { fileTokens = new FileInfo(absPath).Length / 4; } catch { /* ignore */ }
-                }
+                
 
                 if (targetFile != null)
                 {
                     targetFile.SetAttribute("purpose", purpose);
-                    targetFile.SetAttribute("tokens", fileTokens.ToString());
                     updatedCount++;
                 }
                 else
@@ -357,20 +307,8 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
             }
         }
 
-        long totalTokens = 0;
-        var allFileNodes = indexRoot.SelectNodes("//file");
-        if (allFileNodes != null)
-        {
-            foreach (XmlNode fNode in allFileNodes)
-            {
-                if (long.TryParse(fNode.Attributes?["tokens"]?.Value, out long t))
-                    totalTokens += t;
-            }
-        }
-        indexRoot.Attributes?.RemoveNamedItem("estimatedTokens");
-        var attrTokens = xml.CreateAttribute("estimatedTokens");
-        attrTokens.Value = totalTokens.ToString();
-        indexRoot.Attributes?.Append(attrTokens);
+        
+
 
         indexRoot.SetAttribute("lastUpdated", DateTime.UtcNow.ToString("o"));
 
