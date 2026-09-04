@@ -56,7 +56,6 @@ public class TemplateService(IAIBridgeLogger logger)
         // Fix .NET Embedded Resource name mangling for folders with numbers/hyphens
         dirPath = dirPath.Replace("_1_SimpleMode", "1-SimpleMode")
                          .Replace("_2_AdvancedMode", "2-AdvancedMode")
-                         .Replace("_3_AutoIndexMode", "3-AutoIndexMode")
                          .Replace("Phase1_CreateIndex", "Phase1-CreateIndex")
                          .Replace("Phase2_DailyChat", "Phase2-DailyChat");
 

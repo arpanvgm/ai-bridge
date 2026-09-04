@@ -91,7 +91,7 @@ applyCommand.SetHandler(async (bool watch, bool paste, bool dryRun) =>
 }, watchOption, pasteOption, dryRunOption);
 
 // ── Init ──
-var initCommand = new Command("init", $"Scaffolds {FileNames.AiIgnore}, {FolderNames.SimpleMode}/, {FolderNames.AdvancedMode}/, and {FolderNames.Skills}/ for a new project.");
+var initCommand = new Command("init", $"Scaffolds {FileNames.AiIgnore}, {FolderNames.SimpleMode}/, {FolderNames.AdvancedMode}/, {FolderNames.AutoIndexMode}/, and {FolderNames.Skills}/ for a new project.");
 initCommand.SetHandler(async () =>
 {
     logger.Info("Initializing AI Bridge for this project...");
@@ -99,7 +99,7 @@ initCommand.SetHandler(async () =>
 });
 
 // ── Update ──
-var updateCommand = new Command("update", $"Syncs {FolderNames.SimpleMode}/, {FolderNames.AdvancedMode}/, and {FolderNames.Skills}/ to match the currently installed tool version.");
+var updateCommand = new Command("update", $"Syncs {FolderNames.SimpleMode}/, {FolderNames.AdvancedMode}/, {FolderNames.AutoIndexMode}/, and {FolderNames.Skills}/ to match the currently installed tool version.");
 updateCommand.SetHandler(async () =>
 {
     logger.Info("Updating AI Bridge default templates...");
@@ -145,7 +145,7 @@ async Task RunInitAsync(bool force)
         await File.WriteAllTextAsync(responseFilePath, "<!-- Paste the AI response XML here -->\n");
 
     var innerGitignorePath = Path.Combine(aiWorkspace, ".gitignore");
-    var innerGitignoreContent = $"# Ignore templates and artifacts to prevent Git conflicts\n{FolderNames.Artifacts}/\n{FolderNames.SimpleMode}/\n{FolderNames.AdvancedMode}/\n{FolderNames.Skills}/\n";
+    var innerGitignoreContent = $"# Ignore templates and artifacts to prevent Git conflicts\n{FolderNames.Artifacts}/\n{FolderNames.SimpleMode}/\n{FolderNames.AdvancedMode}/\n{FolderNames.AutoIndexMode}/\n{FolderNames.Skills}/\n";
     await File.WriteAllTextAsync(innerGitignorePath, innerGitignoreContent);
 
     var dockerignorePath = Path.Combine(projectRoot, ".dockerignore");
@@ -180,10 +180,12 @@ async Task RunInitAsync(bool force)
 
     var simpleModeDir = Path.Combine(aiWorkspace, FolderNames.SimpleMode);
     var advancedModeDir = Path.Combine(aiWorkspace, FolderNames.AdvancedMode);
+    var autoIndexModeDir = Path.Combine(aiWorkspace, FolderNames.AutoIndexMode);
     if (force)
     {
         if (Directory.Exists(simpleModeDir)) Directory.Delete(simpleModeDir, true);
         if (Directory.Exists(advancedModeDir)) Directory.Delete(advancedModeDir, true);
+        if (Directory.Exists(autoIndexModeDir)) Directory.Delete(autoIndexModeDir, true);
     }
 
     templateService.ExtractTemplates(aiWorkspace, force, projectRoot);
