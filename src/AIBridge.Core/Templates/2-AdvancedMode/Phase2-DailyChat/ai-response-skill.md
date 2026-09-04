@@ -13,7 +13,7 @@ You must wrap the entire XML output in exactly ONE standard markdown code block 
 
 ## RESPONSE STRUCTURE
 
-Your entire response MUST be wrapped in a single `<ai-response>` root element. Code changes (`<file>`, `<patch>`, `<delete>`) go inside an `<ai-edits>` block. If your changes affect any file's overall purpose in the index, include an `<update-ai-bridge-index>` block after `<ai-edits>` (see `ai-bridge-update-index-skill.md` for rules):
+Your entire response MUST be wrapped in a single `<ai-response>` root element. Code changes (`<file>`, `<patch>`, `<delete>`) go inside an `<ai-edits>` block. If your changes affect any file's overall purpose in the index, include an `<update-ai-bridge-index>` block after `<ai-edits>` (see `ai-update-index-skill.md` for rules):
 
 ```xml
 <ai-response>
@@ -24,7 +24,7 @@ Your entire response MUST be wrapped in a single `<ai-response>` root element. C
 
   <!-- Optional: only if file purposes changed -->
   <update-ai-bridge-index>
-    <!-- index delta as per ai-bridge-update-index-skill.md -->
+    <!-- index delta as per ai-update-index-skill.md -->
   </update-ai-bridge-index>
 
 </ai-response>

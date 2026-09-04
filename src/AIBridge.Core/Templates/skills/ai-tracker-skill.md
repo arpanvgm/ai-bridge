@@ -163,19 +163,31 @@ app.UseAuthorization();
 ### Example 3: Tracker update when multiple tasks are completed
 
 ```xml
-<tracker-update>
-  <done>3</done>
-  <done>4</done>
-  <focus>5</focus>
-  <task id="6">Add integration tests for full auth flow</task>
-</tracker-update>
+<ai-response>
+  <ai-edits>
+    <!-- code changes -->
+  </ai-edits>
+
+  <tracker-update>
+    <done>3</done>
+    <done>4</done>
+    <focus>5</focus>
+    <task id="6">Add integration tests for full auth flow</task>
+  </tracker-update>
+</ai-response>
 ```
 
 ### Example 4: Final task completed
 
 ```xml
-<tracker-update>
-  <done>5</done>
-  <focus>0</focus>
-</tracker-update>
+<ai-response>
+  <ai-edits>
+    <!-- code changes -->
+  </ai-edits>
+
+  <tracker-update>
+    <done>5</done>
+    <focus>0</focus>
+  </tracker-update>
+</ai-response>
 ```

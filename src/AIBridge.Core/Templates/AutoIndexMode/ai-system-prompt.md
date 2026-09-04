@@ -20,7 +20,7 @@ You are an expert software engineer acting as a coding assistant. Your workflow 
    When you are ready to output code changes, you MUST follow strict protocols. Before generating your response, you MUST review **`ai-response-skill.md`**. It dictates the exact XML `<ai-response>` format you must use for all code changes.
 
 4. **Keeping the Index Current**:
-   The index is a snapshot and will drift out of sync as code changes are applied. To prevent this, you MUST automatically include an `<update-ai-bridge-index>` block inside your `<ai-response>` (as described in `ai-bridge-update-index-skill.md`) whenever your code changes affect a file's overall purpose. See `ai-response-skill.md` for the exact placement.
+   The index is a snapshot and will drift out of sync as code changes are applied. To prevent this, you MUST automatically include an `<update-ai-bridge-index>` block inside your `<ai-response>` (as described in `ai-update-index-skill.md`) whenever your code changes affect a file's overall purpose. See `ai-response-skill.md` for the exact placement.
 
 ---
 

@@ -52,9 +52,9 @@ public class ApplyService(
             return new ApplyResult(IsSuccess: false, ErrorMessage: "No XML content found.");
         }
 
-        if (root.Name is not (XmlTags.AiResponse or XmlTags.AiRequest or XmlTags.CreateIndex or XmlTags.UpdateIndex))
+        if (root.Name is not (XmlTags.AiResponse or XmlTags.AiRequest))
         {
-            var msg = $"Error: Root element must be <{XmlTags.AiResponse}>, <{XmlTags.AiRequest}>, <{XmlTags.CreateIndex}>, or <{XmlTags.UpdateIndex}>, found <{root.Name}>.";
+            var msg = $"Error: Root element must be <{XmlTags.AiResponse}> or <{XmlTags.AiRequest}>, found <{root.Name}>.";
             logger.Error(msg);
             return new ApplyResult(IsSuccess: false, ErrorMessage: msg);
         }
@@ -66,23 +66,10 @@ public class ApplyService(
             return new ApplyResult(IsSuccess: true, ContextPayload: contextText);
         }
 
-        // ── Handle <create-index> ──
-        if (root.Name == XmlTags.CreateIndex)
-        {
-            indexService.HandleCreate(root, projectRoot);
-            return new ApplyResult(IsSuccess: true);
-        }
-
-        // ── Handle <update-index> ──
-        if (root.Name == XmlTags.UpdateIndex)
-        {
-            indexService.HandleUpdate(root, projectRoot);
-            return new ApplyResult(IsSuccess: true);
-        }
-
         // ── Handle <ai-response> ──
         var aiEditsNode = root.SelectSingleNode(XmlTags.AiEdits);
         var indexUpdateNode = root.SelectSingleNode(XmlTags.UpdateIndex);
+        var indexCreateNode = root.SelectSingleNode(XmlTags.CreateIndex);
 
         if (aiEditsNode != null)
         {
@@ -125,12 +112,12 @@ public class ApplyService(
             }
         }
 
-        // Validate no unknown top-level elements
+        // Validate no unknown top-level elements inside <ai-response>
         foreach (XmlNode node in root.ChildNodes)
         {
-            if (node.NodeType == XmlNodeType.Element && node.Name != XmlTags.AiEdits && node.Name != XmlTags.UpdateIndex && node.Name != XmlTags.TrackerUpdate && node.Name != XmlTags.Tracker)
+            if (node.NodeType == XmlNodeType.Element && node.Name != XmlTags.AiEdits && node.Name != XmlTags.CreateIndex && node.Name != XmlTags.UpdateIndex && node.Name != XmlTags.TrackerUpdate && node.Name != XmlTags.Tracker)
             {
-                var msg = $"Error: Unknown element '<{node.Name}>' found. Only <{XmlTags.AiEdits}>, <{XmlTags.UpdateIndex}>, <{XmlTags.TrackerUpdate}>, and <{XmlTags.Tracker}> are allowed.";
+                var msg = $"Error: Unknown element '<{node.Name}>' found inside <{XmlTags.AiResponse}>. Allowed children: <{XmlTags.AiEdits}>, <{XmlTags.CreateIndex}>, <{XmlTags.UpdateIndex}>, <{XmlTags.TrackerUpdate}>, <{XmlTags.Tracker}>.";
                 logger.Error(msg);
                 return new ApplyResult(IsSuccess: false, ErrorMessage: msg);
             }
@@ -191,6 +178,9 @@ public class ApplyService(
                 countDeleted++;
             }
         }
+
+        if (countPatchFailed == 0 && indexCreateNode is XmlElement indexCreateElement)
+            indexService.HandleCreate(indexCreateElement, projectRoot);
 
         if (countPatchFailed == 0 && indexUpdateNode is XmlElement indexUpdateElement)
             indexService.HandleUpdate(indexUpdateElement, projectRoot);
