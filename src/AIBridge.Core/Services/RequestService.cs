@@ -103,12 +103,12 @@ public class RequestService(IAIBridgeLogger logger, ProjectDetector projectDetec
             sb.AppendLine();
         }
 
-        var resultText = sb.ToString().TrimEnd();
-        
         if (remainingOutOfSync > 0)
         {
-            resultText += $"\n\n<!-- Note: There are {remainingOutOfSync} more out-of-sync files. Send <out-of-sync-index-files /> again to get the next batch. -->";
+            sb.AppendLine($"<!-- Note: There are {remainingOutOfSync} more out-of-sync files. Send <out-of-sync-index-files /> again to get the next batch. -->");
         }
+
+        var resultText = sb.ToString().TrimEnd();
 
         var artifactsDir = Path.Combine(aiWorkspace, FolderNames.Artifacts);
         if (!Directory.Exists(artifactsDir)) Directory.CreateDirectory(artifactsDir);
