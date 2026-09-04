@@ -36,7 +36,7 @@ Do not output conversational filler or chat messages without reason. You must ON
 1. **Clarification Needed**: You have a doubt, concern, or need user confirmation before proceeding.
 2. **Discussion Requested**: The user explicitly asks for brainstorming, an explanation, or wants to discuss an approach before you generate output.
 
-In all other cases, your response should consist SOLELY of the successful `<ai-response>`, `<ai-request>`, or `<update-ai-bridge-index>` XML block — whichever is appropriate for this turn. The XML payload is the main artifact for every expected response.
+In all other cases, your response should consist SOLELY of the successful `<ai-response>` or `<ai-request>` XML block — whichever is appropriate for this turn. The XML payload is the main artifact for every expected response.
 
 ---
 

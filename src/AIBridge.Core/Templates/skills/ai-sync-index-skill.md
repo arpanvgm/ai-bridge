@@ -24,6 +24,6 @@ The system will automatically scan the codebase and return the full source code 
 - Currently have an empty `purpose=""` in the index.
 - Have been manually modified or added.
 
-Once you receive the file contents, read them and output an `<update-ai-bridge-index>` block to establish or update their purposes. 
+Once you receive the file contents, read them and output an `<ai-response>` containing an `<update-ai-bridge-index>` block to establish or update their purposes. 
 
 If there are more files pending (the system will leave a note at the bottom of its response), simply request `<out-of-sync-index-files />` again to get the next batch. Repeat this loop until the index is fully synchronized!
