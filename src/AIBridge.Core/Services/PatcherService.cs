@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using System.Xml;
 using AIBridge.Core.Abstractions;
 
+using AIBridge.Core.Constants;
 namespace AIBridge.Core.Services;
 
 public class PatcherService(IAIBridgeLogger logger)
@@ -20,8 +21,8 @@ public class PatcherService(IAIBridgeLogger logger)
         }
 
         var absPath = Path.Combine(projectPath, relPath.Replace('/', Path.DirectorySeparatorChar));
-        var searchNode = node.SelectSingleNode("search");
-        var replaceNode = node.SelectSingleNode("replace");
+        var searchNode = node.SelectSingleNode(XmlTags.Search);
+        var replaceNode = node.SelectSingleNode(XmlTags.Replace);
 
         if (!File.Exists(absPath) || searchNode == null || replaceNode == null)
         {
