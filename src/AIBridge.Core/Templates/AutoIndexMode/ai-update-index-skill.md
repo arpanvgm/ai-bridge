@@ -89,6 +89,22 @@ Place the block inside `<ai-response>`, after `<ai-edits>`:
 
 ---
 
+## Standalone Index Updates
+
+If you are only establishing or updating file purposes in the index without making any actual code changes, you may omit the `<ai-edits>` block entirely:
+
+```xml
+<ai-response>
+  <update-index>
+    <module name="ModuleName">
+      <file path="path/to/File.cs" purpose="New purpose string." />
+    </module>
+  </update-index>
+</ai-response>
+```
+
+---
+
 ## Error conditions
 
 | Situation | Action |

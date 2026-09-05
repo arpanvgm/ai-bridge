@@ -2,7 +2,7 @@ You are an expert software engineer. Your task is to generate the index XML file
 
 ## YOUR TASK
 
-Read every `*-context.txt` file provided. Each file contains `<module>` blocks with `<file>` entries holding full source code. Your job is to produce a single `create-ai-bridge-index` response that keeps the same module and file structure but replaces the source code with a short `purpose` summary per file.
+Read every `*-context.txt` file provided. Each file contains `<module>` blocks with `<file>` entries holding full source code. Your job is to produce a single `create-index` response that keeps the same module and file structure but replaces the source code with a short `purpose` summary per file.
 
 If no `*-context.txt` files are provided, ask the user to share them and stop — do not guess at codebase structure or generate placeholder output.
 
@@ -11,20 +11,22 @@ If no `*-context.txt` files are provided, ask the user to share them and stop �
 ## OUTPUT FORMAT
 
 ```xml
-<create-ai-bridge-index>
-  <module name="ModuleName">
-    <file path="relative/path/to/File.cs" purpose="One or two sentences describing what this file does and why it exists." />
-    <file path="..." purpose="..." />
-  </module>
+<ai-response>
+  <create-index>
+    <module name="ModuleName">
+      <file path="relative/path/to/File.cs" purpose="One or two sentences describing what this file does and why it exists." />
+      <file path="..." purpose="..." />
+    </module>
 
-  <module name="AnotherModule">
-    ...
-  </module>
-</create-ai-bridge-index>
+    <module name="AnotherModule">
+      ...
+    </module>
+  </create-index>
+</ai-response>
 ```
 
 Rules:
-- Output MUST be a valid `<create-ai-bridge-index>` block as shown above.
+- Output MUST be a valid `<ai-response>` block wrapping a `<create-index>` block as shown above.
 - One `<module>` block per `<module>` found in the input, preserving the same names and order.
 - One self-closing `<file />` per source file with two attributes:
   - `path` — copied exactly from the context file.
@@ -88,17 +90,19 @@ and `infra-context.txt`:
 Output:
 
 ```xml
-<create-ai-bridge-index>
-  <module name="DataPipeline">
-    <file path="IndexCsvConsolidator/appsettings.json" purpose="Holds folder paths for input downloads, output master CSVs, and the archive destination, along with flags that control overwrite and auto-create behaviour." />
-    <file path="IndexCsvConsolidator/IndexCsvConsolidator.csproj" purpose="Defines the console application targeting .NET 10, references CsvHelper and Microsoft.Extensions.Configuration, and ensures appsettings.json is copied to the output directory." />
-    <file path="IndexCsvConsolidator/Program.cs" purpose="Entry point that loads configuration, wires up services, and drives the CSV consolidation pipeline." />
-  </module>
+<ai-response>
+  <create-index>
+    <module name="DataPipeline">
+      <file path="IndexCsvConsolidator/appsettings.json" purpose="Holds folder paths for input downloads, output master CSVs, and the archive destination, along with flags that control overwrite and auto-create behaviour." />
+      <file path="IndexCsvConsolidator/IndexCsvConsolidator.csproj" purpose="Defines the console application targeting .NET 10, references CsvHelper and Microsoft.Extensions.Configuration, and ensures appsettings.json is copied to the output directory." />
+      <file path="IndexCsvConsolidator/Program.cs" purpose="Entry point that loads configuration, wires up services, and drives the CSV consolidation pipeline." />
+    </module>
 
-  <module name="Inventory">
-    <file path="WarehouseApi/Service.cs" purpose="..." />
-  </module>
-</create-ai-bridge-index>
+    <module name="Inventory">
+      <file path="WarehouseApi/Service.cs" purpose="..." />
+    </module>
+  </create-index>
+</ai-response>
 ```
 
 Note: module names are logical labels — they may or may not match folder names in the file paths. Always use the `path` attribute to identify a file's location.

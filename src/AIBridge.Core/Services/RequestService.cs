@@ -6,7 +6,7 @@ using AIBridge.Core.Helpers;
 
 namespace AIBridge.Core.Services;
 
-public class RequestService(IAIBridgeLogger logger, ProjectDetector projectDetector)
+public class RequestService(IAIBridgeLogger logger, ProjectDetector projectDetector, IndexService indexService)
 {
     public async Task<string> HandleAsync(XmlElement root, string projectPath)
     {
@@ -17,10 +17,28 @@ public class RequestService(IAIBridgeLogger logger, ProjectDetector projectDetec
             if (!string.IsNullOrEmpty(p)) requestedFiles.Add(p.Replace('\\', '/'));
         }
 
+        int remainingOutOfSync = 0;
+        var syncNode = root.SelectSingleNode($"//{XmlTags.OutOfSyncIndexFiles}");
+        if (syncNode != null)
+        {
+            remainingOutOfSync = await ProcessOutOfSyncFilesAsync(syncNode, projectPath, requestedFiles);
+        }
+
         if (requestedFiles.Count == 0)
         {
             logger.Warning("No valid <file path=\"...\"> tags found in <ai-request>.");
             return string.Empty;
+        }
+
+        var indexRelPath = $"{FolderNames.AiBridge}/{FileNames.Index}";
+        if (requestedFiles.Contains(indexRelPath, StringComparer.OrdinalIgnoreCase))
+        {
+            var indexAbsPath = WorkspaceHelper.SafeResolvePath(projectPath, indexRelPath);
+            if (!File.Exists(indexAbsPath))
+            {
+                logger.Info("Index file requested but does not exist. Generating it on the fly...");
+                await indexService.GenerateIndexAsync(projectPath);
+            }
         }
 
         var rootFolderName = new DirectoryInfo(projectPath).Name;
@@ -85,6 +103,11 @@ public class RequestService(IAIBridgeLogger logger, ProjectDetector projectDetec
             sb.AppendLine();
         }
 
+        if (remainingOutOfSync > 0)
+        {
+            sb.AppendLine($"<!-- Note: There are {remainingOutOfSync} more out-of-sync files. Send <out-of-sync-index-files /> again to get the next batch. -->");
+        }
+
         var resultText = sb.ToString().TrimEnd();
 
         var artifactsDir = Path.Combine(aiWorkspace, FolderNames.Artifacts);
@@ -97,5 +120,62 @@ public class RequestService(IAIBridgeLogger logger, ProjectDetector projectDetec
         logger.Info($"File saved to: {outputFile}");
 
         return resultText;
+    }
+
+    private async Task<int> ProcessOutOfSyncFilesAsync(XmlNode syncNode, string projectPath, List<string> requestedFiles)
+    {
+        int remainingOutOfSync = 0;
+        logger.Info("AI requested out-of-sync index files. Scanning workspace...");
+        int maxFiles = 20;
+        if (int.TryParse(syncNode.Attributes?["max-files"]?.Value, out int parsedMax))
+            maxFiles = parsedMax;
+
+        try
+        {
+            var (modified, newFiles, _, _) = await indexService.GetChangedFilesAsync(projectPath);
+            var outOfSyncFiles = new HashSet<string>(modified.Concat(newFiles), StringComparer.OrdinalIgnoreCase);
+
+            var indexAbsPath = WorkspaceHelper.SafeResolvePath(projectPath, $"{FolderNames.AiBridge}/{FileNames.Index}");
+            if (File.Exists(indexAbsPath))
+            {
+                var indexXml = new XmlDocument();
+                try
+                {
+                    indexXml.Load(indexAbsPath);
+                    var emptyNodes = indexXml.SelectNodes("//file[@purpose='']");
+                    if (emptyNodes != null)
+                    {
+                        foreach (XmlNode n in emptyNodes)
+                        {
+                            var p = n.Attributes?["path"]?.Value;
+                            if (!string.IsNullOrEmpty(p)) outOfSyncFiles.Add(p);
+                        }
+                    }
+                }
+                catch { /* ignore */ }
+            }
+
+            int added = 0;
+            foreach (var f in outOfSyncFiles)
+            {
+                if (requestedFiles.Contains(f, StringComparer.OrdinalIgnoreCase)) continue;
+
+                if (added < maxFiles)
+                {
+                    requestedFiles.Add(f);
+                    added++;
+                }
+                else
+                {
+                    remainingOutOfSync++;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.Warning($"Failed to retrieve out-of-sync index files: {ex.Message}");
+        }
+
+        return remainingOutOfSync;
     }
 }

@@ -13,11 +13,10 @@ var stateService = new StateService(projectRoot, logger);
 var projectDetector = new ProjectDetector(logger);
 var inputService = new InputService(logger, inputProvider);
 var patcherService = new PatcherService(logger);
-var indexService = new IndexService(logger);
-var requestService = new RequestService(logger, projectDetector);
+var indexService = new IndexService(logger, projectDetector);
+var requestService = new RequestService(logger, projectDetector, indexService);
 var templateService = new TemplateService(logger);
 var packerService = new PackerService(logger, projectDetector);
-var indexStatusService = new IndexStatusService(logger);
 var trackerService = new TrackerService(logger);
 var applyService = new ApplyService(logger, patcherService, indexService, requestService, trackerService);
 var rootCommand = new RootCommand("AI Bridge - Connects your local codebase to AI chatbots.");
@@ -92,7 +91,7 @@ applyCommand.SetHandler(async (bool watch, bool paste, bool dryRun) =>
 }, watchOption, pasteOption, dryRunOption);
 
 // ── Init ──
-var initCommand = new Command("init", $"Scaffolds {FileNames.AiIgnore}, {FolderNames.SimpleMode}/, {FolderNames.AdvancedMode}/, and {FolderNames.Skills}/ for a new project.");
+var initCommand = new Command("init", $"Scaffolds {FileNames.AiIgnore}, {FolderNames.SimpleMode}/, {FolderNames.AdvancedMode}/, {FolderNames.AutoIndexMode}/, and {FolderNames.Skills}/ for a new project.");
 initCommand.SetHandler(async () =>
 {
     logger.Info("Initializing AI Bridge for this project...");
@@ -100,7 +99,7 @@ initCommand.SetHandler(async () =>
 });
 
 // ── Update ──
-var updateCommand = new Command("update", $"Syncs {FolderNames.SimpleMode}/, {FolderNames.AdvancedMode}/, and {FolderNames.Skills}/ to match the currently installed tool version.");
+var updateCommand = new Command("update", $"Syncs {FolderNames.SimpleMode}/, {FolderNames.AdvancedMode}/, {FolderNames.AutoIndexMode}/, and {FolderNames.Skills}/ to match the currently installed tool version.");
 updateCommand.SetHandler(async () =>
 {
     logger.Info("Updating AI Bridge default templates...");
@@ -110,8 +109,13 @@ updateCommand.SetHandler(async () =>
 // ── Index ──
 var indexCommand = new Command("index", "Commands for managing your project index.");
 var statusCommand = new Command("status", "Shows files changed since the last index update.");
+var syncCommand = new Command("sync", "Generates or safely syncs the ai-bridge-index.xml with your local files.");
+
 indexCommand.AddCommand(statusCommand);
-statusCommand.SetHandler(async () => { await indexStatusService.StatusAsync(projectRoot); });
+indexCommand.AddCommand(syncCommand);
+
+statusCommand.SetHandler(async () => { await indexService.StatusAsync(projectRoot); });
+syncCommand.SetHandler(async () => { await indexService.GenerateIndexAsync(projectRoot); });
 
 rootCommand.AddCommand(packCommand);
 rootCommand.AddCommand(applyCommand);
@@ -141,7 +145,7 @@ async Task RunInitAsync(bool force)
         await File.WriteAllTextAsync(responseFilePath, "<!-- Paste the AI response XML here -->\n");
 
     var innerGitignorePath = Path.Combine(aiWorkspace, ".gitignore");
-    var innerGitignoreContent = $"# Ignore templates and artifacts to prevent Git conflicts\n{FolderNames.Artifacts}/\n{FolderNames.SimpleMode}/\n{FolderNames.AdvancedMode}/\n{FolderNames.Skills}/\n";
+    var innerGitignoreContent = $"# Ignore templates and artifacts to prevent Git conflicts\n{FolderNames.Artifacts}/\n{FolderNames.SimpleMode}/\n{FolderNames.AdvancedMode}/\n{FolderNames.AutoIndexMode}/\n{FolderNames.Skills}/\n";
     await File.WriteAllTextAsync(innerGitignorePath, innerGitignoreContent);
 
     var dockerignorePath = Path.Combine(projectRoot, ".dockerignore");
@@ -176,10 +180,12 @@ async Task RunInitAsync(bool force)
 
     var simpleModeDir = Path.Combine(aiWorkspace, FolderNames.SimpleMode);
     var advancedModeDir = Path.Combine(aiWorkspace, FolderNames.AdvancedMode);
+    var autoIndexModeDir = Path.Combine(aiWorkspace, FolderNames.AutoIndexMode);
     if (force)
     {
         if (Directory.Exists(simpleModeDir)) Directory.Delete(simpleModeDir, true);
         if (Directory.Exists(advancedModeDir)) Directory.Delete(advancedModeDir, true);
+        if (Directory.Exists(autoIndexModeDir)) Directory.Delete(autoIndexModeDir, true);
     }
 
     templateService.ExtractTemplates(aiWorkspace, force, projectRoot);
