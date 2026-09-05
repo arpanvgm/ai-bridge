@@ -104,10 +104,10 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
 
             foreach (var fileItem in kvp.Value)
             {
-                var existingFile = targetModule.SelectSingleNode($"file[@path='{fileItem}']") as XmlElement;
+                var existingFile = targetModule.SelectSingleNode($"{XmlTags.File}[@path='{fileItem}']") as XmlElement;
                 if (existingFile == null)
                 {
-                    var fileNode = doc.CreateElement("file");
+                    var fileNode = doc.CreateElement(XmlTags.File);
                     fileNode.SetAttribute("path", fileItem);
                     fileNode.SetAttribute("purpose", "");
                     targetModule.AppendChild(fileNode);
@@ -214,7 +214,7 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
                 var path = delNode.Attributes?["path"]?.Value;
                 if (!string.IsNullOrEmpty(path))
                 {
-                    var targetNode = indexRoot.SelectSingleNode($"//file[@path='{path}']");
+                    var targetNode = indexRoot.SelectSingleNode($"//{XmlTags.File}[@path='{path}']");
                     if (targetNode != null)
                     {
                         var moduleNode = targetNode.ParentNode;
@@ -254,7 +254,7 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
                     if (string.IsNullOrEmpty(purpose))
                         purpose = fileNode.InnerText.Trim();
 
-                    var targetFile = targetModule?.SelectSingleNode($"file[@path='{path}']") as XmlElement;
+                    var targetFile = targetModule?.SelectSingleNode($"{XmlTags.File}[@path='{path}']") as XmlElement;
 
                     if (targetFile != null)
                     {
@@ -263,7 +263,7 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
                     }
                     else
                     {
-                        targetFile = xml.CreateElement("file");
+                        targetFile = xml.CreateElement(XmlTags.File);
                         targetFile.SetAttribute("path", path);
                         targetFile.SetAttribute("purpose", purpose);
                         targetModule?.AppendChild(targetFile);
@@ -283,7 +283,7 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
                 var purpose = fileNode.Attributes?["purpose"]?.Value;
                 if (string.IsNullOrEmpty(purpose)) purpose = fileNode.InnerText.Trim();
 
-                var targetFile = indexRoot.SelectSingleNode($"//file[@path='{path}']") as XmlElement;
+                var targetFile = indexRoot.SelectSingleNode($"//{XmlTags.File}[@path='{path}']") as XmlElement;
   
                 if (targetFile != null)
                 {
@@ -336,7 +336,7 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
         lastUpdated = lastUpdated.ToUniversalTime();
 
         var indexedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var fileNodes = indexRoot.SelectNodes("//file[@path]");
+        var fileNodes = indexRoot.SelectNodes("//" + XmlTags.File + "[@path]");
         if (fileNodes != null)
         {
             foreach (XmlElement fileNode in fileNodes)

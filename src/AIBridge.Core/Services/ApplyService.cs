@@ -79,9 +79,9 @@ public class ApplyService(
 
             if (isAdvancedMode && indexUpdateNode == null)
             {
-                logger.Error("Error: AI provided <ai-edits> but completely forgot to provide an <update-ai-bridge-index> block.");
+                logger.Error($"Error: AI provided <{XmlTags.AiEdits}> but completely forgot to provide an <{XmlTags.UpdateIndex}> block.");
                 logger.Info("Please ask the AI to regenerate the response and include the mandatory index update block.");
-                return new ApplyResult(IsSuccess: false, ErrorMessage: "Missing <update-ai-bridge-index> block in advanced mode.");
+                return new ApplyResult(IsSuccess: false, ErrorMessage: $"Missing <{XmlTags.UpdateIndex}> block in advanced mode.");
             }
 
             var hasDeletes = aiEditsNode.SelectNodes(XmlTags.Delete)?.Count > 0;
@@ -105,9 +105,9 @@ public class ApplyService(
                 var hasIndexChanges = indexUpdateNode?.SelectNodes(".//file | .//delete")?.Count > 0;
                 if (hasIndexChanges != true)
                 {
-                    logger.Error("Error: AI created or deleted files in <ai-edits>, but sent an empty <update-ai-bridge-index> block.");
+                    logger.Error($"Error: AI created or deleted files in <{XmlTags.AiEdits}>, but sent an empty <{XmlTags.UpdateIndex}> block.");
                     logger.Info("The index must be structurally updated when files are added or removed.");
-                    return new ApplyResult(IsSuccess: false, ErrorMessage: "Empty <update-ai-bridge-index> block with structural changes.");
+                    return new ApplyResult(IsSuccess: false, ErrorMessage: $"Empty <{XmlTags.UpdateIndex}> block with structural changes.");
                 }
             }
         }
@@ -115,9 +115,9 @@ public class ApplyService(
         // Validate no unknown top-level elements inside <ai-response>
         foreach (XmlNode node in root.ChildNodes)
         {
-            if (node.NodeType == XmlNodeType.Element && node.Name != XmlTags.AiEdits && node.Name != XmlTags.CreateIndex && node.Name != XmlTags.UpdateIndex && node.Name != XmlTags.TrackerUpdate && node.Name != XmlTags.Tracker)
+            if (node.NodeType == XmlNodeType.Element && node.Name != XmlTags.AiEdits && node.Name != XmlTags.CreateIndex && node.Name != XmlTags.UpdateIndex && node.Name != XmlTags.Tracker)
             {
-                var msg = $"Error: Unknown element '<{node.Name}>' found inside <{XmlTags.AiResponse}>. Allowed children: <{XmlTags.AiEdits}>, <{XmlTags.CreateIndex}>, <{XmlTags.UpdateIndex}>, <{XmlTags.TrackerUpdate}>, <{XmlTags.Tracker}>.";
+                var msg = $"Error: Unknown element '<{node.Name}>' found inside <{XmlTags.AiResponse}>. Allowed children: <{XmlTags.AiEdits}>, <{XmlTags.CreateIndex}>, <{XmlTags.UpdateIndex}>, <{XmlTags.Tracker}>.";
                 logger.Error(msg);
                 return new ApplyResult(IsSuccess: false, ErrorMessage: msg);
             }
@@ -187,11 +187,7 @@ public class ApplyService(
 
         var trackerNode = root.SelectSingleNode(XmlTags.Tracker);
         if (trackerNode != null)
-            trackerService.HandleCreate(trackerNode, projectRoot);
-
-        var trackerUpdateNode = root.SelectSingleNode(XmlTags.TrackerUpdate);
-        if (trackerUpdateNode != null)
-            trackerService.HandleUpdate(trackerUpdateNode, projectRoot);
+            trackerService.HandleTracker(trackerNode, projectRoot);
 
         if (countDeleted > 0 && !dryRun)
             CleanEmptyFolders(deletedFileDirs, projectRoot);

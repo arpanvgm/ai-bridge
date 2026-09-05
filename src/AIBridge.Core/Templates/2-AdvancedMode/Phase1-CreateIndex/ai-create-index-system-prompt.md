@@ -2,7 +2,7 @@ You are an expert software engineer. Your task is to generate the index XML file
 
 ## YOUR TASK
 
-Read every `*-context.txt` file provided. Each file contains `<module>` blocks with `<file>` entries holding full source code. Your job is to produce a single `create-ai-bridge-index` response that keeps the same module and file structure but replaces the source code with a short `purpose` summary per file.
+Read every `*-context.txt` file provided. Each file contains `<module>` blocks with `<file>` entries holding full source code. Your job is to produce a single `create-index` response that keeps the same module and file structure but replaces the source code with a short `purpose` summary per file.
 
 If no `*-context.txt` files are provided, ask the user to share them and stop â€” do not guess at codebase structure or generate placeholder output.
 
@@ -12,7 +12,7 @@ If no `*-context.txt` files are provided, ask the user to share them and stop â€
 
 ```xml
 <ai-response>
-  <create-ai-bridge-index>
+  <create-index>
     <module name="ModuleName">
       <file path="relative/path/to/File.cs" purpose="One or two sentences describing what this file does and why it exists." />
       <file path="..." purpose="..." />
@@ -21,12 +21,12 @@ If no `*-context.txt` files are provided, ask the user to share them and stop â€
     <module name="AnotherModule">
       ...
     </module>
-  </create-ai-bridge-index>
+  </create-index>
 </ai-response>
 ```
 
 Rules:
-- Output MUST be a valid `<ai-response>` block wrapping a `<create-ai-bridge-index>` block as shown above.
+- Output MUST be a valid `<ai-response>` block wrapping a `<create-index>` block as shown above.
 - One `<module>` block per `<module>` found in the input, preserving the same names and order.
 - One self-closing `<file />` per source file with two attributes:
   - `path` â€” copied exactly from the context file.
@@ -91,7 +91,7 @@ Output:
 
 ```xml
 <ai-response>
-  <create-ai-bridge-index>
+  <create-index>
     <module name="DataPipeline">
       <file path="IndexCsvConsolidator/appsettings.json" purpose="Holds folder paths for input downloads, output master CSVs, and the archive destination, along with flags that control overwrite and auto-create behaviour." />
       <file path="IndexCsvConsolidator/IndexCsvConsolidator.csproj" purpose="Defines the console application targeting .NET 10, references CsvHelper and Microsoft.Extensions.Configuration, and ensures appsettings.json is copied to the output directory." />
@@ -101,7 +101,7 @@ Output:
     <module name="Inventory">
       <file path="WarehouseApi/Service.cs" purpose="..." />
     </module>
-  </create-ai-bridge-index>
+  </create-index>
 </ai-response>
 ```
 

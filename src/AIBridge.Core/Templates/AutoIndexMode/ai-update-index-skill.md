@@ -1,14 +1,14 @@
 ---
 name: ai-bridge-update-index
 description: >
-  Formatting reference for the `<update-ai-bridge-index>` block. This block must be included
+  Formatting reference for the `<update-index>` block. This block must be included
   inside `<ai-response>` (after `<ai-edits>`) whenever your code changes affect a file's
   overall purpose in the index.
 ---
 
 # AI Bridge Update Index — Formatting Reference
 
-Whenever you generate an `<ai-response>` containing an `<ai-edits>` block, you **MUST** also output an `<update-ai-bridge-index>` block immediately after it.
+Whenever you generate an `<ai-response>` containing an `<ai-edits>` block, you **MUST** also output an `<update-index>` block immediately after it.
 
 ---
 
@@ -38,10 +38,10 @@ For every `<file>`, `<patch>`, or `<delete>` in your current `<ai-edits>`:
 
 ## Mandatory Inclusion & Empty Blocks
 
-You **must always** output the `<update-ai-bridge-index>` block if you output `<ai-edits>`.
+You **must always** output the `<update-index>` block if you output `<ai-edits>`.
 
 If your `<ai-edits>` consists *entirely* of minor patches to existing files (bug fixes, small refactors, formatting) and no file's overall purpose needs updating, you must output an **empty** block to explicitly signal that the index does not need structural changes:
-`<update-ai-bridge-index />`
+`<update-index />`
 
 **CRITICAL RULE:** If you create any new files or delete any existing files in `<ai-edits>`, you **cannot** output an empty block. You must update the index to add or remove those files. If you fail to do this, the system will detect the mismatch and completely reject your edits.
 
@@ -74,7 +74,7 @@ Place the block inside `<ai-response>`, after `<ai-edits>`:
     ... your code changes ...
   </ai-edits>
 
-  <update-ai-bridge-index>
+  <update-index>
     <!-- Group added/modified files by module -->
     <module name="ModuleName">
       <file path="path/to/AddedOrModified.cs" purpose="New or updated 1-2 sentence purpose." />
@@ -82,7 +82,7 @@ Place the block inside `<ai-response>`, after `<ai-edits>`:
 
     <!-- Deleted files go anywhere inside the block -->
     <delete path="path/to/DeletedFile.cs" />
-  </update-ai-bridge-index>
+  </update-index>
 
 </ai-response>
 ```
@@ -95,11 +95,11 @@ If you are only establishing or updating file purposes in the index without maki
 
 ```xml
 <ai-response>
-  <update-ai-bridge-index>
+  <update-index>
     <module name="ModuleName">
       <file path="path/to/File.cs" purpose="New purpose string." />
     </module>
-  </update-ai-bridge-index>
+  </update-index>
 </ai-response>
 ```
 
