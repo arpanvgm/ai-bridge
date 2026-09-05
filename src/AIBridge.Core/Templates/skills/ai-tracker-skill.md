@@ -13,6 +13,21 @@ This skill enables **automatic progress tracking** for multi-step work.
 
 ---
 
+## DEFINING A NEW PLAN / TRACKER / FEATURE / USER STORY (RESETTING)
+
+Whenever you define a new `<scope>` and establish a new set of `<tasks>` (whether for a new feature, a user story, or a bug fix), you **MUST** clear the old tracker by using the `reset="true"` attribute:
+
+```xml
+<tracker reset="true">
+  <scope>Brand new objective...</scope>
+  <!-- decisions and tasks -->
+</tracker>
+```
+
+**CRITICAL:** Only use `reset="true"` when establishing a new plan from scratch. If you are executing the next step of an already established plan, or if the user asks you to resume previous work, omit the `reset` attribute.
+
+---
+
 ## HOW TO USE THE TRACKER
 
 You interact with the tracker by outputting a `<tracker>` block inside your `<ai-response>`. 
@@ -84,4 +99,4 @@ If the user asks to resume from a tracker, but hasn't provided the tracker file 
 </ai-request>
 ```
 
-Once you have the `tracker.xml` file, read it carefully to understand the scope, decisions, what is `done`, what is `todo`, and the current `focus`. Continue the work using `<tracker>` blocks in your responses to keep the progress updated.
+Once you have the `tracker.xml` file, read it carefully to understand the scope, decisions, what is `done`, what is `todo`, and the current `focus`. Continue the work using `<tracker>` blocks (without the reset attribute) in your responses to keep the progress updated.

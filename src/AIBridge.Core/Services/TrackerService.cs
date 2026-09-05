@@ -22,6 +22,14 @@ public class TrackerService(IAIBridgeLogger logger) : ITrackerService
         if (!Directory.Exists(artifactsDir)) Directory.CreateDirectory(artifactsDir);
 
         var trackerFile = Path.Combine(artifactsDir, FileNames.TrackerXml);
+        
+        var resetAttr = root.Attributes?["reset"]?.Value;
+        if (string.Equals(resetAttr, "true", StringComparison.OrdinalIgnoreCase) && File.Exists(trackerFile))
+        {
+            File.Delete(trackerFile);
+            logger.Warning("Tracker was reset by the AI.");
+        }
+
         var doc = new XmlDocument();
         XmlElement trackerRoot;
         bool isNew = false;
