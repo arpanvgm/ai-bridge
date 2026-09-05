@@ -1,159 +1,92 @@
+using System;
+using System.IO;
 using System.Text;
-using System.Xml;
 using AIBridge.Core.Abstractions;
+using System.Xml;
 using AIBridge.Core.Constants;
 using AIBridge.Core.Helpers;
 
 namespace AIBridge.Core.Services;
 
-public class TrackerService(IAIBridgeLogger logger)
+public interface ITrackerService
 {
-    /// <summary>
-    /// Creates a new tracker.xml from a full &lt;tracker&gt; XML node.
-    /// All tasks are initialized with status="todo".
-    /// </summary>
-    public void HandleCreate(XmlNode root, string projectRoot)
-    {
-        var scopeNode = root.SelectSingleNode("scope");
-        var tasksNode = root.SelectSingleNode("tasks");
-        if (scopeNode == null || tasksNode == null)
-        {
-            logger.Error("Malformed <tracker>: Missing <scope> or <tasks>. Tracker creation aborted to prevent data loss.");
-            return;
-        }
+    void HandleTracker(XmlNode root, string projectRoot);
+}
 
+public class TrackerService(IAIBridgeLogger logger) : ITrackerService
+{
+    public void HandleTracker(XmlNode root, string projectRoot)
+    {
         var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectRoot);
         var artifactsDir = Path.Combine(aiWorkspace, FolderNames.Artifacts);
+        if (!Directory.Exists(artifactsDir)) Directory.CreateDirectory(artifactsDir);
+
         var trackerFile = Path.Combine(artifactsDir, FileNames.TrackerXml);
+        
+        var resetAttr = root.Attributes?["reset"]?.Value;
+        if (string.Equals(resetAttr, "true", StringComparison.OrdinalIgnoreCase) && File.Exists(trackerFile))
+        {
+            File.Delete(trackerFile);
+            logger.Warning("Tracker was reset by the AI.");
+        }
+
+        var doc = new XmlDocument();
+        XmlElement trackerRoot;
+        bool isNew = false;
 
         if (File.Exists(trackerFile))
-            logger.Info("Overwriting existing tracker for new scope.");
-
-        var doc = new XmlDocument();
-        var declaration = doc.CreateXmlDeclaration("1.0", "utf-8", null);
-        doc.AppendChild(declaration);
-
-        var trackerRoot = doc.CreateElement("tracker");
-
-        if (scopeNode != null)
         {
-            var imported = doc.ImportNode(scopeNode, deep: true);
-            trackerRoot.AppendChild(imported);
-        }
-
-        var decisionsNode = root.SelectSingleNode("decisions");
-        if (decisionsNode != null)
-        {
-            var imported = doc.ImportNode(decisionsNode, deep: true);
-            trackerRoot.AppendChild(imported);
-        }
-
-        if (tasksNode != null)
-        {
-            var tasksElement = doc.CreateElement("tasks");
-            var taskNodes = tasksNode.SelectNodes("task");
-            if (taskNodes != null)
+            try { doc.Load(trackerFile); }
+            catch (Exception ex)
             {
-                foreach (XmlNode taskNode in taskNodes)
-                {
-                    var taskElement = doc.CreateElement("task");
-                    var id = taskNode.Attributes?["id"]?.Value;
-                    if (id != null) taskElement.SetAttribute("id", id);
-                    taskElement.SetAttribute("status", "todo");
-                    taskElement.InnerText = taskNode.InnerText.Trim();
-                    tasksElement.AppendChild(taskElement);
-                }
+                logger.Error($"Error reading tracker.xml: {ex.Message}");
+                return;
             }
-            trackerRoot.AppendChild(tasksElement);
+            trackerRoot = doc.DocumentElement!;
         }
-
-        var focusNode = root.SelectSingleNode("focus");
-        if (focusNode != null)
+        else
         {
-            var focusElement = doc.CreateElement("focus");
-            focusElement.InnerText = focusNode.InnerText.Trim();
-            trackerRoot.AppendChild(focusElement);
+            isNew = true;
+            trackerRoot = doc.CreateElement(XmlTags.Tracker);
+            doc.AppendChild(trackerRoot);
         }
 
-        doc.AppendChild(trackerRoot);
+        ProcessTrackerNodes(doc, trackerRoot, root);
+
         SaveTrackerXml(doc, trackerFile);
 
-        var taskCount = tasksNode?.SelectNodes("task")?.Count ?? 0;
-        var scope = scopeNode?.InnerText.Trim() ?? "No scope specified";
-        logger.Success($"✅ Tracker created: \"{scope}\"");
-        logger.Info($"   {taskCount} tasks tracked. Focus: Task {focusNode?.InnerText.Trim() ?? "1"}");
-        logger.Info($"   Saved to: {Path.GetRelativePath(projectRoot, trackerFile)}");
+        if (isNew)
+        {
+            logger.Success("✅ Tracker created.");
+            logger.Info($"   Saved to: {Path.GetRelativePath(projectRoot, trackerFile)}");
+        }
+        ShowProgress(trackerRoot);
     }
 
-    /// <summary>
-    /// Applies semantic updates from a &lt;tracker-update&gt; XML node to an existing tracker.xml.
-    /// Supports: done, focus, decision (upsert), task (upsert), scope (update).
-    /// </summary>
-    public void HandleUpdate(XmlNode root, string projectRoot)
+    private static void ProcessTrackerNodes(XmlDocument doc, XmlElement trackerRoot, XmlNode sourceContainer)
     {
-        var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectRoot);
-        var artifactsDir = Path.Combine(aiWorkspace, FolderNames.Artifacts);
-        var trackerFile = Path.Combine(artifactsDir, FileNames.TrackerXml);
-        if (!File.Exists(trackerFile))
-        {
-            logger.Error("No tracker.xml found. The AI must create a tracker first using <tracker>.");
-            return;
-        }
-
-        var doc = new XmlDocument();
-        try { doc.Load(trackerFile); }
-        catch (Exception ex)
-        {
-            logger.Error($"Error reading tracker.xml: {ex.Message}");
-            return;
-        }
-
-        var trackerRoot = doc.DocumentElement;
-        if (trackerRoot is null || trackerRoot.Name != "tracker")
-        {
-            logger.Error("tracker.xml is malformed (missing <tracker> root element).");
-            return;
-        }
-
-        foreach (XmlNode node in root.ChildNodes)
+        foreach (XmlNode node in sourceContainer.ChildNodes)
         {
             if (node.NodeType != XmlNodeType.Element) continue;
 
             switch (node.Name)
             {
-                case "done":
-                    MarkTaskDone(trackerRoot, node.InnerText.Trim());
-                    break;
-
+                case "scope":
                 case "focus":
-                    UpsertSimpleElement(doc, trackerRoot, "focus", node.InnerText.Trim());
+                    UpsertSimpleElement(doc, trackerRoot, node.Name, node.InnerText.Trim());
                     break;
-
+                case "decisions":
+                case "tasks":
+                    ProcessTrackerNodes(doc, trackerRoot, node); // Recurse to handle children
+                    break;
                 case "decision":
                     UpsertChildById(doc, trackerRoot, "decisions", "decision", node);
                     break;
-
                 case "task":
                     UpsertTask(doc, trackerRoot, node);
                     break;
-
-                case "scope":
-                    UpsertSimpleElement(doc, trackerRoot, "scope", node.InnerText.Trim());
-                    break;
             }
         }
-
-        SaveTrackerXml(doc, trackerFile);
-        ShowProgress(trackerRoot);
-    }
-
-    private void MarkTaskDone(XmlElement trackerRoot, string taskId)
-    {
-        var task = trackerRoot.SelectSingleNode($"tasks/task[@id='{taskId}']") as XmlElement;
-        if (task != null)
-            task.SetAttribute("status", "done");
-        else
-            logger.Warning($"⚠ Task id=\"{taskId}\" not found in tracker.");
     }
 
     private static void UpsertSimpleElement(XmlDocument doc, XmlElement trackerRoot, string elementName, string value)
@@ -188,15 +121,17 @@ public class TrackerService(IAIBridgeLogger logger)
         }
 
         var existing = parentNode.SelectSingleNode($"{childName}[@id='{id}']") as XmlElement;
+        var newText = sourceNode.InnerText.Trim();
         if (existing != null)
         {
-            existing.InnerText = sourceNode.InnerText.Trim();
+            if (!string.IsNullOrEmpty(newText))
+                existing.InnerText = newText;
         }
         else
         {
             var newElement = doc.CreateElement(childName);
             newElement.SetAttribute("id", id);
-            newElement.InnerText = sourceNode.InnerText.Trim();
+            newElement.InnerText = newText;
             parentNode.AppendChild(newElement);
         }
     }
@@ -218,17 +153,24 @@ public class TrackerService(IAIBridgeLogger logger)
         }
 
         var existing = tasksNode.SelectSingleNode($"task[@id='{id}']") as XmlElement;
+        var newStatus = sourceNode.Attributes?["status"]?.Value;
+        var newText = sourceNode.InnerText.Trim();
+
         if (existing != null)
         {
-            existing.InnerText = sourceNode.InnerText.Trim();
-            // Preserve existing status
+            if (!string.IsNullOrEmpty(newStatus))
+                existing.SetAttribute("status", newStatus);
+            
+            if (!string.IsNullOrEmpty(newText))
+                existing.InnerText = newText;
         }
         else
         {
             var newTask = doc.CreateElement("task");
             newTask.SetAttribute("id", id);
-            newTask.SetAttribute("status", "todo");
-            newTask.InnerText = sourceNode.InnerText.Trim();
+            newTask.SetAttribute("status", string.IsNullOrEmpty(newStatus) ? "todo" : newStatus);
+            if (!string.IsNullOrEmpty(newText))
+                newTask.InnerText = newText;
             tasksNode.AppendChild(newTask);
         }
     }

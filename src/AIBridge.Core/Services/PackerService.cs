@@ -10,53 +10,6 @@ namespace AIBridge.Core.Services;
 
 public class PackerService(IAIBridgeLogger logger, ProjectDetector projectDetector)
 {
-    private static readonly string[] AlwaysExcludePrefixes = [$"{FolderNames.AiBridge}/", $"{FolderNames.AiBridge}-"];
-
-    private static readonly List<string> FallbackExcludeFolders =
-    [
-        @"[\\/]\.git[\\/]", @"[\\/]\.vs[\\/]", @"[\\/]\.idea[\\/]", @"[\\/]\.vscode[\\/]",
-        @"[\\/]bin[\\/]", @"[\\/]obj[\\/]", @"[\\/]node_modules[\\/]",
-        @"[\\/]dist[\\/]", @"[\\/]out[\\/]", @"[\\/]build[\\/]",
-        @"[\\/]packages[\\/]", @"[\\/]TestResults[\\/]",
-        @"[\\/]ai-bridge-[^\\/]+[\\/]",
-        @"[\\/]__pycache__[\\/]", @"[\\/]\.mypy_cache[\\/]",
-        @"[\\/]target[\\/]", @"[\\/]vendor[\\/]"
-    ];
-
-    private static readonly List<string> FallbackExcludeFilePatterns =
-    [
-        @"\.g\.cs$", @"\.g\.i\.cs$", @"\.designer\.cs$", @"AssemblyInfo\.cs$",
-        @"\.user$", @"\.suo$", @"\.log$", @"\.tmp$"
-    ];
-
-    private static async Task<List<string>?> GetGitTrackedFiles(string projectPath)
-    {
-        try
-        {
-            var psi = new ProcessStartInfo
-            {
-                FileName = "git",
-                Arguments = "ls-files --cached --others --exclude-standard",
-                WorkingDirectory = projectPath,
-                UseShellExecute = false, RedirectStandardOutput = true,
-                RedirectStandardError = true, CreateNoWindow = true
-            };
-
-            using var process = Process.Start(psi);
-            if (process == null) return null;
-
-            var output = await process.StandardOutput.ReadToEndAsync();
-            await process.WaitForExitAsync();
-            if (process.ExitCode != 0) return null;
-
-            return output
-                .Split(['\n', '\r'], StringSplitOptions.RemoveEmptyEntries)
-                .Select(f => Path.GetFullPath(Path.Combine(projectPath, f)))
-                .ToList();
-        }
-        catch { return null; }
-    }
-
     public async Task<PackResult> PackAsync(string projectRoot, PackOptions options)
     {
         var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectRoot);
@@ -75,7 +28,7 @@ public class PackerService(IAIBridgeLogger logger, ProjectDetector projectDetect
         {
             try
             {
-                var idxStatusSvc = new IndexStatusService(logger);
+                var idxStatusSvc = new IndexService(logger, projectDetector);
                 var (modified, newFiles, _, _) = await idxStatusSvc.GetChangedFilesAsync(projectRoot);
                 incrementalFiles = new HashSet<string>(modified.Concat(newFiles), StringComparer.OrdinalIgnoreCase);
 
@@ -89,30 +42,7 @@ public class PackerService(IAIBridgeLogger logger, ProjectDetector projectDetect
             catch (Exception ex) { return new PackResult(false, ErrorMessage: ex.Message); }
         }
 
-        var gitFiles = await GetGitTrackedFiles(projectRoot);
-        string[] allFiles;
-
-        if (gitFiles != null)
-        {
-            logger.Info("Using git to determine file list (respects .gitignore)...");
-            allFiles = gitFiles.ToArray();
-        }
-        else
-        {
-            logger.Warning("⚠ Git not available — using built-in exclusion rules...");
-            allFiles = Directory.GetFiles(projectRoot, "*.*", SearchOption.AllDirectories)
-                .Where(f =>
-                {
-                    var paddedPath = "/" + Path.GetRelativePath(projectRoot, f).Replace("\\", "/") + "/";
-                    return !FallbackExcludeFolders.Any(pattern => Regex.IsMatch(paddedPath, pattern, RegexOptions.IgnoreCase));
-                })
-                .Where(f =>
-                {
-                    var fileName = Path.GetFileName(f);
-                    return !FallbackExcludeFilePatterns.Any(pattern => Regex.IsMatch(fileName, pattern, RegexOptions.IgnoreCase));
-                })
-                .ToArray();
-        }
+        var allFiles = await FileFilterHelper.GetTrackedFilesAsync(projectRoot, logger);
 
         var (aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns) = FileFilterHelper.LoadAiIgnoreRules(aiIgnorePath);
 
@@ -127,7 +57,7 @@ public class PackerService(IAIBridgeLogger logger, ProjectDetector projectDetect
             var fileName = Path.GetFileName(file);
             var extension = Path.GetExtension(file);
 
-            if (AlwaysExcludePrefixes.Any(prefix => relativePath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+            if (FileFilterHelper.AlwaysExcludePrefixes.Any(prefix => relativePath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
                 continue;
             if (FileFilterHelper.BinaryExtensions.Contains(extension)) continue;
             if (FileFilterHelper.ExcludeFileNames.Contains(fileName)) continue;
