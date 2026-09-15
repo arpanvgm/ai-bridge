@@ -91,7 +91,7 @@ Configure your MCP client settings (usually a `claude_desktop_config.json` or si
 
 ## Connecting Remote AI Clients (e.g., Claude.ai Web)
 
-Since Claude.ai is a web-based service, you must first expose your local server securely to the internet. We highly recommend using a **Cloudflare Tunnel (`cloudflared`)**. Please refer to the [Cloudflare Setup Guide](./cloudflared_setup_guide_2026-08-28.md).
+Since Claude.ai is a web-based service, you must first expose your local server securely to the internet. We highly recommend using a **Cloudflare Tunnel (`cloudflared`)**. Please refer to the [Cloudflare Setup Guide](./cloudflared_setup_guide.md).
 
 Once exposed (e.g., `https://local-ai-bridge.yourdomain.com`), configure the Claude.ai Custom Connector as follows:
 
