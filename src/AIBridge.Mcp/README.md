@@ -11,8 +11,19 @@ It exposes a single MCP tool (`apply_ai_response`) that lets AI clients read fil
 
 ## Installation
 
+**To install:**
 ```bash
 dotnet tool install --global Tools.AIBridge.Mcp
+```
+
+**To update:**
+```bash
+dotnet tool update --global Tools.AIBridge.Mcp
+```
+
+**To uninstall:**
+```bash
+dotnet tool uninstall --global Tools.AIBridge.Mcp
 ```
 
 ## Running the Server
@@ -53,7 +64,7 @@ ai-bridge-mcp --OAuth:ClientSecret="my-secure-secret-key"
 >             "type": "shell",
 >             "command": "ai-bridge-mcp",
 >             "args": [
->                 "--OAuth:ClientId=my-custom-client",
+>                 "--OAuth:ClientId=ai-bridge-client",
 >                 "--OAuth:ClientSecret=${input:mcpClientSecret}"
 >             ],
 >             "isBackground": true,
@@ -83,6 +94,19 @@ If port `5000` is already in use, you can override this behavior using the stand
 ai-bridge-mcp --urls "http://localhost:8080"
 ```
 
+## Limitations: Multiple Projects
+
+The standard **AI Bridge CLI** (`apply --paste`) is entirely stateless and can be used in dozens of projects simultaneously with zero friction. 
+
+By contrast, the **`ai-bridge-mcp` Server** is designed for one active project at a time. 
+
+If you want to connect your AI to multiple projects *simultaneously* via MCP, you must manually manage the networking for each one:
+1. Start each server on a **different port** (e.g., `--urls "http://localhost:5001"`).
+2. Configure **separate Cloudflare routes** (e.g., `projectA.yourdomain.com` -> `5000`, `projectB.yourdomain.com` -> `5001`).
+3. Set up **separate AI Connectors** in your AI client, one for each subdomain/port.
+
+Because the AI needs to know *which* project it is talking to, you cannot share a single MCP connection across multiple codebases.
+
 ## Connecting Local AI Clients (e.g., Claude Desktop)
 
 If you are using an AI client that runs locally on your machine, you **do not need a tunnel**. You can connect directly to `localhost`.
@@ -103,8 +127,8 @@ Once exposed (e.g., `https://local-ai-bridge.yourdomain.com`), configure the Cla
 
 1. **Server URL:** `https://local-ai-bridge.yourdomain.com/mcp`
 2. **Authentication Type:** Select **OAuth 2.0**
-3. **Client ID:** `my-custom-client` (or the default `ai-bridge-client`)
-4. **Client Secret:** `my-secure-secret-key` (or the one printed in your terminal)
+3. **Client ID:** `ai-bridge-client` (or your custom ID)
+4. **Client Secret:** The secret printed in your terminal (or your custom secret)
 5. **Token URL:** `https://local-ai-bridge.yourdomain.com/token`
 
 The server automatically detects Cloudflare's `X-Forwarded-*` headers to dynamically advertise the correct public endpoints during the OAuth discovery flow.

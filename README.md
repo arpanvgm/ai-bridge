@@ -34,6 +34,8 @@ AI Bridge offers two modes depending on your project size:
 1. **Simple Mode (Quick Start):** Perfect for small projects. You pack your entire codebase, give it to the AI, and get code back.
 2. **Advanced Mode (Index Flow):** Designed for large codebases. You map your project once, and then only upload the specific files the AI requests — saving tokens and reducing noise.
 
+3. **Optional: MCP Server:** A local `.NET` server you can run alongside the CLI to let AI clients (like Claude Desktop) connect directly and apply changes without you having to copy/paste. [Read the MCP Guide here](src/AIBridge.Mcp/README.md).
+
 ---
 
 ## ⚙️ Prerequisites & Installation
