@@ -39,7 +39,7 @@ ai-bridge-mcp --OAuth:ClientSecret="my-secure-secret-key"
 ```
 
 > [!NOTE]
-> **Default Client ID:** The Client ID defaults to **`ai-bridge-client`** unless you override it with `--OAuth:ClientId`. You will need this exact string when setting up your AI connector!
+> **Default Client ID:** The Client ID defaults to `ai-bridge-client` unless you override it. You will need this exact string when setting up your AI connector!
 
 > **Tip:** You can automate this using a VS Code Task that securely prompts you for the secret so it is never saved in your source code. 
 > 
