@@ -1,10 +1,23 @@
 # AIBridge.Mcp
 
-`AIBridge.Mcp` is a .NET Global Tool that runs a local server using the Model Context Protocol (MCP) over Streamable HTTP. It securely exposes a single tool (`apply_ai_response`) to AI clients, allowing them to read files, apply code patches, and manage the AI Bridge index in your local codebase.
+`AIBridge.Mcp` is an **optional companion** to the [AI Bridge CLI](../../README.md) that runs a local MCP server over Streamable HTTP. Instead of manually copying AI responses and running `ai-bridge apply --paste`, the AI client communicates directly with your codebase through this server — no copy/paste needed.
+
+It exposes a single MCP tool (`apply_ai_response`) that lets AI clients read files, apply code patches, and manage the AI Bridge index, using the same core engine as the CLI.
+
+## Prerequisites
+
+- **[AI Bridge CLI](../../README.md)** installed and initialized in your project (`ai-bridge init`). The MCP server relies on the same templates and skills that drive the CLI workflow — you still need to upload them to your AI project/chat.
+- **[.NET 10 SDK](https://dotnet.microsoft.com/download)** installed on your machine.
+
+## Installation
+
+```bash
+dotnet tool install --global Tools.AIBridge.Mcp
+```
 
 ## Running the Server
 
-Once installed globally, open a terminal, navigate to the target codebase directory you want the AI to access, and run:
+Open a terminal, navigate to the target codebase directory (where you have already run `ai-bridge init`), and run:
 
 ```bash
 ai-bridge-mcp
@@ -64,9 +77,21 @@ If port `5000` is already in use, you can override this behavior using the stand
 ai-bridge-mcp --urls "http://localhost:8080"
 ```
 
-## Connecting Claude.ai (Custom Connector)
+## Connecting Local AI Clients (e.g., Claude Desktop)
 
-Since Claude.ai is a web-based service, you must first expose your local server securely to the internet. We highly recommend using a **Cloudflare Tunnel (`cloudflared`)**. Please refer to the [Cloudflare Setup Guide](./docs/cloudflared_setup_guide_2026-08-28.md).
+If you are using an AI client that runs locally on your machine, you **do not need a tunnel**. You can connect directly to `localhost`.
+
+Configure your MCP client settings (usually a `claude_desktop_config.json` or similar) to point to the server:
+
+1. **Server URL:** `http://localhost:5000/mcp`
+2. **Authentication Type:** OAuth 2.0 (or provide credentials directly if the client expects `client_credentials`)
+3. **Client ID:** `ai-bridge-client` (or your custom ID)
+4. **Client Secret:** The secret printed in your terminal (or your custom secret)
+5. **Token URL:** `http://localhost:5000/token`
+
+## Connecting Remote AI Clients (e.g., Claude.ai Web)
+
+Since Claude.ai is a web-based service, you must first expose your local server securely to the internet. We highly recommend using a **Cloudflare Tunnel (`cloudflared`)**. Please refer to the [Cloudflare Setup Guide](./cloudflared_setup_guide_2026-08-28.md).
 
 Once exposed (e.g., `https://local-ai-bridge.yourdomain.com`), configure the Claude.ai Custom Connector as follows:
 

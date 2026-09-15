@@ -14,14 +14,11 @@ This guide walks through securely exposing a local development server (like `ai-
 5. On the "Install and run a connector" screen, select the **Docker** environment.
 6. Copy the provided `docker run` command, specifically grabbing the long `--token` string at the end.
 
-> [!NOTE] 
-> **Lost your token?** Once a tunnel is connected, Cloudflare hides the token for security. If you ever lose your Docker setup or move to a new machine, simply go to your Tunnel settings and click **Rotate Token**. This will generate a brand new token you can use.
-
 ---
 
 ## Phase 2: Run the Docker Container (Linux/WSL)
 
-Because the MCP server runs directly on your Linux host machine, the Docker container needs special permission to access the host's `localhost`. We achieve this by adding `--network host` to the Docker command.
+Because the MCP server runs directly on your Linux host machine, the Docker container needs `--network host` to access the host's `localhost`.
 
 Run the following command in your terminal (replacing `<YOUR_TOKEN>`):
 
@@ -32,17 +29,6 @@ docker run -d \
   --restart unless-stopped \
   cloudflare/cloudflared:latest tunnel --no-autoupdate run --token <YOUR_TOKEN>
 ```
-
-### Parameter Breakdown:
-* `-d`: Runs the container in the background (detached mode).
-* `--name cloudflared`: Gives the container a friendly name so you can easily manage it (e.g., `docker logs cloudflared`).
-* `--network host`: Plugs the container directly into the Linux host network, allowing it to see your machine's `localhost:5000`.
-* `--restart unless-stopped`: Ensures the tunnel automatically starts up in the background whenever you reboot your computer.
-* `--no-autoupdate`: Disables the app's internal updater (in Docker, you update by pulling a new image).
-
-> [!TIP]
-> **What is a Replica?**
-> In your Cloudflare dashboard, you will see "1 Replica" when the container is running. A replica just means "an active connection". Large companies run the exact same token on 5 servers at once (5 Replicas) for load balancing. For local dev, you will only ever have 1 Replica.
 
 ---
 
@@ -89,7 +75,13 @@ If it returns a stream of JSON data starting with `event: message`, your tunnel 
 
 ---
 
-## Troubleshooting: Deleting a Tunnel
+## Troubleshooting
+
+### Lost Your Token?
+
+Once a tunnel is connected, Cloudflare hides the token for security. If you ever lose your Docker setup or move to a new machine, go to your Tunnel settings and click **Rotate Token** to generate a new one.
+
+### Deleting a Tunnel
 
 If you ever need to start over, you can freely delete your tunnel and recreate it. However, you must perform two cleanup steps:
 
