@@ -25,15 +25,21 @@ ai-bridge-mcp
 
 ### Security & OAuth 2.1 Authentication
 
-The server strictly implements the **MCP OAuth 2.1 specification**. It acts as its own self-contained Authorization Server, issuing secure JWT tokens. 
+The server strictly implements the **MCP OAuth 2.1 specification**, acting as its own self-contained Authorization Server.
 
-By default, every time you start the server, it generates a highly secure **ephemeral Client Secret** and an in-memory RSA signing key. You must provide these OAuth credentials to your AI Client for it to connect successfully.
+Because AI Bridge is designed to be opened and closed frequently, **security is ephemeral by default**:
+1. **Dynamic RSA Key:** Every time you start the server, it generates a new in-memory RSA signing key. When you stop the server, the key is destroyed. This means **any previously issued JWT tokens become instantly invalid**. When you restart the server, your AI client will need to reconnect/re-authenticate. This ensures your local codebase is only accessible during that specific session.
+2. **Dynamic Client Secret:** By default, the server also generates a random Client Secret on startup. For maximum security, you can use this random secret, but you will need to update your AI client connector settings every time.
 
-If you prefer to use consistent credentials so you don't have to reconfigure your AI Client on every restart, you can override the random generation:
+**Convenience: Static Credentials**
+Setting a new secret in your AI client every time is a headache. You can pass a consistent secret on startup instead. Because the RSA key still rotates, your local connection remains highly secure—you will simply need to let the AI client reconnect or re-authenticate without having to copy-paste a new secret.
 
 ```bash
-ai-bridge-mcp --OAuth:ClientId="my-custom-client" --OAuth:ClientSecret="my-secure-secret-key"
+ai-bridge-mcp --OAuth:ClientSecret="my-secure-secret-key"
 ```
+
+> [!NOTE]
+> **Default Client ID:** The Client ID defaults to **`ai-bridge-client`** unless you override it with `--OAuth:ClientId`. You will need this exact string when setting up your AI connector!
 
 > **Tip:** You can automate this using a VS Code Task that securely prompts you for the secret so it is never saved in your source code. 
 > 
