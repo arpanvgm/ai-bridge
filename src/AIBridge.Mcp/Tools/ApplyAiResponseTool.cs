@@ -16,9 +16,9 @@ public class ApplyAiResponseTool(ApplyService applyService, StringLogger logger)
 #pragma warning restore CA1707
     {
         // logger is now scoped per request, so no need to call logger.Clear()
-        var root = Environment.CurrentDirectory; // Uses the directory where the MCP server was started
+        var root = AIBridge.Core.Helpers.WorkspaceHelper.GetProjectRoot(Environment.CurrentDirectory);
         
-        var result = await applyService.ExecuteAsync(xml_content, root, false);
+        var result = await applyService.ExecuteAsync(xml_content, root);
 
         if (result.ContextPayload != null)
         {

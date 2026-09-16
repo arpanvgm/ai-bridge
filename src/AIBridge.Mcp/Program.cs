@@ -70,6 +70,10 @@ builder.Services.AddScoped<IndexService>();
 builder.Services.AddScoped<RequestService>();
 builder.Services.AddScoped<TrackerService>();
 builder.Services.AddScoped<ApplyService>();
+builder.Services.AddScoped<TemplateService>();
+builder.Services.AddScoped<WorkspaceInitService>();
+builder.Services.AddScoped<StateService>(sp => 
+    new StateService(AIBridge.Core.Helpers.WorkspaceHelper.GetProjectRoot(Environment.CurrentDirectory)));
 
 // Register Tool
 builder.Services.AddScoped<ApplyAiResponseTool>();
@@ -279,5 +283,14 @@ app.MapPost("/token", async (HttpContext context) =>
 
 // --- MCP Endpoint (protected by JWT auth) ---
 app.MapMcp("/mcp").RequireAuthorization();
+
+// --- Auto-Initialize Workspace ---
+Console.WriteLine("\n[Startup] Ensuring AI Bridge workspace is initialized...");
+using (var scope = app.Services.CreateScope())
+{
+    var initService = scope.ServiceProvider.GetRequiredService<WorkspaceInitService>();
+    await initService.EnsureWorkspaceReadyAsync(AIBridge.Core.Helpers.WorkspaceHelper.GetProjectRoot(Environment.CurrentDirectory));
+    Console.WriteLine("[Startup] Workspace initialization complete.");
+}
 
 await app.RunAsync();

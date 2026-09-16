@@ -34,8 +34,6 @@ body:
         - ai-bridge apply
         - ai-bridge apply --paste
         - ai-bridge apply --watch
-        - ai-bridge update
-        - ai-bridge index status
         - Other
     validations:
       required: true

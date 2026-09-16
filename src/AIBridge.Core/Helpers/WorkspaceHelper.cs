@@ -7,6 +7,22 @@ public static class WorkspaceHelper
         return Path.Combine(projectRoot, Constants.FolderNames.AiBridge);
     }
 
+    public static string GetProjectRoot(string startDirectory)
+    {
+        var currentDir = new DirectoryInfo(startDirectory);
+        while (currentDir != null)
+        {
+            if (Directory.Exists(Path.Combine(currentDir.FullName, ".git")) ||
+                File.Exists(Path.Combine(currentDir.FullName, Constants.FileNames.AiIgnore)) ||
+                Directory.Exists(Path.Combine(currentDir.FullName, Constants.FolderNames.AiBridge)))
+            {
+                return currentDir.FullName;
+            }
+            currentDir = currentDir.Parent;
+        }
+        return startDirectory;
+    }
+
     public static string GetIndexFileName(string projectRoot)
     {
         return Constants.FileNames.Index;

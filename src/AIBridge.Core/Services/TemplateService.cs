@@ -30,11 +30,27 @@ public class TemplateService(IAIBridgeLogger logger)
 
                 logger.Success($"✅ Extracted {relativeTargetDir}/{relPath}");
             }
-            else
-            {
-                logger.Info($"ℹ Skipped {relativeTargetDir}/{relPath} (already exists, use 'ai-bridge update' to overwrite)");
-            }
         }
+    }
+
+    public bool AreAnyTemplatesMissing(string targetDir)
+    {
+        var assembly = typeof(TemplateService).Assembly;
+        var prefix = "AIBridge.Core.Templates.";
+        var resourceNames = assembly.GetManifestResourceNames()
+            .Where(r => r.StartsWith(prefix));
+
+        foreach (var resourceName in resourceNames)
+        {
+            var relativePart = resourceName[prefix.Length..];
+            var relPath = ConvertResourceNameToPath(relativePart);
+            var destFile = Path.Combine(targetDir, relPath);
+
+            if (!File.Exists(destFile))
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>

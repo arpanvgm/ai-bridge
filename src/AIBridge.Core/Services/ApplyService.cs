@@ -25,9 +25,8 @@ public class ApplyService(
     /// </summary>
     /// <param name="rawContent">The raw XML string (may include markdown fences).</param>
     /// <param name="projectRoot">Absolute path to the project root directory.</param>
-    /// <param name="dryRun">When true, reports what would change without writing to disk.</param>
     /// <returns>An <see cref="ApplyResult"/> describing the outcome.</returns>
-    public async Task<ApplyResult> ExecuteAsync(string rawContent, string projectRoot, bool dryRun = false)
+    public async Task<ApplyResult> ExecuteAsync(string rawContent, string projectRoot)
     {
         var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectRoot);
 
@@ -71,46 +70,7 @@ public class ApplyService(
         var indexUpdateNode = root.SelectSingleNode(XmlTags.UpdateIndex);
         var indexCreateNode = root.SelectSingleNode(XmlTags.CreateIndex);
 
-        if (aiEditsNode != null)
-        {
-            var indexFileName = WorkspaceHelper.GetIndexFileName(projectRoot);
-            var idxFile = Path.Combine(aiWorkspace, indexFileName);
-            bool isAdvancedMode = File.Exists(idxFile) || indexUpdateNode != null;
 
-            if (isAdvancedMode && indexUpdateNode == null)
-            {
-                logger.Error($"Error: AI provided <{XmlTags.AiEdits}> but completely forgot to provide an <{XmlTags.UpdateIndex}> block.");
-                logger.Info("Please ask the AI to regenerate the response and include the mandatory index update block.");
-                return new ApplyResult(IsSuccess: false, ErrorMessage: $"Missing <{XmlTags.UpdateIndex}> block in advanced mode.");
-            }
-
-            var hasDeletes = aiEditsNode.SelectNodes(XmlTags.Delete)?.Count > 0;
-            bool actualCreates = false;
-            var fileNodes = aiEditsNode.SelectNodes(XmlTags.File);
-            if (fileNodes != null)
-            {
-                foreach (XmlNode fileNode in fileNodes)
-                {
-                    var relPath = fileNode.Attributes?["path"]?.Value?.Trim();
-                    if (!string.IsNullOrEmpty(relPath))
-                    {
-                        var absPath = WorkspaceHelper.SafeResolvePath(projectRoot, relPath);
-                        if (!File.Exists(absPath)) { actualCreates = true; break; }
-                    }
-                }
-            }
-
-            if (isAdvancedMode && (actualCreates || hasDeletes))
-            {
-                var hasIndexChanges = indexUpdateNode?.SelectNodes(".//file | .//delete")?.Count > 0;
-                if (hasIndexChanges != true)
-                {
-                    logger.Error($"Error: AI created or deleted files in <{XmlTags.AiEdits}>, but sent an empty <{XmlTags.UpdateIndex}> block.");
-                    logger.Info("The index must be structurally updated when files are added or removed.");
-                    return new ApplyResult(IsSuccess: false, ErrorMessage: $"Empty <{XmlTags.UpdateIndex}> block with structural changes.");
-                }
-            }
-        }
 
         // Validate no unknown top-level elements inside <ai-response>
         foreach (XmlNode node in root.ChildNodes)
@@ -140,7 +100,6 @@ public class ApplyService(
                 continue;
             }
             var absPath = WorkspaceHelper.SafeResolvePath(projectRoot, relPath);
-            if (dryRun) { logger.Info($"[dry-run] Would create/overwrite: {relPath}"); countFullFiles++; continue; }
             Directory.CreateDirectory(Path.GetDirectoryName(absPath)!);
             var newContent = node.InnerText.TrimEnd('\r', '\n') + Environment.NewLine;
             await File.WriteAllTextAsync(absPath, newContent, Encoding.UTF8);
@@ -151,7 +110,6 @@ public class ApplyService(
         // SelectNodes only returns null when called on a null context node; root is non-null here.
         foreach (XmlNode node in root.SelectNodes($"{XmlTags.AiEdits}/{XmlTags.Patch}")!)
         {
-            if (dryRun) { logger.Info($"[dry-run] Would patch: {node.Attributes?["path"]?.Value?.Trim()}"); countPatchOk++; continue; }
             if (await patcherService.ApplyPatchAsync(node, projectRoot, failedFiles)) countPatchOk++;
             else countPatchFailed++;
         }
@@ -171,7 +129,6 @@ public class ApplyService(
             var absPath = WorkspaceHelper.SafeResolvePath(projectRoot, relPath);
             if (File.Exists(absPath))
             {
-                if (dryRun) { logger.Info($"[dry-run] Would delete: {relPath}"); countDeleted++; continue; }
                 File.Delete(absPath);
                 deletedFileDirs.Add(Path.GetDirectoryName(absPath)!);
                 logger.Success($"Deleted: {relPath}");
@@ -189,7 +146,7 @@ public class ApplyService(
         if (trackerNode != null)
             trackerService.HandleTracker(trackerNode, projectRoot);
 
-        if (countDeleted > 0 && !dryRun)
+        if (countDeleted > 0)
             CleanEmptyFolders(deletedFileDirs, projectRoot);
 
         logger.Info($"\nSummary: {countFullFiles} written, {countPatchOk} patched, {countDeleted} deleted.");

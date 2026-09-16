@@ -1,6 +1,5 @@
 using System.CommandLine;
 using AIBridge.Cli.Providers;
-using AIBridge.Cli.Helpers;
 using AIBridge.Core.Constants;
 using AIBridge.Core.Models;
 using AIBridge.Core.Services;
@@ -8,8 +7,8 @@ using AIBridge.Cli.Services;
 
 var logger = new ConsoleLogger();
 var inputProvider = new ConsoleInputProvider();
-var projectRoot = WorkspaceHelper.GetProjectRoot();
-var stateService = new StateService(projectRoot, logger);
+var projectRoot = AIBridge.Core.Helpers.WorkspaceHelper.GetProjectRoot(Environment.CurrentDirectory);
+var stateService = new StateService(projectRoot);
 var projectDetector = new ProjectDetector(logger);
 var inputService = new InputService(logger, inputProvider);
 var patcherService = new PatcherService(logger);
@@ -18,40 +17,37 @@ var requestService = new RequestService(logger, projectDetector, indexService);
 var templateService = new TemplateService(logger);
 var packerService = new PackerService(logger, projectDetector);
 var trackerService = new TrackerService(logger);
+var workspaceInitService = new WorkspaceInitService(logger, templateService, indexService, stateService);
 var applyService = new ApplyService(logger, patcherService, indexService, requestService, trackerService);
 var rootCommand = new RootCommand("AI Bridge - Connects your local codebase to AI chatbots.");
 
 // ── Pack ──
 var packCommand = new Command("pack", "Packs source files into text context for AI.");
-var incrementalOption = new Option<bool>("--incremental", "Pack only files modified or added since the last index update.");
-packCommand.AddOption(incrementalOption);
-packCommand.SetHandler(async (bool incremental) =>
+packCommand.SetHandler(async () =>
 {
-    if (!stateService.EnsureUpToDate()) { Environment.ExitCode = 1; return; }
-    logger.Info(incremental ? "Packing incremental AI context..." : "Packing full AI context...");
-    var result = await packerService.PackAsync(projectRoot, new PackOptions(Incremental: incremental));
+    await workspaceInitService.EnsureWorkspaceReadyAsync(projectRoot);
+    logger.Info("Packing full AI context...");
+    var result = await packerService.PackAsync(projectRoot, new PackOptions(Incremental: false));
     if (!result.IsSuccess) { logger.Error(result.ErrorMessage ?? "Pack failed."); Environment.ExitCode = 1; }
-}, incrementalOption);
+});
 
 // ── Apply ──
 var applyCommand = new Command("apply", "Applies ai-response.xml patches to the codebase.");
 var watchOption = new Option<bool>("--watch", "Keep running and auto-apply when ai-response.xml is saved.");
 var pasteOption = new Option<bool>("--paste", "Read directly from clipboard.");
-var dryRunOption = new Option<bool>("--dry-run", "Show what would change without applying.");
 applyCommand.AddOption(watchOption);
 applyCommand.AddOption(pasteOption);
-applyCommand.AddOption(dryRunOption);
-applyCommand.SetHandler(async (bool watch, bool paste, bool dryRun) =>
+applyCommand.SetHandler(async (bool watch, bool paste) =>
 {
-    if (!stateService.EnsureUpToDate()) { Environment.ExitCode = 1; return; }
+    await workspaceInitService.EnsureWorkspaceReadyAsync(projectRoot);
     logger.Info("Applying AI code changes...");
 
     if (watch)
     {
-        if (paste) { logger.Warning("Ignoring --watch flag because --paste was used."); await RunApplyAsync(paste, dryRun); return; }
+        if (paste) { logger.Warning("Ignoring --watch flag because --paste was used."); await RunApplyAsync(paste); return; }
 
         logger.Info("Starting watch mode for ai-response.xml...");
-        await RunApplyAsync(paste, dryRun);
+        await RunApplyAsync(paste);
 
         var aiWorkspace = AIBridge.Core.Helpers.WorkspaceHelper.GetAiWorkspacePath(projectRoot);
         var watchDir = Path.Combine(aiWorkspace, FolderNames.Artifacts);
@@ -72,7 +68,7 @@ applyCommand.SetHandler(async (bool watch, bool paste, bool dryRun) =>
             await Task.Delay(Timings.FileLockWaitMs);
             Console.WriteLine();
             logger.Info("Change detected in ai-response.xml. Applying...");
-            await RunApplyAsync(paste, dryRun);
+            await RunApplyAsync(paste);
             logger.Info("\nWaiting for next change... (Press Ctrl+C to exit)");
         }
 
@@ -86,42 +82,30 @@ applyCommand.SetHandler(async (bool watch, bool paste, bool dryRun) =>
     }
     else
     {
-        await RunApplyAsync(paste, dryRun);
+        await RunApplyAsync(paste);
     }
-}, watchOption, pasteOption, dryRunOption);
+}, watchOption, pasteOption);
 
 // ── Init ──
 var initCommand = new Command("init", $"Scaffolds {FileNames.AiIgnore}, {FolderNames.SimpleMode}/, {FolderNames.AdvancedMode}/, {FolderNames.AutoIndexMode}/, and {FolderNames.Skills}/ for a new project.");
 initCommand.SetHandler(async () =>
 {
-    logger.Info("Initializing AI Bridge for this project...");
-    await RunInitAsync(force: false);
+    await workspaceInitService.EnsureWorkspaceReadyAsync(projectRoot);
 });
 
-// ── Update ──
-var updateCommand = new Command("update", $"Syncs {FolderNames.SimpleMode}/, {FolderNames.AdvancedMode}/, {FolderNames.AutoIndexMode}/, and {FolderNames.Skills}/ to match the currently installed tool version.");
+// ── Update / Repair ──
+var updateCommand = new Command("update", "Force-repairs and updates the AI templates if you accidentally deleted them.");
 updateCommand.SetHandler(async () =>
 {
-    logger.Info("Updating AI Bridge default templates...");
-    await RunInitAsync(force: true);
+    logger.Info("Force updating AI Bridge templates...");
+    await workspaceInitService.InitializeAsync(projectRoot, force: true);
+    stateService.InitState();
 });
-
-// ── Index ──
-var indexCommand = new Command("index", "Commands for managing your project index.");
-var statusCommand = new Command("status", "Shows files changed since the last index update.");
-var syncCommand = new Command("sync", "Generates or safely syncs the ai-bridge-index.xml with your local files.");
-
-indexCommand.AddCommand(statusCommand);
-indexCommand.AddCommand(syncCommand);
-
-statusCommand.SetHandler(async () => { await indexService.StatusAsync(projectRoot); });
-syncCommand.SetHandler(async () => { await indexService.GenerateIndexAsync(projectRoot); });
 
 rootCommand.AddCommand(packCommand);
 rootCommand.AddCommand(applyCommand);
 rootCommand.AddCommand(initCommand);
 rootCommand.AddCommand(updateCommand);
-rootCommand.AddCommand(indexCommand);
 
 try 
 { 
@@ -134,65 +118,7 @@ catch (Exception ex) { logger.Error($"Fatal error: {ex.Message}"); return 2; }
 // Local functions
 // ═══════════════════════════════════════════════════════════
 
-async Task RunInitAsync(bool force)
-{
-    var aiWorkspace = AIBridge.Core.Helpers.WorkspaceHelper.GetAiWorkspacePath(projectRoot);
-    var artifactsDir = Path.Combine(aiWorkspace, FolderNames.Artifacts);
-    if (!Directory.Exists(artifactsDir)) Directory.CreateDirectory(artifactsDir);
-
-    var responseFilePath = Path.Combine(artifactsDir, FileNames.ResponseXml);
-    if (!File.Exists(responseFilePath))
-        await File.WriteAllTextAsync(responseFilePath, "<!-- Paste the AI response XML here -->\n");
-
-    var innerGitignorePath = Path.Combine(aiWorkspace, ".gitignore");
-    var innerGitignoreContent = $"# Ignore templates and artifacts to prevent Git conflicts\n{FolderNames.Artifacts}/\n{FolderNames.SimpleMode}/\n{FolderNames.AdvancedMode}/\n{FolderNames.AutoIndexMode}/\n{FolderNames.Skills}/\n";
-    await File.WriteAllTextAsync(innerGitignorePath, innerGitignoreContent);
-
-    var dockerignorePath = Path.Combine(projectRoot, ".dockerignore");
-    if (File.Exists(dockerignorePath))
-    {
-        var content = await File.ReadAllTextAsync(dockerignorePath);
-        if (!content.Contains($"{FolderNames.AiBridge}/"))
-        {
-            await File.AppendAllTextAsync(dockerignorePath, $"\n# AI Bridge\n{FolderNames.AiBridge}/\n");
-            logger.Success("✅ Patched .dockerignore to exclude AI Bridge workspace from Docker builds.");
-        }
-    }
-
-    var aiIgnorePath = Path.Combine(projectRoot, FileNames.AiIgnore);
-    if (!File.Exists(aiIgnorePath))
-    {
-        var defaultIgnore = $"# =================================================================\n" +
-                            $"# AI BRIDGE IGNORE FILE\n" +
-                            $"# =================================================================\n" +
-                            $"# NOTE: Everything in your .gitignore is ALREADY ignored by AI Bridge!\n" +
-                            $"# Do not copy your .gitignore here.\n" +
-                            $"#\n" +
-                            $"# ONLY add files to this list if they are currently tracked by Git,\n" +
-                            $"# but you want to hide them from the AI to save tokens (e.g. huge\n" +
-                            $"# JSON test data, generated code) or to protect sensitive secrets.\n" +
-                            $"# =================================================================\n" +
-                            $"TestResults/\n*.g.cs\n*.log\n*.tmp\n";
-        await File.WriteAllTextAsync(aiIgnorePath, defaultIgnore);
-        logger.Success("✅ Created default .aiignore file.");
-    }
-    else { logger.Info("ℹ .aiignore already exists."); }
-
-    var simpleModeDir = Path.Combine(aiWorkspace, FolderNames.SimpleMode);
-    var advancedModeDir = Path.Combine(aiWorkspace, FolderNames.AdvancedMode);
-    var autoIndexModeDir = Path.Combine(aiWorkspace, FolderNames.AutoIndexMode);
-    if (force)
-    {
-        if (Directory.Exists(simpleModeDir)) Directory.Delete(simpleModeDir, true);
-        if (Directory.Exists(advancedModeDir)) Directory.Delete(advancedModeDir, true);
-        if (Directory.Exists(autoIndexModeDir)) Directory.Delete(autoIndexModeDir, true);
-    }
-
-    templateService.ExtractTemplates(aiWorkspace, force, projectRoot);
-    stateService.InitState();
-}
-
-async Task RunApplyAsync(bool paste, bool dryRun)
+async Task RunApplyAsync(bool paste)
 {
     var aiWorkspace = AIBridge.Core.Helpers.WorkspaceHelper.GetAiWorkspacePath(projectRoot);
     var artifactsDir = Path.Combine(aiWorkspace, FolderNames.Artifacts);
@@ -201,7 +127,7 @@ async Task RunApplyAsync(bool paste, bool dryRun)
     if (!await inputService.ResolveAsync(inputFile, paste)) return;
 
     var rawContent = await File.ReadAllTextAsync(inputFile);
-    var result = await applyService.ExecuteAsync(rawContent, projectRoot, dryRun);
+    var result = await applyService.ExecuteAsync(rawContent, projectRoot);
     if (!result.IsSuccess)
         Environment.ExitCode = 1;
 

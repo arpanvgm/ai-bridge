@@ -402,48 +402,4 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
         return (modifiedFiles, newFiles, deletedFiles, lastUpdated);
     }
 
-    public async Task StatusAsync(string projectRoot)
-    {
-        var indexFileName = WorkspaceHelper.GetIndexFileName(projectRoot);
-
-        List<string> modifiedFiles, newFilesList, deletedFiles;
-        DateTime lastUpdated;
-
-        try { (modifiedFiles, newFilesList, deletedFiles, lastUpdated) = await GetChangedFilesAsync(projectRoot); }
-        catch (Exception ex) { logger.Error(ex.Message); return; }
-
-        logger.Info($"📋 {indexFileName}  (Last updated: {lastUpdated:yyyy-MM-dd HH:mm:ss UTC})");
-
-        if (modifiedFiles.Count == 0 && newFilesList.Count == 0 && deletedFiles.Count == 0)
-        {
-            logger.Success("✅ Index is up to date. No changes detected.");
-            return;
-        }
-
-        if (modifiedFiles.Count > 0)
-        {
-            logger.Warning($"⚠ {modifiedFiles.Count} file(s) modified since last index update:");
-            foreach (var path in modifiedFiles)
-            {
-                var absolutePath = Path.Combine(projectRoot, path.Replace('/', Path.DirectorySeparatorChar));
-                var modified = File.GetLastWriteTimeUtc(absolutePath);
-                logger.Output($"  • {path}  (modified {modified:yyyy-MM-dd HH:mm:ss UTC})");
-            }
-        }
-
-        if (newFilesList.Count > 0)
-        {
-            logger.Warning($"➕ {newFilesList.Count} new file(s) not in index:");
-            foreach (var path in newFilesList) logger.Output($"  • {path}");
-        }
-
-        if (deletedFiles.Count > 0)
-        {
-            logger.Warning($"🗑️ {deletedFiles.Count} file(s) in index no longer exist on disk:");
-            foreach (var path in deletedFiles) logger.Output($"  • {path}  (deleted)");
-        }
-
-        int totalChanges = modifiedFiles.Count + newFilesList.Count + deletedFiles.Count;
-        logger.Info($"\nSummary: {modifiedFiles.Count} modified, {newFilesList.Count} new, {deletedFiles.Count} deleted ({totalChanges} total change(s))");
-    }
 }
