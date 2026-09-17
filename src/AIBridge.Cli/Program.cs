@@ -27,7 +27,7 @@ packCommand.SetHandler(async () =>
 {
     await workspaceInitService.EnsureWorkspaceReadyAsync(projectRoot);
     logger.Info("Packing full AI context...");
-    var result = await packerService.PackAsync(projectRoot, new PackOptions(Incremental: false));
+    var result = await packerService.PackAsync(projectRoot);
     if (!result.IsSuccess) { logger.Error(result.ErrorMessage ?? "Pack failed."); Environment.ExitCode = 1; }
 });
 
@@ -93,19 +93,9 @@ initCommand.SetHandler(async () =>
     await workspaceInitService.EnsureWorkspaceReadyAsync(projectRoot);
 });
 
-// ── Update / Repair ──
-var updateCommand = new Command("update", "Force-repairs and updates the AI templates if you accidentally deleted them.");
-updateCommand.SetHandler(async () =>
-{
-    logger.Info("Force updating AI Bridge templates...");
-    await workspaceInitService.InitializeAsync(projectRoot, force: true);
-    stateService.InitState();
-});
-
 rootCommand.AddCommand(packCommand);
 rootCommand.AddCommand(applyCommand);
 rootCommand.AddCommand(initCommand);
-rootCommand.AddCommand(updateCommand);
 
 try 
 { 

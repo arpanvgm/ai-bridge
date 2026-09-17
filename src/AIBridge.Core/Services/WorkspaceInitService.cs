@@ -59,23 +59,43 @@ public class WorkspaceInitService(IAIBridgeLogger logger, TemplateService templa
         }
 
         var aiIgnorePath = Path.Combine(projectRoot, FileNames.AiIgnore);
+        var defaultRules = new[] { "TestResults/", "*.g.cs", "*.log", "*.tmp" };
+        var header = $"# =================================================================\n" +
+                     $"# AI BRIDGE IGNORE FILE\n" +
+                     $"# =================================================================\n" +
+                     $"# NOTE: Everything in your .gitignore is ALREADY ignored by AI Bridge!\n" +
+                     $"# Do not copy your .gitignore here.\n" +
+                     $"#\n" +
+                     $"# ONLY add files to this list if they are currently tracked by Git,\n" +
+                     $"# but you want to hide them from the AI to save tokens (e.g. huge\n" +
+                     $"# JSON test data, generated code) or to protect sensitive secrets.\n" +
+                     $"# =================================================================\n";
+
         if (!File.Exists(aiIgnorePath))
         {
-            var defaultIgnore = $"# =================================================================\n" +
-                                $"# AI BRIDGE IGNORE FILE\n" +
-                                $"# =================================================================\n" +
-                                $"# NOTE: Everything in your .gitignore is ALREADY ignored by AI Bridge!\n" +
-                                $"# Do not copy your .gitignore here.\n" +
-                                $"#\n" +
-                                $"# ONLY add files to this list if they are currently tracked by Git,\n" +
-                                $"# but you want to hide them from the AI to save tokens (e.g. huge\n" +
-                                $"# JSON test data, generated code) or to protect sensitive secrets.\n" +
-                                $"# =================================================================\n" +
-                                $"TestResults/\n*.g.cs\n*.log\n*.tmp\n";
+            var defaultIgnore = header + string.Join("\n", defaultRules) + "\n";
             await File.WriteAllTextAsync(aiIgnorePath, defaultIgnore);
             logger.Success("✅ Created default .aiignore file.");
         }
-        else { logger.Info("ℹ .aiignore already exists."); }
+        else
+        {
+            var existingContent = await File.ReadAllTextAsync(aiIgnorePath);
+            var existingLines = existingContent.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                                               .Select(l => l.Trim())
+                                               .ToHashSet();
+            
+            var missingRules = defaultRules.Where(r => !existingLines.Contains(r)).ToList();
+            if (missingRules.Count > 0)
+            {
+                var appendContent = "\n# Auto-added by AI Bridge\n" + string.Join("\n", missingRules) + "\n";
+                await File.AppendAllTextAsync(aiIgnorePath, appendContent);
+                logger.Success($"✅ Appended {missingRules.Count} missing default rules to .aiignore.");
+            }
+            else
+            {
+                logger.Info("ℹ .aiignore is up to date.");
+            }
+        }
 
         var simpleModeDir = Path.Combine(aiWorkspace, FolderNames.SimpleMode);
         var advancedModeDir = Path.Combine(aiWorkspace, FolderNames.AdvancedMode);
