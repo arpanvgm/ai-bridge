@@ -6,8 +6,10 @@ It exposes a single MCP tool (`apply_ai_response`) that lets AI clients read fil
 
 ## Prerequisites
 
-- **[AI Bridge CLI](../../README.md)** installed and initialized in your project (`ai-bridge init`). The MCP server relies on the same templates and skills that drive the CLI workflow — you still need to upload them to your AI project/chat.
 - **[.NET 10 SDK](https://dotnet.microsoft.com/download)** installed on your machine.
+
+> [!NOTE]
+> Load `ai-bridge/skills/ai-mcp-connector.md` (extracted automatically on first run) into your AI system prompt to instruct the AI to route responses through the MCP tool automatically, instead of outputting XML as plain chat text.
 
 ## Installation
 
@@ -28,7 +30,7 @@ dotnet tool uninstall --global Tools.AIBridge.Mcp
 
 ## Running the Server
 
-Open a terminal, navigate to the target codebase directory (where you have already run `ai-bridge init`), and run:
+Open a terminal, navigate to your project directory, and run:
 
 ```bash
 ai-bridge-mcp
