@@ -80,7 +80,7 @@ public class WorkspaceInitService(IAIBridgeLogger logger, TemplateService templa
         else
         {
             var existingContent = await File.ReadAllTextAsync(aiIgnorePath);
-            var existingLines = existingContent.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            var existingLines = existingContent.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
                                                .Select(l => l.Trim())
                                                .ToHashSet();
             

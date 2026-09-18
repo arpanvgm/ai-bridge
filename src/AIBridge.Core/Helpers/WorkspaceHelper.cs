@@ -23,11 +23,6 @@ public static class WorkspaceHelper
         return startDirectory;
     }
 
-    public static string GetIndexFileName(string projectRoot)
-    {
-        return Constants.FileNames.Index;
-    }
-
     public static string SafeResolvePath(string projectRoot, string relativePath)
     {
         var resolved = Path.GetFullPath(Path.Combine(projectRoot, relativePath.Replace('/', Path.DirectorySeparatorChar)));
