@@ -1,3 +1,4 @@
+﻿
 using System.CommandLine;
 using AIBridge.Cli.Providers;
 using AIBridge.Core.Constants;
@@ -25,7 +26,7 @@ var rootCommand = new RootCommand("AI Bridge - Connects your local codebase to A
 var packCommand = new Command("pack", "Packs source files into text context for AI.");
 packCommand.SetHandler(async () =>
 {
-    await workspaceInitService.EnsureWorkspaceReadyAsync(projectRoot, "ai-bridge get-latest", autoInit: false);
+    await workspaceInitService.EnsureWorkspaceReadyAsync(projectRoot, "ai-bridge migrate", autoInit: false);
     logger.Info("Packing full AI context...");
     var result = await packerService.PackAsync(projectRoot);
     if (!result.IsSuccess) { logger.Error(result.ErrorMessage ?? "Pack failed."); Environment.ExitCode = 1; }
@@ -39,7 +40,7 @@ applyCommand.AddOption(watchOption);
 applyCommand.AddOption(pasteOption);
 applyCommand.SetHandler(async (bool watch, bool paste) =>
 {
-    await workspaceInitService.EnsureWorkspaceReadyAsync(projectRoot, "ai-bridge get-latest", autoInit: false);
+    await workspaceInitService.EnsureWorkspaceReadyAsync(projectRoot, "ai-bridge migrate", autoInit: false);
     logger.Info("Applying AI code changes...");
 
     if (watch)
@@ -86,7 +87,7 @@ applyCommand.SetHandler(async (bool watch, bool paste) =>
     }
 }, watchOption, pasteOption);
 
-// ── Setup / Get Latest ──
+// ── Setup / Migrate ──
 var setupHandler = async () =>
 {
     await workspaceInitService.InitializeAsync(projectRoot, force: true);
@@ -97,24 +98,24 @@ var setupHandler = async () =>
 var initCommand = new Command("init", $"Scaffolds {FileNames.AiIgnore}, {FolderNames.SimpleMode}/, {FolderNames.AdvancedMode}/, {FolderNames.AutoIndexMode}/, and {FolderNames.Skills}/ for a new project.");
 initCommand.SetHandler(setupHandler);
 
-var getLatestCommand = new Command("get-latest", "Updates local project AI instructions to match the globally installed tool version.");
-getLatestCommand.SetHandler(setupHandler);
+var migrateCommand = new Command("migrate", "Updates local project AI instructions to match the globally installed tool version.");
+migrateCommand.SetHandler(setupHandler);
 
 rootCommand.AddCommand(packCommand);
 rootCommand.AddCommand(applyCommand);
 rootCommand.AddCommand(initCommand);
-rootCommand.AddCommand(getLatestCommand);
+rootCommand.AddCommand(migrateCommand);
 
-try 
-{ 
-    var result = await rootCommand.InvokeAsync(args); 
-    return Environment.ExitCode != 0 ? Environment.ExitCode : result; 
+try
+{
+    var result = await rootCommand.InvokeAsync(args);
+    return Environment.ExitCode != 0 ? Environment.ExitCode : result;
 }
 catch (Exception ex) { logger.Error($"Fatal error: {ex.Message}"); return 2; }
 
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 // Local functions
-// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 
 async Task RunApplyAsync(bool paste)
 {
@@ -146,7 +147,7 @@ async Task RunApplyAsync(bool paste)
 
     // Always reset the response file after running, regardless of success or failure.
     // Since patches are not idempotent, if a run partially fails, we want the user
-    // to ask the AI for a NEW response containing only the fixes, rather than 
+    // to ask the AI for a NEW response containing only the fixes, rather than
     // re-running the old file and causing previously successful patches to fail.
     await inputService.ResetInputFileAsync(inputFile);
 }
