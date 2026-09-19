@@ -151,6 +151,11 @@ public class ApplyService(
 
         logger.Info($"\nSummary: {countFullFiles} written, {countPatchOk} patched, {countDeleted} deleted.");
 
+        bool hasEdits = aiEditsNode != null && (countFullFiles > 0 || countPatchOk > 0 || countDeleted > 0);
+        bool indexExists = File.Exists(Path.Combine(aiWorkspace, FileNames.Index));
+        if (hasEdits && indexUpdateNode == null && indexExists)
+            logger.Warning($"⚠ Index not updated. The AI response was missing an <{XmlTags.UpdateIndex}> tag. Please ensure that the index is updated.");
+
         if (countPatchFailed > 0)
             foreach (var f in failedFiles.Distinct())
                 logger.Error($"Patch failed: {f}");

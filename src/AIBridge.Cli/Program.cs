@@ -25,7 +25,7 @@ var rootCommand = new RootCommand("AI Bridge - Connects your local codebase to A
 var packCommand = new Command("pack", "Packs source files into text context for AI.");
 packCommand.SetHandler(async () =>
 {
-    await workspaceInitService.EnsureWorkspaceReadyAsync(projectRoot);
+    await workspaceInitService.EnsureWorkspaceReadyAsync(projectRoot, "ai-bridge get-latest", autoInit: false);
     logger.Info("Packing full AI context...");
     var result = await packerService.PackAsync(projectRoot);
     if (!result.IsSuccess) { logger.Error(result.ErrorMessage ?? "Pack failed."); Environment.ExitCode = 1; }
@@ -39,7 +39,7 @@ applyCommand.AddOption(watchOption);
 applyCommand.AddOption(pasteOption);
 applyCommand.SetHandler(async (bool watch, bool paste) =>
 {
-    await workspaceInitService.EnsureWorkspaceReadyAsync(projectRoot);
+    await workspaceInitService.EnsureWorkspaceReadyAsync(projectRoot, "ai-bridge get-latest", autoInit: false);
     logger.Info("Applying AI code changes...");
 
     if (watch)
@@ -86,16 +86,24 @@ applyCommand.SetHandler(async (bool watch, bool paste) =>
     }
 }, watchOption, pasteOption);
 
-// ── Init ──
-var initCommand = new Command("init", $"Scaffolds {FileNames.AiIgnore}, {FolderNames.SimpleMode}/, {FolderNames.AdvancedMode}/, {FolderNames.AutoIndexMode}/, and {FolderNames.Skills}/ for a new project.");
-initCommand.SetHandler(async () =>
+// ── Setup / Get Latest ──
+var setupHandler = async () =>
 {
-    await workspaceInitService.EnsureWorkspaceReadyAsync(projectRoot);
-});
+    await workspaceInitService.InitializeAsync(projectRoot, force: true);
+    stateService.InitState();
+    logger.Success("✅ AI Bridge setup complete! Please upload the files in the 'ai-bridge/skills' folder to your AI.");
+};
+
+var initCommand = new Command("init", $"Scaffolds {FileNames.AiIgnore}, {FolderNames.SimpleMode}/, {FolderNames.AdvancedMode}/, {FolderNames.AutoIndexMode}/, and {FolderNames.Skills}/ for a new project.");
+initCommand.SetHandler(setupHandler);
+
+var getLatestCommand = new Command("get-latest", "Updates local project AI instructions to match the globally installed tool version.");
+getLatestCommand.SetHandler(setupHandler);
 
 rootCommand.AddCommand(packCommand);
 rootCommand.AddCommand(applyCommand);
 rootCommand.AddCommand(initCommand);
+rootCommand.AddCommand(getLatestCommand);
 
 try 
 { 

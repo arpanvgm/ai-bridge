@@ -29,10 +29,8 @@ var rsaKey = RSA.Create(2048);
 var signingKey = new RsaSecurityKey(rsaKey) { KeyId = Guid.NewGuid().ToString("N") };
 var signingCredentials = new SigningCredentials(signingKey, SecurityAlgorithms.RsaSha256);
 
-// Derive issuer/audience from the server's configured URL
+// Get the server's configured URL for console display
 var serverUrl = (builder.Configuration["urls"] ?? builder.Configuration["Urls"] ?? "http://localhost:5000").TrimEnd('/');
-var issuer = serverUrl;
-var audience = $"{serverUrl}/mcp";
 
 // Print OAuth credentials clearly
 Console.WriteLine();
@@ -285,12 +283,38 @@ app.MapPost("/token", async (HttpContext context) =>
 app.MapMcp("/mcp").RequireAuthorization();
 
 // --- Auto-Initialize Workspace ---
-Console.WriteLine("\n[Startup] Ensuring AI Bridge workspace is initialized...");
-using (var scope = app.Services.CreateScope())
+if (args.Contains("--get-latest"))
 {
+    Console.WriteLine("\n[Setup] Extracting latest AI instructions...");
+    using (var scope = app.Services.CreateScope())
+    {
+        var initService = scope.ServiceProvider.GetRequiredService<WorkspaceInitService>();
+        var stateService = scope.ServiceProvider.GetRequiredService<StateService>();
+        await initService.InitializeAsync(AIBridge.Core.Helpers.WorkspaceHelper.GetProjectRoot(Environment.CurrentDirectory), force: true);
+        stateService.InitState();
+        Console.WriteLine("\n✅ Workspace templates updated!");
+        Console.WriteLine("⚠️ IMPORTANT: Please upload the updated files in 'ai-bridge/skills' to your AI before chatting.");
+    }
+}
+else
+{
+    Console.WriteLine("\n[Startup] Checking AI Bridge workspace state...");
+    using (var scope = app.Services.CreateScope())
+    {
     var initService = scope.ServiceProvider.GetRequiredService<WorkspaceInitService>();
-    await initService.EnsureWorkspaceReadyAsync(AIBridge.Core.Helpers.WorkspaceHelper.GetProjectRoot(Environment.CurrentDirectory));
-    Console.WriteLine("[Startup] Workspace initialization complete.");
+    try
+    {
+        await initService.EnsureWorkspaceReadyAsync(AIBridge.Core.Helpers.WorkspaceHelper.GetProjectRoot(Environment.CurrentDirectory), "ai-bridge-mcp --get-latest", autoInit: true);
+        Console.WriteLine("[Startup] Workspace initialization complete.");
+    }
+    catch (Exception ex)
+    {
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine($"\n[Error] {ex.Message}");
+        Console.ResetColor();
+        return; // Exit cleanly without starting server
+    }
+    }
 }
 
 await app.RunAsync();

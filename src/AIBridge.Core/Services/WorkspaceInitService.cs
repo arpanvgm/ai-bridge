@@ -6,28 +6,33 @@ namespace AIBridge.Core.Services;
 
 public class WorkspaceInitService(IAIBridgeLogger logger, TemplateService templateService, IndexService indexService, StateService stateService)
 {
-    public async Task EnsureWorkspaceReadyAsync(string projectRoot)
+    public async Task EnsureWorkspaceReadyAsync(string projectRoot, string updateCommand, bool autoInit = false)
     {
         var state = stateService.CheckState();
         
         if (state == WorkspaceState.NotInitialized)
         {
-            logger.Info("Initializing AI Bridge for this project...");
-            await InitializeAsync(projectRoot, force: false);
-            stateService.InitState();
+            if (autoInit)
+            {
+                logger.Info("Initializing AI Bridge for this codebase...");
+                await InitializeAsync(projectRoot, force: false);
+                stateService.InitState();
+            }
+            else
+            {
+                throw new Exception($"AI Bridge workspace is not initialized. Please run '{updateCommand}' first.");
+            }
         }
         else if (state == WorkspaceState.Outdated)
         {
-            logger.Info("New version detected! Auto-updating templates...");
-            await InitializeAsync(projectRoot, force: true);
-            stateService.InitState();
+            throw new Exception($"AI Bridge version mismatch. The local setup for this codebase is outdated. Please run '{updateCommand}' to update them.");
         }
         else
         {
             var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectRoot);
             if (templateService.AreAnyTemplatesMissing(aiWorkspace))
             {
-                logger.Info("Detected missing AI templates. Restoring them...");
+                logger.Info("Detected missing AI instructions. Restoring them...");
                 templateService.ExtractTemplates(aiWorkspace, force: false, projectRoot);
             }
         }

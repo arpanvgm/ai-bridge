@@ -16,9 +16,6 @@ public class PackerService(IAIBridgeLogger logger, ProjectDetector projectDetect
         var artifactsDir = Path.Combine(aiWorkspace, FolderNames.Artifacts);
         var aiIgnorePath = Path.Combine(projectRoot, FileNames.AiIgnore);
 
-        if (!Directory.Exists(artifactsDir) || !Directory.Exists(Path.Combine(aiWorkspace, FolderNames.SimpleMode)))
-            return new PackResult(false, ErrorMessage: "Project not initialized for AI Bridge. Please run 'ai-bridge init' first.");
-
         var rootFolderName = new DirectoryInfo(projectRoot).Name;
         var (detectedProjects, ecosystem) = projectDetector.DetectProjects(projectRoot);
         var warnings = new List<string>();
