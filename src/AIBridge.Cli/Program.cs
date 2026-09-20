@@ -18,7 +18,8 @@ var requestService = new RequestService(logger, projectDetector, indexService);
 var templateService = new TemplateService(logger);
 var packerService = new PackerService(logger, projectDetector);
 var trackerService = new TrackerService(logger);
-var workspaceInitService = new WorkspaceInitService(logger, templateService, indexService, stateService);
+var workspaceValidator = new WorkspaceValidator(stateService);
+var workspaceSetupService = new WorkspaceSetupService(logger, templateService, indexService);
 var applyService = new ApplyService(logger, patcherService, indexService, requestService, trackerService);
 var rootCommand = new RootCommand("AI Bridge - Connects your local codebase to AI chatbots.");
 
@@ -26,7 +27,7 @@ var rootCommand = new RootCommand("AI Bridge - Connects your local codebase to A
 var packCommand = new Command("pack", "Packs source files into text context for AI.");
 packCommand.SetHandler(async () =>
 {
-    await workspaceInitService.EnsureWorkspaceReadyAsync(projectRoot, "ai-bridge migrate", autoInit: false);
+    if (!AssertWorkspaceValid(workspaceValidator, projectRoot)) return;
     logger.Info("Packing full AI context...");
     var result = await packerService.PackAsync(projectRoot);
     if (!result.IsSuccess) { logger.Error(result.ErrorMessage ?? "Pack failed."); Environment.ExitCode = 1; }
@@ -40,7 +41,7 @@ applyCommand.AddOption(watchOption);
 applyCommand.AddOption(pasteOption);
 applyCommand.SetHandler(async (bool watch, bool paste) =>
 {
-    await workspaceInitService.EnsureWorkspaceReadyAsync(projectRoot, "ai-bridge migrate", autoInit: false);
+    if (!AssertWorkspaceValid(workspaceValidator, projectRoot)) return;
     logger.Info("Applying AI code changes...");
 
     if (watch)
@@ -87,19 +88,23 @@ applyCommand.SetHandler(async (bool watch, bool paste) =>
     }
 }, watchOption, pasteOption);
 
-// ── Setup / Migrate ──
-var setupHandler = async () =>
+// ── Init ──
+var initCommand = new Command("init", $"Scaffolds {FileNames.AiIgnore}, {FolderNames.SimpleMode}/, {FolderNames.AdvancedMode}/, {FolderNames.AutoIndexMode}/, and {FolderNames.Skills}/ for a new project.");
+initCommand.SetHandler(async () =>
 {
-    await workspaceInitService.InitializeAsync(projectRoot, force: true);
+    await workspaceSetupService.SetupAsync(projectRoot);
     stateService.InitState();
     logger.Success("✅ AI Bridge setup complete! Please upload the files in the 'ai-bridge/skills' folder to your AI.");
-};
+});
 
-var initCommand = new Command("init", $"Scaffolds {FileNames.AiIgnore}, {FolderNames.SimpleMode}/, {FolderNames.AdvancedMode}/, {FolderNames.AutoIndexMode}/, and {FolderNames.Skills}/ for a new project.");
-initCommand.SetHandler(setupHandler);
-
+// ── Migrate ──
 var migrateCommand = new Command("migrate", "Updates local project AI instructions to match the globally installed tool version.");
-migrateCommand.SetHandler(setupHandler);
+migrateCommand.SetHandler(async () =>
+{
+    await workspaceSetupService.SetupAsync(projectRoot);
+    stateService.InitState();
+    logger.Success("✅ AI Bridge migrated successfully! Please re-upload the files in the 'ai-bridge/skills' folder to your AI.");
+});
 
 rootCommand.AddCommand(packCommand);
 rootCommand.AddCommand(applyCommand);
@@ -117,6 +122,24 @@ catch (Exception ex) { logger.Error($"Fatal error: {ex.Message}"); return 2; }
 // Local functions
 // ═══════════════════════════════════════════════════════════════
 
+bool AssertWorkspaceValid(WorkspaceValidator validator, string root)
+{
+    var status = validator.Check(root);
+    switch (status)
+    {
+        case WorkspaceStatus.NotInitialized:
+            logger.Error("AI Bridge workspace is not initialized. Please run 'ai-bridge init' first.");
+            Environment.ExitCode = 1;
+            return false;
+        case WorkspaceStatus.VersionMismatch:
+            logger.Error($"AI Bridge version mismatch. The local workspace is outdated. Please run 'ai-bridge migrate' to update it.");
+            Environment.ExitCode = 1;
+            return false;
+        default:
+            return true;
+    }
+}
+
 async Task RunApplyAsync(bool paste)
 {
     var aiWorkspace = AIBridge.Core.Helpers.WorkspaceHelper.GetAiWorkspacePath(projectRoot);
@@ -130,7 +153,7 @@ async Task RunApplyAsync(bool paste)
     if (!result.IsSuccess)
         Environment.ExitCode = 1;
 
-    // CLI-specific post-processing: copy requested context to clipboard
+    // CLI-specific post-processing: copy requested context to clipboard.
     if (result.ContextPayload != null)
     {
         try

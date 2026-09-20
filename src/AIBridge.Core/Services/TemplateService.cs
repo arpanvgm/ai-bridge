@@ -1,13 +1,30 @@
+﻿
 using AIBridge.Core.Abstractions;
+using AIBridge.Core.Constants;
+using AIBridge.Core.Helpers;
 
 namespace AIBridge.Core.Services;
 
 public class TemplateService(IAIBridgeLogger logger)
 {
-    public void ExtractTemplates(string targetDir, bool force, string projectPath)
+    /// <summary>
+    /// Extracts all embedded templates into the workspace, always overwriting existing files.
+    /// Call this during init / migrate where the goal is a guaranteed up-to-date state.
+    /// Template folders (SimpleMode, AdvancedMode, AutoIndexMode) are deleted and recreated
+    /// so stale files from older versions cannot linger.
+    /// </summary>
+    public void ExtractAll(string targetDir, string projectPath)
+    {
+        DeleteTemplateFolders(targetDir);
+        Extract(targetDir, projectPath, overwrite: true);
+    }
+
+    // ── Private ────────────────────────────────────────────────────
+
+    private void Extract(string targetDir, string projectPath, bool overwrite)
     {
         var assembly = typeof(TemplateService).Assembly;
-        var prefix = "AIBridge.Core.Templates.";
+        const string prefix = "AIBridge.Core.Templates.";
         var resourceNames = assembly.GetManifestResourceNames()
             .Where(r => r.StartsWith(prefix))
             .ToList();
@@ -20,7 +37,7 @@ public class TemplateService(IAIBridgeLogger logger)
             var relPath = ConvertResourceNameToPath(relativePart);
             var destFile = Path.Combine(targetDir, relPath);
 
-            if (!File.Exists(destFile) || force)
+            if (!File.Exists(destFile) || overwrite)
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
 
@@ -33,28 +50,25 @@ public class TemplateService(IAIBridgeLogger logger)
         }
     }
 
-    public bool AreAnyTemplatesMissing(string targetDir)
+    private static void DeleteTemplateFolders(string targetDir)
     {
-        var assembly = typeof(TemplateService).Assembly;
-        var prefix = "AIBridge.Core.Templates.";
-        var resourceNames = assembly.GetManifestResourceNames()
-            .Where(r => r.StartsWith(prefix));
-
-        foreach (var resourceName in resourceNames)
+        var foldersToDelete = new[]
         {
-            var relativePart = resourceName[prefix.Length..];
-            var relPath = ConvertResourceNameToPath(relativePart);
-            var destFile = Path.Combine(targetDir, relPath);
+            FolderNames.SimpleMode,
+            FolderNames.AdvancedMode,
+            FolderNames.AutoIndexMode
+        };
 
-            if (!File.Exists(destFile))
-                return true;
+        foreach (var folder in foldersToDelete)
+        {
+            var path = Path.Combine(targetDir, folder);
+            if (Directory.Exists(path))
+                Directory.Delete(path, recursive: true);
         }
-
-        return false;
     }
 
     /// <summary>
-    /// Converts embedded resource name segments back to file path.
+    /// Converts an embedded resource name back to a relative file path.
     /// The last two dot-segments form the filename (e.g. "ai-response-skill" + "md").
     /// Everything before is directory segments.
     /// </summary>
@@ -69,7 +83,7 @@ public class TemplateService(IAIBridgeLogger logger)
         var dirParts = parts[..^2];
         var dirPath = Path.Combine(dirParts);
 
-        // Fix .NET Embedded Resource name mangling for folders with numbers/hyphens
+        // Fix .NET Embedded Resource name mangling for folders with numbers/hyphens.
         dirPath = dirPath.Replace("_1_SimpleMode", "1-SimpleMode")
                          .Replace("_2_AdvancedMode", "2-AdvancedMode")
                          .Replace("Phase1_CreateIndex", "Phase1-CreateIndex")
