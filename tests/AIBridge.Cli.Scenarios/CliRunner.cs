@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text;
 
 namespace AIBridge.Cli.Scenarios;
@@ -141,6 +141,7 @@ public sealed class RunningCliProcess(Process process) : IAsyncDisposable
     private readonly StringBuilder stderr = new();
 
     public string CombinedOutput => stdout.ToString() + stderr;
+    public bool HasExited => process.HasExited;
 
     public void BeginCapture()
     {
