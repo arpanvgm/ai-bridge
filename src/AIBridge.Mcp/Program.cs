@@ -328,6 +328,6 @@ return await rootCommand.InvokeAsync(args);
 static (string scheme, string host) GetForwardedOrigin(HttpContext context)
 {
     var scheme = context.Request.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? context.Request.Scheme;
-    var host   = context.Request.Headers["X-Forwarded-Host"].FirstOrDefault()  ?? context.Request.Host.Value;
+    var host   = context.Request.Headers["X-Forwarded-Host"].FirstOrDefault()  ?? context.Request.Host.ToString();
     return (scheme, host);
 }
