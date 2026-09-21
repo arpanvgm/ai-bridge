@@ -44,8 +44,6 @@ public class WorkspaceSetupService(IAIBridgeLogger logger, TemplateService templ
         var path = Path.Combine(aiWorkspace, ".gitignore");
         var content = $"# Ignore templates and artifacts to prevent Git conflicts\n" +
                       $"{FolderNames.Artifacts}/\n" +
-                      $"{FolderNames.SimpleMode}/\n" +
-                      $"{FolderNames.AdvancedMode}/\n" +
                       $"{FolderNames.AutoIndexMode}/\n" +
                       $"{FolderNames.Skills}/\n";
         // Always overwrite — this file is fully owned by AI Bridge, never edited by users.

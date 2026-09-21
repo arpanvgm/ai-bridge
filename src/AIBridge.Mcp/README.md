@@ -10,7 +10,7 @@ It exposes a single MCP tool (`apply_ai_response`) that lets AI clients read fil
 - **[.NET 10 SDK](https://dotnet.microsoft.com/download)** installed on your machine.
 
 > [!NOTE]
-> On first run, the server automatically initializes the `ai-bridge/` workspace in your project directory — creating the index, scaffolding template folders, and extracting skill files. No separate `init` step is needed.
+> On first run, the server automatically initializes the `ai-bridge/` workspace in your project directory — creating the index, extracting `AutoIndexMode/` skill files, and scaffolding the `skills/` folder. No separate `init` step is needed.
 > Once initialized, load `ai-bridge/skills/ai-mcp-connector.md` into your AI system prompt to instruct the AI to route responses through the MCP tool automatically, instead of outputting XML as plain chat text.
 
 ## Installation

@@ -64,9 +64,7 @@ Both consumers operate on an `ai-bridge/` folder that lives inside the project r
 │   │   ├── ai-response.xml                ← where AI output is written / read from
 │   │   ├── ai-requested-context.txt       ← files the AI asked for
 │   │   └── tracker.xml                    ← optional multi-session progress tracker
-│   ├── 1-SimpleMode/                      ← embedded skill files (extracted on setup)
-│   ├── 2-AdvancedMode/                    ← embedded skill files (extracted on setup)
-│   ├── AutoIndexMode/                     ← embedded skill files (extracted on setup)
+│   ├── AutoIndexMode/                     ← skill/prompt files (extracted on setup)
 │   └── skills/                            ← shared skill files used by both modes
 ├── .aiignore                              ← user-controlled file exclusion rules
 └── ... your source code ...

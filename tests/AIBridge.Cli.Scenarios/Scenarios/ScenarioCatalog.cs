@@ -73,10 +73,15 @@ public static class ScenarioCatalog
         ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/state.xml"));
         ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/.gitignore"));
         ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/artifacts/ai-response.xml"));
-        ScenarioAssert.DirectoryExists(workspace.PathFor("ai-bridge/1-SimpleMode"));
-        ScenarioAssert.DirectoryExists(workspace.PathFor("ai-bridge/2-AdvancedMode"));
         ScenarioAssert.DirectoryExists(workspace.PathFor("ai-bridge/AutoIndexMode"));
         ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/index.xml"));
+        ScenarioAssert.DirectoryExists(workspace.PathFor("ai-bridge/skills"));
+        ScenarioAssert.False(
+            Directory.Exists(workspace.PathFor("ai-bridge/1-SimpleMode")),
+            "1-SimpleMode should not be extracted — it is a legacy folder.");
+        ScenarioAssert.False(
+            Directory.Exists(workspace.PathFor("ai-bridge/2-AdvancedMode")),
+            "2-AdvancedMode should not be extracted — it is a legacy folder.");
         ScenarioAssert.Contains("ai-bridge/", workspace.ReadText(".dockerignore"), "Init should patch dockerignore.");
     }
 
@@ -198,7 +203,15 @@ public static class ScenarioCatalog
         // Deleted folder must be restored
         ScenarioAssert.DirectoryExists(autoIndexDir);
 
-        // Stale file from old version must be gone (folders are wiped before re-extraction)
+        // Legacy folders must be deleted and not re-extracted
+        ScenarioAssert.False(
+            Directory.Exists(workspace.PathFor("ai-bridge/1-SimpleMode")),
+            "1-SimpleMode should be deleted on migrate and not re-extracted.");
+        ScenarioAssert.False(
+            Directory.Exists(workspace.PathFor("ai-bridge/2-AdvancedMode")),
+            "2-AdvancedMode should be deleted on migrate and not re-extracted.");
+
+        // Stale file from old version must be gone (AutoIndexMode is wiped before re-extraction)
         ScenarioAssert.FileDoesNotExist(workspace.PathFor("ai-bridge/1-SimpleMode/stale-old-instruction.md"));
 
         // ai-response.xml must never be touched by migrate

@@ -52,7 +52,8 @@ flowchart TD
 | `.aiignore` | Only missing default rules appended — never cleared |
 | `index.xml` | Existing purposes preserved — only new files added |
 | `ai-bridge/.gitignore` | Always overwritten (same content, harmless) |
-| Template folders | Always wiped and re-extracted |
+| `AutoIndexMode/`, `skills/` | Always wiped and re-extracted — guaranteed up to date |
+| `1-SimpleMode/`, `2-AdvancedMode/` | Deleted if present (legacy cleanup) — never re-extracted |
 | `state.xml` | Always overwritten with current version |
 
 ---

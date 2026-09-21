@@ -89,7 +89,7 @@ applyCommand.SetHandler(async (bool watch, bool paste) =>
 }, watchOption, pasteOption);
 
 // ── Init ──
-var initCommand = new Command("init", $"Scaffolds {FileNames.AiIgnore}, {FolderNames.SimpleMode}/, {FolderNames.AdvancedMode}/, {FolderNames.AutoIndexMode}/, and {FolderNames.Skills}/ for a new project.");
+var initCommand = new Command("init", $"Scaffolds {FileNames.AiIgnore}, {FolderNames.AutoIndexMode}/, and {FolderNames.Skills}/ for a new project.");
 initCommand.SetHandler(async () =>
 {
     await workspaceSetupService.SetupAsync(projectRoot);

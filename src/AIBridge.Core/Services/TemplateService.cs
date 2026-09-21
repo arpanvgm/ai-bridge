@@ -10,8 +10,8 @@ public class TemplateService(IAIBridgeLogger logger)
     /// <summary>
     /// Extracts all embedded templates into the workspace, always overwriting existing files.
     /// Call this during init / migrate where the goal is a guaranteed up-to-date state.
-    /// Template folders (SimpleMode, AdvancedMode, AutoIndexMode) are deleted and recreated
-    /// so stale files from older versions cannot linger.
+    /// Legacy folders (SimpleMode, AdvancedMode) are deleted from the user's machine during migration.
+    /// AutoIndexMode is deleted and re-extracted cleanly so stale files cannot linger.
     /// </summary>
     public void ExtractAll(string targetDir, string projectPath)
     {
@@ -82,12 +82,6 @@ public class TemplateService(IAIBridgeLogger logger)
         var fileName = $"{fileNameBase}.{ext}";
         var dirParts = parts[..^2];
         var dirPath = Path.Combine(dirParts);
-
-        // Fix .NET Embedded Resource name mangling for folders with numbers/hyphens.
-        dirPath = dirPath.Replace("_1_SimpleMode", "1-SimpleMode")
-                         .Replace("_2_AdvancedMode", "2-AdvancedMode")
-                         .Replace("Phase1_CreateIndex", "Phase1-CreateIndex")
-                         .Replace("Phase2_DailyChat", "Phase2-DailyChat");
 
         return Path.Combine(dirPath, fileName);
     }
