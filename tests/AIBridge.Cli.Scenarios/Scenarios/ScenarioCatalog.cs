@@ -31,7 +31,103 @@ public static class ScenarioCatalog
         new("apply paste falls back to stdin", PasteFallbackAsync),
         new("apply watch applies saved response", WatchAsync),
         new("init creates auto index mode folder", InitCreatesAutoIndexModeFolderAsync),
+        new("pack respects root anchored file in aiignore", PackRespectsRootAnchoredFileAsync),
+        new("pack respects root anchored folder in aiignore", PackRespectsRootAnchoredFolderAsync),
+        new("pack non anchored rule ignores file everywhere", PackNonAnchoredFileIgnoredEverywhereAsync),
+        new("pack non anchored folder ignored everywhere", PackNonAnchoredFolderIgnoredEverywhereAsync),
     ];
+
+    private static async Task PackRespectsRootAnchoredFileAsync(ScenarioContext context)
+    {
+        using var workspace = context.CreateWorkspace("pack root anchored file");
+        await workspace.CreateDotNetDummyProjectAsync();
+
+        // A README.md at root and one inside a subfolder
+        workspace.WriteText("README.md", "# Root readme");
+        workspace.WriteText("docs/README.md", "# Docs readme");
+
+        await workspace.RunGitAsync("add", ".");
+        await context.Cli.RunAsync(workspace, "init");
+
+        // Root-anchored rule: only root README.md should be ignored
+        File.AppendAllText(workspace.PathFor(".aiignore"), $"{Environment.NewLine}/README.md{Environment.NewLine}");
+
+        var result = await context.Cli.RunAsync(workspace, "pack");
+        var contextText = workspace.ReadAllContextFiles();
+
+        ScenarioAssert.Equal(0, result.ExitCode, "Pack should succeed.");
+        ScenarioAssert.DoesNotContain("Root readme", contextText, "Root README.md should be excluded by root-anchored rule.");
+        ScenarioAssert.Contains("Docs readme", contextText, "docs/README.md should NOT be excluded by root-anchored rule.");
+    }
+
+    private static async Task PackRespectsRootAnchoredFolderAsync(ScenarioContext context)
+    {
+        using var workspace = context.CreateWorkspace("pack root anchored folder");
+        await workspace.CreateDotNetDummyProjectAsync();
+
+        // An .agents folder at root and one nested inside src
+        workspace.WriteText(".agents/config.json", "{ \"root\": true }");
+        workspace.WriteText("src/.agents/config.json", "{ \"nested\": true }");
+
+        await workspace.RunGitAsync("add", ".");
+        await context.Cli.RunAsync(workspace, "init");
+
+        // Root-anchored folder rule
+        File.AppendAllText(workspace.PathFor(".aiignore"), $"{Environment.NewLine}/.agents{Environment.NewLine}");
+
+        var result = await context.Cli.RunAsync(workspace, "pack");
+        var contextText = workspace.ReadAllContextFiles();
+
+        ScenarioAssert.Equal(0, result.ExitCode, "Pack should succeed.");
+        ScenarioAssert.DoesNotContain("\"root\": true", contextText, "Root .agents/ should be excluded by root-anchored rule.");
+        ScenarioAssert.Contains("\"nested\": true", contextText, "src/.agents/ should NOT be excluded by root-anchored rule.");
+    }
+
+    private static async Task PackNonAnchoredFileIgnoredEverywhereAsync(ScenarioContext context)
+    {
+        using var workspace = context.CreateWorkspace("pack non anchored file everywhere");
+        await workspace.CreateDotNetDummyProjectAsync();
+
+        // notes.md at root and inside a subfolder
+        workspace.WriteText("notes.md", "root notes");
+        workspace.WriteText("docs/notes.md", "docs notes");
+
+        await workspace.RunGitAsync("add", ".");
+        await context.Cli.RunAsync(workspace, "init");
+
+        // Non-anchored rule: should ignore notes.md everywhere
+        File.AppendAllText(workspace.PathFor(".aiignore"), $"{Environment.NewLine}notes.md{Environment.NewLine}");
+
+        var result = await context.Cli.RunAsync(workspace, "pack");
+        var contextText = workspace.ReadAllContextFiles();
+
+        ScenarioAssert.Equal(0, result.ExitCode, "Pack should succeed.");
+        ScenarioAssert.DoesNotContain("root notes", contextText, "Root notes.md should be excluded by non-anchored rule.");
+        ScenarioAssert.DoesNotContain("docs notes", contextText, "docs/notes.md should also be excluded by non-anchored rule.");
+    }
+
+    private static async Task PackNonAnchoredFolderIgnoredEverywhereAsync(ScenarioContext context)
+    {
+        using var workspace = context.CreateWorkspace("pack non anchored folder everywhere");
+        await workspace.CreateDotNetDummyProjectAsync();
+
+        // logs/ folder at root and nested
+        workspace.WriteText("logs/app.log", "root log");
+        workspace.WriteText("src/logs/app.log", "nested log");
+
+        await workspace.RunGitAsync("add", ".");
+        await context.Cli.RunAsync(workspace, "init");
+
+        // Non-anchored folder rule: should ignore logs/ everywhere
+        File.AppendAllText(workspace.PathFor(".aiignore"), $"{Environment.NewLine}logs/{Environment.NewLine}");
+
+        var result = await context.Cli.RunAsync(workspace, "pack");
+        var contextText = workspace.ReadAllContextFiles();
+
+        ScenarioAssert.Equal(0, result.ExitCode, "Pack should succeed.");
+        ScenarioAssert.DoesNotContain("root log", contextText, "Root logs/ should be excluded by non-anchored folder rule.");
+        ScenarioAssert.DoesNotContain("nested log", contextText, "src/logs/ should also be excluded by non-anchored folder rule.");
+    }
 
     private static async Task HelpRootAsync(ScenarioContext context)
     {

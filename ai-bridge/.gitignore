@@ -1,0 +1,4 @@
+# Ignore templates and artifacts to prevent Git conflicts
+artifacts/
+AutoIndexMode/
+skills/

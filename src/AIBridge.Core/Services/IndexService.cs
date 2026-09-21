@@ -21,7 +21,7 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
 
         var allFiles = await FileFilterHelper.GetTrackedFilesAsync(projectRoot, logger);
 
-        var (aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns) = FileFilterHelper.LoadAiIgnoreRules(aiIgnorePath);
+        var (aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns, aiIgnoreRootFilePatterns) = FileFilterHelper.LoadAiIgnoreRules(aiIgnorePath);
 
         var indexData = new Dictionary<string, List<string>>();
         int totalFileCount = 0;
@@ -36,7 +36,7 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
                 continue;
             if (FileFilterHelper.BinaryExtensions.Contains(extension)) continue;
             if (FileFilterHelper.ExcludeFileNames.Contains(fileName)) continue;
-            if (FileFilterHelper.IsAiIgnored(relativePath, fileName, aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns)) continue;
+            if (FileFilterHelper.IsAiIgnored(relativePath, fileName, aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns, aiIgnoreRootFilePatterns)) continue;
 
             string projectName = rootFolderName;
             foreach (var proj in detectedProjects)
@@ -282,7 +282,7 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
                 if (string.IsNullOrEmpty(purpose)) purpose = fileNode.InnerText.Trim();
 
                 var targetFile = indexRoot.SelectSingleNode($"//{XmlTags.File}[@path='{path}']") as XmlElement;
-  
+
                 if (targetFile != null)
                 {
                     targetFile.SetAttribute("purpose", purpose);
@@ -358,7 +358,7 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
         }
 
         var aiIgnorePath = Path.Combine(projectRoot, ".aiignore");
-        var (aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns) = FileFilterHelper.LoadAiIgnoreRules(aiIgnorePath);
+        var (aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns, aiIgnoreRootFilePatterns) = FileFilterHelper.LoadAiIgnoreRules(aiIgnorePath);
 
         try
         {
@@ -388,7 +388,7 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
                         var ext = Path.GetExtension(relativePath);
                         if (FileFilterHelper.BinaryExtensions.Contains(ext)) continue;
                         if (FileFilterHelper.ExcludeFileNames.Contains(fileName)) continue;
-                        if (FileFilterHelper.IsAiIgnored(relativePath, fileName, aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns)) continue;
+                        if (FileFilterHelper.IsAiIgnored(relativePath, fileName, aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns, aiIgnoreRootFilePatterns)) continue;
                         if (!indexedPaths.Contains(relativePath)) newFiles.Add(relativePath);
                     }
                 }

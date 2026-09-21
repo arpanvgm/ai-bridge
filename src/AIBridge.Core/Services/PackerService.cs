@@ -22,7 +22,7 @@ public class PackerService(IAIBridgeLogger logger, ProjectDetector projectDetect
 
         var allFiles = await FileFilterHelper.GetTrackedFilesAsync(projectRoot, logger);
 
-        var (aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns) = FileFilterHelper.LoadAiIgnoreRules(aiIgnorePath);
+        var (aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns, aiIgnoreRootFilePatterns) = FileFilterHelper.LoadAiIgnoreRules(aiIgnorePath);
 
         var outputData = new Dictionary<string, StringBuilder>();
         var outputFileCounts = new Dictionary<string, int>();
@@ -39,7 +39,7 @@ public class PackerService(IAIBridgeLogger logger, ProjectDetector projectDetect
                 continue;
             if (FileFilterHelper.BinaryExtensions.Contains(extension)) continue;
             if (FileFilterHelper.ExcludeFileNames.Contains(fileName)) continue;
-            if (FileFilterHelper.IsAiIgnored(relativePath, fileName, aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns)) continue;
+            if (FileFilterHelper.IsAiIgnored(relativePath, fileName, aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns, aiIgnoreRootFilePatterns)) continue;
 
             string projectName = rootFolderName;
             foreach (var proj in detectedProjects)

@@ -46,7 +46,7 @@ public class RequestService(IAIBridgeLogger logger, ProjectDetector projectDetec
 
         var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
         var aiIgnorePath = Path.Combine(projectPath, FileNames.AiIgnore);
-        var (aiIgnoreFolders, aiIgnoreFiles) = FileFilterHelper.LoadAiIgnoreRules(aiIgnorePath);
+        var (aiIgnoreFolders, aiIgnoreFiles, aiIgnoreRootFiles) = FileFilterHelper.LoadAiIgnoreRules(aiIgnorePath);
 
         var moduleToFiles = new Dictionary<string, List<(string relativePath, string content)>>(StringComparer.OrdinalIgnoreCase);
 
@@ -71,7 +71,7 @@ public class RequestService(IAIBridgeLogger logger, ProjectDetector projectDetec
             }
 
             string fileContent;
-            if (FileFilterHelper.IsAiIgnored(relPath, Path.GetFileName(absPath), aiIgnoreFolders, aiIgnoreFiles))
+            if (FileFilterHelper.IsAiIgnored(relPath, Path.GetFileName(absPath), aiIgnoreFolders, aiIgnoreFiles, aiIgnoreRootFiles))
             {
                 fileContent = "// ACCESS DENIED: File is excluded by .aiignore rules.";
                 logger.Warning($"Blocked AI request for ignored file: {relPath}");
