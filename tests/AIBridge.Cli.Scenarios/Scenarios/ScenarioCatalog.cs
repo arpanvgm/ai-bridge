@@ -1,4 +1,4 @@
-using System.Xml.Linq;
+﻿using System.Xml.Linq;
 
 namespace AIBridge.Cli.Scenarios.Scenarios;
 
@@ -9,26 +9,125 @@ public static class ScenarioCatalog
         new("help shows root usage", HelpRootAsync),
         new("help shows command usage", HelpCommandAsync),
         new("unknown command returns non zero", UnknownCommandAsync),
-        new("pack fails before init", PackFailsBeforeInitAsync),
         new("init creates workspace and templates", InitCreatesWorkspaceAsync),
-        new("init is idempotent and update refreshes templates", InitAndUpdateAsync),
-        new("pack creates full context", PackCreatesFullContextAsync),
+        new("init is safe to run twice", InitIdempotentAsync),
+        new("migrate refreshes templates and preserves index purposes", MigratePreservesIndexAsync),
+        new("migrate re-extracts template folders", MigrateReExtractsTemplatesAsync),
+        new("pack creates full context from git tracked files", PackCreatesFullContextAsync),
         new("pack respects aiignore gitignore and binaries", PackRespectsIgnoresAsync),
+        new("pack fails when workspace not initialized", PackFailsWhenNotInitializedAsync),
+        new("pack fails when workspace version mismatches", PackFailsOnVersionMismatchAsync),
         new("apply creates patches deletes and resets response", ApplyCreatePatchDeleteAsync),
-        new("apply dry run leaves files unchanged", ApplyDryRunAsync),
         new("apply rejects invalid xml and resets response", ApplyInvalidXmlAsync),
         new("apply blocks file path traversal", ApplyBlocksFileTraversalAsync),
         new("apply reports failed patches and resets response", ApplyFailedPatchAsync),
+        new("apply fails when workspace not initialized", ApplyFailsWhenNotInitializedAsync),
+        new("apply fails when workspace version mismatches", ApplyFailsOnVersionMismatchAsync),
         new("request creates requested context", RequestCreatesContextAsync),
+        new("request out of sync index returns changed and new files", RequestOutOfSyncIndexAsync),
         new("create index writes index xml", CreateIndexAsync),
         new("update index changes index xml", UpdateIndexAsync),
-        new("index status detects modified new deleted files", IndexStatusAsync),
-        new("pack incremental includes changed files only", IncrementalPackAsync),
-        new("advanced edits require index update", AdvancedRequiresIndexUpdateAsync),
         new("tracker create and update works", TrackerAsync),
         new("apply paste falls back to stdin", PasteFallbackAsync),
-        new("apply watch applies saved response", WatchAsync)
+        new("apply watch applies saved response", WatchAsync),
+        new("init creates auto index mode folder", InitCreatesAutoIndexModeFolderAsync),
+        new("pack respects root anchored file in aiignore", PackRespectsRootAnchoredFileAsync),
+        new("pack respects root anchored folder in aiignore", PackRespectsRootAnchoredFolderAsync),
+        new("pack non anchored rule ignores file everywhere", PackNonAnchoredFileIgnoredEverywhereAsync),
+        new("pack non anchored folder ignored everywhere", PackNonAnchoredFolderIgnoredEverywhereAsync),
     ];
+
+    private static async Task PackRespectsRootAnchoredFileAsync(ScenarioContext context)
+    {
+        using var workspace = context.CreateWorkspace("pack root anchored file");
+        await workspace.CreateDotNetDummyProjectAsync();
+
+        // A README.md at root and one inside a subfolder
+        workspace.WriteText("README.md", "# Root readme");
+        workspace.WriteText("docs/README.md", "# Docs readme");
+
+        await workspace.RunGitAsync("add", ".");
+        await context.Cli.RunAsync(workspace, "init");
+
+        // Root-anchored rule: only root README.md should be ignored
+        File.AppendAllText(workspace.PathFor(".aiignore"), $"{Environment.NewLine}/README.md{Environment.NewLine}");
+
+        var result = await context.Cli.RunAsync(workspace, "pack");
+        var contextText = workspace.ReadAllContextFiles();
+
+        ScenarioAssert.Equal(0, result.ExitCode, "Pack should succeed.");
+        ScenarioAssert.DoesNotContain("Root readme", contextText, "Root README.md should be excluded by root-anchored rule.");
+        ScenarioAssert.Contains("Docs readme", contextText, "docs/README.md should NOT be excluded by root-anchored rule.");
+    }
+
+    private static async Task PackRespectsRootAnchoredFolderAsync(ScenarioContext context)
+    {
+        using var workspace = context.CreateWorkspace("pack root anchored folder");
+        await workspace.CreateDotNetDummyProjectAsync();
+
+        // An .agents folder at root and one nested inside src
+        workspace.WriteText(".agents/config.json", "{ \"root\": true }");
+        workspace.WriteText("src/.agents/config.json", "{ \"nested\": true }");
+
+        await workspace.RunGitAsync("add", ".");
+        await context.Cli.RunAsync(workspace, "init");
+
+        // Root-anchored folder rule
+        File.AppendAllText(workspace.PathFor(".aiignore"), $"{Environment.NewLine}/.agents{Environment.NewLine}");
+
+        var result = await context.Cli.RunAsync(workspace, "pack");
+        var contextText = workspace.ReadAllContextFiles();
+
+        ScenarioAssert.Equal(0, result.ExitCode, "Pack should succeed.");
+        ScenarioAssert.DoesNotContain("\"root\": true", contextText, "Root .agents/ should be excluded by root-anchored rule.");
+        ScenarioAssert.Contains("\"nested\": true", contextText, "src/.agents/ should NOT be excluded by root-anchored rule.");
+    }
+
+    private static async Task PackNonAnchoredFileIgnoredEverywhereAsync(ScenarioContext context)
+    {
+        using var workspace = context.CreateWorkspace("pack non anchored file everywhere");
+        await workspace.CreateDotNetDummyProjectAsync();
+
+        // notes.md at root and inside a subfolder
+        workspace.WriteText("notes.md", "root notes");
+        workspace.WriteText("docs/notes.md", "docs notes");
+
+        await workspace.RunGitAsync("add", ".");
+        await context.Cli.RunAsync(workspace, "init");
+
+        // Non-anchored rule: should ignore notes.md everywhere
+        File.AppendAllText(workspace.PathFor(".aiignore"), $"{Environment.NewLine}notes.md{Environment.NewLine}");
+
+        var result = await context.Cli.RunAsync(workspace, "pack");
+        var contextText = workspace.ReadAllContextFiles();
+
+        ScenarioAssert.Equal(0, result.ExitCode, "Pack should succeed.");
+        ScenarioAssert.DoesNotContain("root notes", contextText, "Root notes.md should be excluded by non-anchored rule.");
+        ScenarioAssert.DoesNotContain("docs notes", contextText, "docs/notes.md should also be excluded by non-anchored rule.");
+    }
+
+    private static async Task PackNonAnchoredFolderIgnoredEverywhereAsync(ScenarioContext context)
+    {
+        using var workspace = context.CreateWorkspace("pack non anchored folder everywhere");
+        await workspace.CreateDotNetDummyProjectAsync();
+
+        // logs/ folder at root and nested
+        workspace.WriteText("logs/app.log", "root log");
+        workspace.WriteText("src/logs/app.log", "nested log");
+
+        await workspace.RunGitAsync("add", ".");
+        await context.Cli.RunAsync(workspace, "init");
+
+        // Non-anchored folder rule: should ignore logs/ everywhere
+        File.AppendAllText(workspace.PathFor(".aiignore"), $"{Environment.NewLine}logs/{Environment.NewLine}");
+
+        var result = await context.Cli.RunAsync(workspace, "pack");
+        var contextText = workspace.ReadAllContextFiles();
+
+        ScenarioAssert.Equal(0, result.ExitCode, "Pack should succeed.");
+        ScenarioAssert.DoesNotContain("root log", contextText, "Root logs/ should be excluded by non-anchored folder rule.");
+        ScenarioAssert.DoesNotContain("nested log", contextText, "src/logs/ should also be excluded by non-anchored folder rule.");
+    }
 
     private static async Task HelpRootAsync(ScenarioContext context)
     {
@@ -46,7 +145,6 @@ public static class ScenarioCatalog
         var result = await context.Cli.RunAsync(workspace, "apply", "--help");
 
         ScenarioAssert.Equal(0, result.ExitCode, "Command help should succeed.");
-        ScenarioAssert.Contains("--dry-run", result.CombinedOutput, "Apply help should include dry-run.");
         ScenarioAssert.Contains("--watch", result.CombinedOutput, "Apply help should include watch.");
     }
 
@@ -57,17 +155,6 @@ public static class ScenarioCatalog
 
         ScenarioAssert.NotEqual(0, result.ExitCode, "Unknown command should fail.");
         ScenarioAssert.Contains("Unrecognized", result.CombinedOutput, "Unknown command should explain parse failure.");
-    }
-
-    private static async Task PackFailsBeforeInitAsync(ScenarioContext context)
-    {
-        using var workspace = context.CreateWorkspace("pack before init");
-        await workspace.CreateDotNetDummyProjectAsync();
-
-        var result = await context.Cli.RunAsync(workspace, "pack");
-
-        ScenarioAssert.NotEqual(0, result.ExitCode, "Pack before init should fail.");
-        ScenarioAssert.Contains("Please run 'ai-bridge init' first", result.CombinedOutput, "Pack should explain missing init.");
     }
 
     private static async Task InitCreatesWorkspaceAsync(ScenarioContext context)
@@ -82,32 +169,164 @@ public static class ScenarioCatalog
         ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/state.xml"));
         ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/.gitignore"));
         ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/artifacts/ai-response.xml"));
-        ScenarioAssert.DirectoryExists(workspace.PathFor("ai-bridge/1-SimpleMode"));
-        ScenarioAssert.DirectoryExists(workspace.PathFor("ai-bridge/2-AdvancedMode"));
+        ScenarioAssert.DirectoryExists(workspace.PathFor("ai-bridge/AutoIndexMode"));
+        ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/index.xml"));
+        ScenarioAssert.DirectoryExists(workspace.PathFor("ai-bridge/skills"));
+        ScenarioAssert.False(
+            Directory.Exists(workspace.PathFor("ai-bridge/1-SimpleMode")),
+            "1-SimpleMode should not be extracted — it is a legacy folder.");
+        ScenarioAssert.False(
+            Directory.Exists(workspace.PathFor("ai-bridge/2-AdvancedMode")),
+            "2-AdvancedMode should not be extracted — it is a legacy folder.");
         ScenarioAssert.Contains("ai-bridge/", workspace.ReadText(".dockerignore"), "Init should patch dockerignore.");
     }
 
-    private static async Task InitAndUpdateAsync(ScenarioContext context)
+    private static async Task InitCreatesAutoIndexModeFolderAsync(ScenarioContext context)
     {
-        using var workspace = context.CreateWorkspace("init update");
+        using var workspace = context.CreateWorkspace("init auto index mode");
         await workspace.CreateDotNetDummyProjectAsync();
 
-        ScenarioAssert.Equal(0, (await context.Cli.RunAsync(workspace, "init")).ExitCode, "Initial init should pass.");
+        var result = await context.Cli.RunAsync(workspace, "init");
 
-        const string template = "ai-bridge/1-SimpleMode/ai-system-prompt.md";
-        workspace.WriteText(template, "custom local edit");
+        ScenarioAssert.Equal(0, result.ExitCode, "Init should succeed.");
+        ScenarioAssert.DirectoryExists(workspace.PathFor("ai-bridge/AutoIndexMode"));
 
-        ScenarioAssert.Equal(0, (await context.Cli.RunAsync(workspace, "init")).ExitCode, "Second init should pass.");
-        ScenarioAssert.Contains("custom local edit", workspace.ReadText(template), "Init should not overwrite existing templates.");
+        // Verify AutoIndexMode contains at least the skill files the AI needs
+        var autoIndexFiles = Directory.GetFiles(
+            workspace.PathFor("ai-bridge/AutoIndexMode"),
+            "*",
+            SearchOption.AllDirectories);
 
-        ScenarioAssert.Equal(0, (await context.Cli.RunAsync(workspace, "update")).ExitCode, "Update should pass.");
-        ScenarioAssert.DoesNotContain("custom local edit", workspace.ReadText(template), "Update should refresh templates.");
+        ScenarioAssert.True(autoIndexFiles.Length > 0, "AutoIndexMode should contain extracted skill/prompt files.");
+    }
+
+    private static async Task InitIdempotentAsync(ScenarioContext context)
+    {
+        using var workspace = context.CreateWorkspace("init idempotent");
+        await workspace.CreateDotNetDummyProjectAsync();
+
+        // First init
+        await context.Cli.RunAsync(workspace, "init");
+
+        // Write a known purpose into the index so we can verify it is preserved
+        workspace.WriteText("ai-bridge/index.xml", """
+        <ai-bridge-index lastUpdated="2000-01-01T00:00:00.0000000Z">
+          <module name="DummyApp">
+            <file path="Program.cs" purpose="Preserved purpose" />
+          </module>
+        </ai-bridge-index>
+        """);
+
+        // Write something to ai-response.xml so we can verify it is NOT overwritten
+        workspace.WriteText("ai-bridge/artifacts/ai-response.xml", "<!-- user content -->");
+
+        // Second init
+        var result = await context.Cli.RunAsync(workspace, "init");
+
+        ScenarioAssert.Equal(0, result.ExitCode, "Second init should succeed.");
+
+        // User-edited files must not be overwritten
+        ScenarioAssert.Contains(
+            "user content",
+            workspace.ReadText("ai-bridge/artifacts/ai-response.xml"),
+            "Init must not overwrite existing ai-response.xml.");
+
+        // Existing index purposes must be preserved
+        ScenarioAssert.Contains(
+            "Preserved purpose",
+            workspace.ReadText("ai-bridge/index.xml"),
+            "Init must preserve existing index purposes.");
+
+        // .aiignore must not accumulate duplicate rules
+        var aiIgnoreContent = workspace.ReadText(".aiignore");
+        var ruleCount = aiIgnoreContent.Split('\n')
+            .Count(l => l.Trim() == "*.log");
+        ScenarioAssert.True(ruleCount <= 1, ".aiignore must not accumulate duplicate default rules.");
+    }
+
+    private static async Task MigratePreservesIndexAsync(ScenarioContext context)
+    {
+        using var workspace = context.CreateWorkspace("migrate preserves index");
+        await workspace.CreateDotNetDummyProjectAsync();
+        await context.Cli.RunAsync(workspace, "init");
+
+        // Simulate AI having filled in purposes
+        workspace.WriteText("ai-bridge/index.xml", """
+        <ai-bridge-index lastUpdated="2000-01-01T00:00:00.0000000Z">
+          <module name="DummyApp">
+            <file path="Program.cs" purpose="Entry point of the application" />
+            <file path="Services/GreetingService.cs" purpose="Provides greeting logic" />
+          </module>
+        </ai-bridge-index>
+        """);
+
+        var result = await context.Cli.RunAsync(workspace, "migrate");
+
+        ScenarioAssert.Equal(0, result.ExitCode, "Migrate should succeed.");
+
+        var index = workspace.ReadText("ai-bridge/index.xml");
+        ScenarioAssert.Contains(
+            "Entry point of the application",
+            index,
+            "Migrate must preserve existing index purposes.");
+        ScenarioAssert.Contains(
+            "Provides greeting logic",
+            index,
+            "Migrate must preserve all existing index purposes.");
+
+        // state.xml must be updated
+        ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/state.xml"));
+    }
+
+    private static async Task MigrateReExtractsTemplatesAsync(ScenarioContext context)
+    {
+        using var workspace = context.CreateWorkspace("migrate re-extracts");
+        await workspace.CreateDotNetDummyProjectAsync();
+        await context.Cli.RunAsync(workspace, "init");
+
+        // Simulate a user accidentally deleting a template folder
+        var autoIndexDir = workspace.PathFor("ai-bridge/AutoIndexMode");
+        if (Directory.Exists(autoIndexDir))
+            Directory.Delete(autoIndexDir, recursive: true);
+
+        // Simulate a stale file left by an older version inside SimpleMode
+        workspace.WriteText("ai-bridge/1-SimpleMode/stale-old-instruction.md", "# Stale content from v0.1");
+
+        var result = await context.Cli.RunAsync(workspace, "migrate");
+
+        ScenarioAssert.Equal(0, result.ExitCode, "Migrate should succeed.");
+
+        // Deleted folder must be restored
+        ScenarioAssert.DirectoryExists(autoIndexDir);
+
+        // Legacy folders must be deleted and not re-extracted
+        ScenarioAssert.False(
+            Directory.Exists(workspace.PathFor("ai-bridge/1-SimpleMode")),
+            "1-SimpleMode should be deleted on migrate and not re-extracted.");
+        ScenarioAssert.False(
+            Directory.Exists(workspace.PathFor("ai-bridge/2-AdvancedMode")),
+            "2-AdvancedMode should be deleted on migrate and not re-extracted.");
+
+        // Stale file from old version must be gone (AutoIndexMode is wiped before re-extraction)
+        ScenarioAssert.FileDoesNotExist(workspace.PathFor("ai-bridge/1-SimpleMode/stale-old-instruction.md"));
+
+        // ai-response.xml must never be touched by migrate
+        ScenarioAssert.Contains(
+            "Paste the AI response XML here",
+            workspace.ReadText("ai-bridge/artifacts/ai-response.xml"),
+            "Migrate must not overwrite ai-response.xml.");
+
+        // .aiignore must not be overwritten
+        ScenarioAssert.FileExists(workspace.PathFor(".aiignore"));
     }
 
     private static async Task PackCreatesFullContextAsync(ScenarioContext context)
     {
         using var workspace = context.CreateWorkspace("pack full");
         await workspace.CreateDotNetDummyProjectAsync();
+
+        // Stage all files so git ls-files --cached returns them
+        await workspace.RunGitAsync("add", ".");
         await context.Cli.RunAsync(workspace, "init");
 
         var result = await context.Cli.RunAsync(workspace, "pack");
@@ -118,12 +337,48 @@ public static class ScenarioCatalog
         ScenarioAssert.Contains("<module", contextText, "Context should contain module XML.");
         ScenarioAssert.Contains("Program.cs", contextText, "Context should include Program.cs.");
         ScenarioAssert.Contains("GreetingService.cs", contextText, "Context should include service file.");
+
+        // ai-bridge workspace files must never appear in pack output
+        ScenarioAssert.DoesNotContain("ai-bridge/state.xml", contextText, "Pack must exclude AI Bridge workspace files.");
+        ScenarioAssert.DoesNotContain("ai-bridge/index.xml", contextText, "Pack must exclude index.xml.");
+    }
+
+    private static async Task PackFailsWhenNotInitializedAsync(ScenarioContext context)
+    {
+        using var workspace = context.CreateWorkspace("pack not initialized");
+        await workspace.CreateDotNetDummyProjectAsync();
+        // Deliberately skip init
+
+        var result = await context.Cli.RunAsync(workspace, "pack");
+
+        ScenarioAssert.NotEqual(0, result.ExitCode, "Pack should fail when workspace is not initialized.");
+        ScenarioAssert.Contains("not initialized", result.CombinedOutput, "Pack should tell user to run init.");
+    }
+
+    private static async Task PackFailsOnVersionMismatchAsync(ScenarioContext context)
+    {
+        using var workspace = context.CreateWorkspace("pack version mismatch");
+        await workspace.CreateDotNetDummyProjectAsync();
+        await context.Cli.RunAsync(workspace, "init");
+
+        // Simulate a stale version stamp
+        workspace.WriteText("ai-bridge/state.xml", """
+        <ai-bridge-state version="0.0.0" />
+        """);
+
+        var result = await context.Cli.RunAsync(workspace, "pack");
+
+        ScenarioAssert.NotEqual(0, result.ExitCode, "Pack should fail on version mismatch.");
+        ScenarioAssert.Contains("migrate", result.CombinedOutput, "Pack should tell user to run migrate.");
     }
 
     private static async Task PackRespectsIgnoresAsync(ScenarioContext context)
     {
         using var workspace = context.CreateWorkspace("pack ignores");
         await workspace.CreateDotNetDummyProjectAsync();
+
+        // Stage all files before init so git ls-files reflects them
+        await workspace.RunGitAsync("add", ".");
         await context.Cli.RunAsync(workspace, "init");
 
         File.AppendAllText(
@@ -179,34 +434,33 @@ public static class ScenarioCatalog
             "Response file should reset.");
     }
 
-    private static async Task ApplyDryRunAsync(ScenarioContext context)
+    private static async Task ApplyFailsWhenNotInitializedAsync(ScenarioContext context)
     {
-        using var workspace = context.CreateWorkspace("apply dry run");
+        using var workspace = context.CreateWorkspace("apply not initialized");
+        await workspace.CreateDotNetDummyProjectAsync();
+        // Deliberately skip init
+
+        var result = await context.Cli.RunAsync(workspace, "apply");
+
+        ScenarioAssert.NotEqual(0, result.ExitCode, "Apply should fail when workspace is not initialized.");
+        ScenarioAssert.Contains("not initialized", result.CombinedOutput, "Apply should tell user to run init.");
+    }
+
+    private static async Task ApplyFailsOnVersionMismatchAsync(ScenarioContext context)
+    {
+        using var workspace = context.CreateWorkspace("apply version mismatch");
         await workspace.CreateDotNetDummyProjectAsync();
         await context.Cli.RunAsync(workspace, "init");
 
-        var before = workspace.ReadText("Program.cs");
-
-        workspace.WriteText("ai-bridge/artifacts/ai-response.xml", """
-        <ai-response>
-          <ai-edits>
-            <file path="Generated/DryRun.cs">public class DryRun { }</file>
-            <patch path="Program.cs">
-              <search>World</search>
-              <replace>DryRun</replace>
-            </patch>
-            <delete path="docs/notes.md" />
-          </ai-edits>
-        </ai-response>
+        // Simulate a stale version stamp
+        workspace.WriteText("ai-bridge/state.xml", """
+        <ai-bridge-state version="0.0.0" />
         """);
 
-        var result = await context.Cli.RunAsync(workspace, "apply", "--dry-run");
+        var result = await context.Cli.RunAsync(workspace, "apply");
 
-        ScenarioAssert.Equal(0, result.ExitCode, "Dry run should succeed.");
-        ScenarioAssert.FileDoesNotExist(workspace.PathFor("Generated/DryRun.cs"));
-        ScenarioAssert.Equal(before, workspace.ReadText("Program.cs"), "Dry run should not patch files.");
-        ScenarioAssert.FileExists(workspace.PathFor("docs/notes.md"));
-        ScenarioAssert.Contains("[dry-run]", result.CombinedOutput, "Dry run should report planned changes.");
+        ScenarioAssert.NotEqual(0, result.ExitCode, "Apply should fail on version mismatch.");
+        ScenarioAssert.Contains("migrate", result.CombinedOutput, "Apply should tell user to run migrate.");
     }
 
     private static async Task ApplyInvalidXmlAsync(ScenarioContext context)
@@ -306,6 +560,56 @@ public static class ScenarioCatalog
         ScenarioAssert.Contains("ACCESS DENIED", requestedContext, "Requested context should block aiignored file.");
     }
 
+    private static async Task RequestOutOfSyncIndexAsync(ScenarioContext context)
+    {
+        using var workspace = context.CreateWorkspace("out of sync index");
+        await workspace.CreateDotNetDummyProjectAsync();
+        await workspace.RunGitAsync("add", ".");
+        await context.Cli.RunAsync(workspace, "init");
+
+        // Write an index that is deliberately stale:
+        // - Program.cs is indexed but has an empty purpose (needs filling)
+        // - Services/GreetingService.cs is missing entirely (new unindexed file)
+        // - OldFile.cs is indexed but does not exist on disk (deleted file)
+        workspace.WriteText("ai-bridge/index.xml", """
+        <ai-bridge-index lastUpdated="2000-01-01T00:00:00.0000000Z">
+          <module name="DummyApp">
+            <file path="Program.cs" purpose="" />
+            <file path="OldFile.cs" purpose="This file no longer exists" />
+          </module>
+        </ai-bridge-index>
+        """);
+
+        workspace.WriteText("ai-bridge/artifacts/ai-response.xml", """
+        <ai-request>
+          <out-of-sync-index-files />
+        </ai-request>
+        """);
+
+        var result = await context.Cli.RunAsync(workspace, "apply");
+        var requestedContext = workspace.ReadText("ai-bridge/artifacts/ai-requested-context.txt");
+
+        ScenarioAssert.Equal(0, result.ExitCode, "Out-of-sync request should succeed.");
+
+        // Empty-purpose file should be returned for the AI to fill in
+        ScenarioAssert.Contains(
+            "Program.cs",
+            requestedContext,
+            "Out-of-sync response should include file with empty purpose.");
+
+        // New unindexed file should be flagged
+        ScenarioAssert.Contains(
+            "GreetingService.cs",
+            requestedContext,
+            "Out-of-sync response should flag new unindexed file.");
+
+        // Deleted file that is still in the index should be flagged
+        ScenarioAssert.Contains(
+            "OldFile.cs",
+            requestedContext,
+            "Out-of-sync response should flag deleted file still in index.");
+    }
+
     private static async Task CreateIndexAsync(ScenarioContext context)
     {
         using var workspace = context.CreateWorkspace("create index");
@@ -313,11 +617,13 @@ public static class ScenarioCatalog
         await context.Cli.RunAsync(workspace, "init");
 
         workspace.WriteText("ai-bridge/artifacts/ai-response.xml", """
-        <create-ai-bridge-index>
-          <module name="DummyApp">
-            <file path="Program.cs" purpose="Entry point" />
-          </module>
-        </create-ai-bridge-index>
+        <ai-response>
+          <create-index>
+            <module name="DummyApp">
+              <file path="Program.cs" purpose="Entry point" />
+            </module>
+          </create-index>
+        </ai-response>
         """);
 
         var result = await context.Cli.RunAsync(workspace, "apply");
@@ -345,12 +651,14 @@ public static class ScenarioCatalog
         """);
 
         workspace.WriteText("ai-bridge/artifacts/ai-response.xml", """
-        <update-ai-bridge-index>
-          <module name="DummyApp">
-            <file path="Program.cs" purpose="New purpose" />
-            <file path="Services/GreetingService.cs" purpose="Greeting logic" />
-          </module>
-        </update-ai-bridge-index>
+        <ai-response>
+          <update-index>
+            <module name="DummyApp">
+              <file path="Program.cs" purpose="New purpose" />
+              <file path="Services/GreetingService.cs" purpose="Greeting logic" />
+            </module>
+          </update-index>
+        </ai-response>
         """);
 
         var result = await context.Cli.RunAsync(workspace, "apply");
@@ -359,92 +667,6 @@ public static class ScenarioCatalog
         ScenarioAssert.Equal(0, result.ExitCode, "Update index should succeed.");
         ScenarioAssert.Contains("New purpose", index, "Index should update existing file.");
         ScenarioAssert.Contains("Greeting logic", index, "Index should add new file.");
-    }
-
-    private static async Task IndexStatusAsync(ScenarioContext context)
-    {
-        using var workspace = context.CreateWorkspace("index status");
-        await workspace.CreateDotNetDummyProjectAsync();
-        await context.Cli.RunAsync(workspace, "init");
-
-        workspace.WriteText("ai-bridge/index.xml", """
-        <ai-bridge-index lastUpdated="2000-01-01T00:00:00.0000000Z">
-          <module name="DummyApp">
-            <file path="Program.cs" purpose="Entry" />
-            <file path="docs/notes.md" purpose="Docs" />
-          </module>
-        </ai-bridge-index>
-        """);
-
-        workspace.WriteText("Program.cs", "// modified");
-        File.Delete(workspace.PathFor("docs/notes.md"));
-        workspace.WriteText("NewThing.cs", "public class NewThing { }");
-
-        var result = await context.Cli.RunAsync(workspace, "index", "status");
-
-        ScenarioAssert.Equal(0, result.ExitCode, "Index status command should complete.");
-        ScenarioAssert.Contains("Program.cs", result.CombinedOutput, "Status should show modified indexed file.");
-        ScenarioAssert.Contains("docs/notes.md", result.CombinedOutput, "Status should show deleted indexed file.");
-        ScenarioAssert.Contains("NewThing.cs", result.CombinedOutput, "Status should show new file.");
-    }
-
-    private static async Task IncrementalPackAsync(ScenarioContext context)
-    {
-        using var workspace = context.CreateWorkspace("incremental pack");
-        await workspace.CreateDotNetDummyProjectAsync();
-        await context.Cli.RunAsync(workspace, "init");
-
-        workspace.WriteText("ai-bridge/index.xml", $"""
-        <ai-bridge-index lastUpdated="{DateTime.UtcNow:o}">
-          <module name="DummyApp">
-            <file path="DummyApp.csproj" purpose="Project" />
-            <file path="Program.cs" purpose="Entry" />
-            <file path="Services/GreetingService.cs" purpose="Greeting" />
-            <file path="docs/notes.md" purpose="Docs" />
-          </module>
-        </ai-bridge-index>
-        """);
-
-        await Task.Delay(1200);
-        workspace.WriteText("Program.cs", "// changed program");
-        workspace.WriteText("Features/NewFeature.cs", "public class NewFeature { }");
-
-        var result = await context.Cli.RunAsync(workspace, "pack", "--incremental");
-        var incremental = workspace.ReadText("ai-bridge/artifacts/ai-incremental-context.txt");
-
-        ScenarioAssert.Equal(0, result.ExitCode, "Incremental pack should succeed.");
-        ScenarioAssert.Contains("Program.cs", incremental, "Incremental context should include modified file.");
-        ScenarioAssert.Contains("NewFeature.cs", incremental, "Incremental context should include new file.");
-        ScenarioAssert.DoesNotContain("GreetingService.cs", incremental, "Incremental context should skip unchanged indexed file.");
-    }
-
-    private static async Task AdvancedRequiresIndexUpdateAsync(ScenarioContext context)
-    {
-        using var workspace = context.CreateWorkspace("advanced requires index update");
-        await workspace.CreateDotNetDummyProjectAsync();
-        await context.Cli.RunAsync(workspace, "init");
-
-        workspace.WriteText("ai-bridge/index.xml", """
-        <ai-bridge-index lastUpdated="2000-01-01T00:00:00.0000000Z">
-          <module name="DummyApp">
-            <file path="Program.cs" purpose="Entry" />
-          </module>
-        </ai-bridge-index>
-        """);
-
-        workspace.WriteText("ai-bridge/artifacts/ai-response.xml", """
-        <ai-response>
-          <ai-edits>
-            <file path="Generated/MissingIndexUpdate.cs">public class MissingIndexUpdate { }</file>
-          </ai-edits>
-        </ai-response>
-        """);
-
-        var result = await context.Cli.RunAsync(workspace, "apply");
-
-        ScenarioAssert.NotEqual(0, result.ExitCode, "Advanced mode rejection should return a non-zero exit code.");
-        ScenarioAssert.Contains("forgot to provide", result.CombinedOutput, "Advanced mode should require index update.");
-        ScenarioAssert.FileDoesNotExist(workspace.PathFor("Generated/MissingIndexUpdate.cs"));
     }
 
     private static async Task TrackerAsync(ScenarioContext context)
@@ -472,11 +694,11 @@ public static class ScenarioCatalog
 
         workspace.WriteText("ai-bridge/artifacts/ai-response.xml", """
         <ai-response>
-          <tracker-update>
-            <done>1</done>
+          <tracker>
+            <task id="1" status="done">Create runner</task>
             <focus>2</focus>
             <decision id="D1">Use process-level scenarios.</decision>
-          </tracker-update>
+          </tracker>
         </ai-response>
         """);
 
@@ -528,6 +750,11 @@ public static class ScenarioCatalog
         process.BeginCapture();
         await process.WaitForOutputAsync("Waiting for next change", TimeSpan.FromSeconds(10));
 
+        // Verify the process is still alive before we write the response
+        ScenarioAssert.False(
+            process.HasExited,
+            "Watch process should still be running before response is written.");
+
         workspace.WriteText("ai-bridge/artifacts/ai-response.xml", """
         <ai-response>
           <ai-edits>
@@ -536,10 +763,22 @@ public static class ScenarioCatalog
         </ai-response>
         """);
 
+        // Wait for the file to appear
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
         while (DateTime.UtcNow < deadline && !File.Exists(workspace.PathFor("Watched.cs")))
             await Task.Delay(100);
 
+        // Verify process is still alive after processing (watch should keep running)
+        ScenarioAssert.False(
+            process.HasExited,
+            "Watch process should still be running after processing the response.");
+
         ScenarioAssert.FileExists(workspace.PathFor("Watched.cs"));
+
+        // Verify response file was reset after the watch cycle
+        ScenarioAssert.Contains(
+            "Paste the AI response XML here",
+            workspace.ReadText("ai-bridge/artifacts/ai-response.xml"),
+            "Watch should reset the response file after applying.");
     }
 }

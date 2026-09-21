@@ -1,13 +1,30 @@
+﻿
 using AIBridge.Core.Abstractions;
+using AIBridge.Core.Constants;
+using AIBridge.Core.Helpers;
 
 namespace AIBridge.Core.Services;
 
 public class TemplateService(IAIBridgeLogger logger)
 {
-    public void ExtractTemplates(string targetDir, bool force, string projectPath)
+    /// <summary>
+    /// Extracts all embedded templates into the workspace, always overwriting existing files.
+    /// Call this during init / migrate where the goal is a guaranteed up-to-date state.
+    /// Legacy folders (SimpleMode, AdvancedMode) are deleted from the user's machine during migration.
+    /// AutoIndexMode is deleted and re-extracted cleanly so stale files cannot linger.
+    /// </summary>
+    public void ExtractAll(string targetDir, string projectPath)
+    {
+        DeleteTemplateFolders(targetDir);
+        Extract(targetDir, projectPath, overwrite: true);
+    }
+
+    // ── Private ────────────────────────────────────────────────────
+
+    private void Extract(string targetDir, string projectPath, bool overwrite)
     {
         var assembly = typeof(TemplateService).Assembly;
-        var prefix = "AIBridge.Core.Templates.";
+        const string prefix = "AIBridge.Core.Templates.";
         var resourceNames = assembly.GetManifestResourceNames()
             .Where(r => r.StartsWith(prefix))
             .ToList();
@@ -20,7 +37,7 @@ public class TemplateService(IAIBridgeLogger logger)
             var relPath = ConvertResourceNameToPath(relativePart);
             var destFile = Path.Combine(targetDir, relPath);
 
-            if (!File.Exists(destFile) || force)
+            if (!File.Exists(destFile) || overwrite)
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
 
@@ -30,15 +47,28 @@ public class TemplateService(IAIBridgeLogger logger)
 
                 logger.Success($"✅ Extracted {relativeTargetDir}/{relPath}");
             }
-            else
-            {
-                logger.Info($"ℹ Skipped {relativeTargetDir}/{relPath} (already exists, use 'ai-bridge update' to overwrite)");
-            }
+        }
+    }
+
+    private static void DeleteTemplateFolders(string targetDir)
+    {
+        var foldersToDelete = new[]
+        {
+            FolderNames.SimpleMode,
+            FolderNames.AdvancedMode,
+            FolderNames.AutoIndexMode
+        };
+
+        foreach (var folder in foldersToDelete)
+        {
+            var path = Path.Combine(targetDir, folder);
+            if (Directory.Exists(path))
+                Directory.Delete(path, recursive: true);
         }
     }
 
     /// <summary>
-    /// Converts embedded resource name segments back to file path.
+    /// Converts an embedded resource name back to a relative file path.
     /// The last two dot-segments form the filename (e.g. "ai-response-skill" + "md").
     /// Everything before is directory segments.
     /// </summary>
@@ -52,12 +82,6 @@ public class TemplateService(IAIBridgeLogger logger)
         var fileName = $"{fileNameBase}.{ext}";
         var dirParts = parts[..^2];
         var dirPath = Path.Combine(dirParts);
-
-        // Fix .NET Embedded Resource name mangling for folders with numbers/hyphens
-        dirPath = dirPath.Replace("_1_SimpleMode", "1-SimpleMode")
-                         .Replace("_2_AdvancedMode", "2-AdvancedMode")
-                         .Replace("Phase1_CreateIndex", "Phase1-CreateIndex")
-                         .Replace("Phase2_DailyChat", "Phase2-DailyChat");
 
         return Path.Combine(dirPath, fileName);
     }

@@ -12,8 +12,7 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
     public async Task GenerateIndexAsync(string projectRoot)
     {
         var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectRoot);
-        var indexFileName = WorkspaceHelper.GetIndexFileName(projectRoot);
-        var indexFile = Path.Combine(aiWorkspace, indexFileName);
+        var indexFile = Path.Combine(aiWorkspace, FileNames.Index);
         var aiIgnorePath = Path.Combine(projectRoot, FileNames.AiIgnore);
 
         var (detectedProjects, _) = projectDetector.DetectProjects(projectRoot);
@@ -22,7 +21,7 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
 
         var allFiles = await FileFilterHelper.GetTrackedFilesAsync(projectRoot, logger);
 
-        var (aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns) = FileFilterHelper.LoadAiIgnoreRules(aiIgnorePath);
+        var (aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns, aiIgnoreRootFilePatterns) = FileFilterHelper.LoadAiIgnoreRules(aiIgnorePath);
 
         var indexData = new Dictionary<string, List<string>>();
         int totalFileCount = 0;
@@ -37,7 +36,7 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
                 continue;
             if (FileFilterHelper.BinaryExtensions.Contains(extension)) continue;
             if (FileFilterHelper.ExcludeFileNames.Contains(fileName)) continue;
-            if (FileFilterHelper.IsAiIgnored(relativePath, fileName, aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns)) continue;
+            if (FileFilterHelper.IsAiIgnored(relativePath, fileName, aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns, aiIgnoreRootFilePatterns)) continue;
 
             string projectName = rootFolderName;
             foreach (var proj in detectedProjects)
@@ -134,15 +133,15 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
         }
 
         if (preservedCount > 0)
-            logger.Success($"✅ Synced {indexFileName}: {addedCount} new files added, {preservedCount} existing summaries preserved.");
+            logger.Success($"✅ Synced {FileNames.Index}: {addedCount} new files added, {preservedCount} existing summaries preserved.");
         else
-            logger.Success($"✅ Generated new index at {indexFileName} tracking {addedCount} files.");
+            logger.Success($"✅ Generated new index at {FileNames.Index} tracking {addedCount} files.");
     }
 
     public void HandleCreate(XmlNode root, string projectPath)
     {
         var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
-        var indexFile = Path.Combine(aiWorkspace, WorkspaceHelper.GetIndexFileName(projectPath));
+        var indexFile = Path.Combine(aiWorkspace, FileNames.Index);
 
         var doc = new XmlDocument();
         var indexRoot = doc.CreateElement("ai-bridge-index");
@@ -178,8 +177,7 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
     public void HandleUpdate(XmlNode root, string projectPath)
     {
         var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectPath);
-        var indexFileName = WorkspaceHelper.GetIndexFileName(projectPath);
-        var indexFile = Path.Combine(aiWorkspace, indexFileName);
+        var indexFile = Path.Combine(aiWorkspace, FileNames.Index);
 
         if (!File.Exists(indexFile))
         {
@@ -193,14 +191,14 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
         try { xml.Load(indexFile); }
         catch (Exception ex)
         {
-            logger.Error($"Error parsing existing {indexFileName}: {ex.Message}");
+            logger.Error($"Error parsing existing {FileNames.Index}: {ex.Message}");
             return;
         }
 
         var indexRoot = xml.DocumentElement;
         if (indexRoot == null || indexRoot.Name != "ai-bridge-index")
         {
-            logger.Error($"Error: {indexFileName} is malformed (missing <ai-bridge-index> root).");
+            logger.Error($"Error: {FileNames.Index} is malformed (missing <ai-bridge-index> root).");
             return;
         }
 
@@ -284,7 +282,7 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
                 if (string.IsNullOrEmpty(purpose)) purpose = fileNode.InnerText.Trim();
 
                 var targetFile = indexRoot.SelectSingleNode($"//{XmlTags.File}[@path='{path}']") as XmlElement;
-  
+
                 if (targetFile != null)
                 {
                     targetFile.SetAttribute("purpose", purpose);
@@ -309,30 +307,29 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
             xml.Save(writer);
         }
 
-        logger.Success($"✅ Updated {indexFileName}: {addedCount} added, {updatedCount} updated, {deletedCount} deleted.");
+        logger.Success($"✅ Updated {FileNames.Index}: {addedCount} added, {updatedCount} updated, {deletedCount} deleted.");
     }
 
     public async Task<(List<string> modified, List<string> newFiles, List<string> deleted, DateTime lastUpdated)> GetChangedFilesAsync(string projectRoot)
     {
         var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectRoot);
-        var indexFileName = WorkspaceHelper.GetIndexFileName(projectRoot);
-        var indexFile = Path.Combine(aiWorkspace, indexFileName);
+        var indexFile = Path.Combine(aiWorkspace, FileNames.Index);
 
         List<string> modifiedFiles = [], newFiles = [], deletedFiles = [];
 
         if (!File.Exists(indexFile))
-            throw new Exception($"Error: {indexFileName} not found. Run 'ai-bridge init' and create your index first.");
+            throw new Exception($"Error: {FileNames.Index} not found. Run 'ai-bridge init' and create your index first.");
 
         var xml = new XmlDocument();
         try { xml.Load(indexFile); }
-        catch (Exception ex) { throw new Exception($"Error parsing {indexFileName}: {ex.Message}"); }
+        catch (Exception ex) { throw new Exception($"Error parsing {FileNames.Index}: {ex.Message}"); }
 
         var indexRoot = xml.DocumentElement;
-        if (indexRoot == null) throw new Exception($"Error: {indexFileName} is malformed.");
+        if (indexRoot == null) throw new Exception($"Error: {FileNames.Index} is malformed.");
 
         var lastUpdatedStr = indexRoot.GetAttribute("lastUpdated");
         if (string.IsNullOrEmpty(lastUpdatedStr) || !DateTime.TryParse(lastUpdatedStr, null, System.Globalization.DateTimeStyles.RoundtripKind, out DateTime lastUpdated))
-            throw new Exception($"Warning: No 'lastUpdated' attribute found on {indexFileName}. Cannot determine status.");
+            throw new Exception($"Warning: No 'lastUpdated' attribute found on {FileNames.Index}. Cannot determine status.");
         lastUpdated = lastUpdated.ToUniversalTime();
 
         var indexedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -361,7 +358,7 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
         }
 
         var aiIgnorePath = Path.Combine(projectRoot, ".aiignore");
-        var (aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns) = FileFilterHelper.LoadAiIgnoreRules(aiIgnorePath);
+        var (aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns, aiIgnoreRootFilePatterns) = FileFilterHelper.LoadAiIgnoreRules(aiIgnorePath);
 
         try
         {
@@ -391,7 +388,7 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
                         var ext = Path.GetExtension(relativePath);
                         if (FileFilterHelper.BinaryExtensions.Contains(ext)) continue;
                         if (FileFilterHelper.ExcludeFileNames.Contains(fileName)) continue;
-                        if (FileFilterHelper.IsAiIgnored(relativePath, fileName, aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns)) continue;
+                        if (FileFilterHelper.IsAiIgnored(relativePath, fileName, aiIgnoreExcludeFolders, aiIgnoreExcludeFilePatterns, aiIgnoreRootFilePatterns)) continue;
                         if (!indexedPaths.Contains(relativePath)) newFiles.Add(relativePath);
                     }
                 }
@@ -402,48 +399,4 @@ public class IndexService(IAIBridgeLogger logger, ProjectDetector projectDetecto
         return (modifiedFiles, newFiles, deletedFiles, lastUpdated);
     }
 
-    public async Task StatusAsync(string projectRoot)
-    {
-        var indexFileName = WorkspaceHelper.GetIndexFileName(projectRoot);
-
-        List<string> modifiedFiles, newFilesList, deletedFiles;
-        DateTime lastUpdated;
-
-        try { (modifiedFiles, newFilesList, deletedFiles, lastUpdated) = await GetChangedFilesAsync(projectRoot); }
-        catch (Exception ex) { logger.Error(ex.Message); return; }
-
-        logger.Info($"📋 {indexFileName}  (Last updated: {lastUpdated:yyyy-MM-dd HH:mm:ss UTC})");
-
-        if (modifiedFiles.Count == 0 && newFilesList.Count == 0 && deletedFiles.Count == 0)
-        {
-            logger.Success("✅ Index is up to date. No changes detected.");
-            return;
-        }
-
-        if (modifiedFiles.Count > 0)
-        {
-            logger.Warning($"⚠ {modifiedFiles.Count} file(s) modified since last index update:");
-            foreach (var path in modifiedFiles)
-            {
-                var absolutePath = Path.Combine(projectRoot, path.Replace('/', Path.DirectorySeparatorChar));
-                var modified = File.GetLastWriteTimeUtc(absolutePath);
-                logger.Output($"  • {path}  (modified {modified:yyyy-MM-dd HH:mm:ss UTC})");
-            }
-        }
-
-        if (newFilesList.Count > 0)
-        {
-            logger.Warning($"➕ {newFilesList.Count} new file(s) not in index:");
-            foreach (var path in newFilesList) logger.Output($"  • {path}");
-        }
-
-        if (deletedFiles.Count > 0)
-        {
-            logger.Warning($"🗑️ {deletedFiles.Count} file(s) in index no longer exist on disk:");
-            foreach (var path in deletedFiles) logger.Output($"  • {path}  (deleted)");
-        }
-
-        int totalChanges = modifiedFiles.Count + newFilesList.Count + deletedFiles.Count;
-        logger.Info($"\nSummary: {modifiedFiles.Count} modified, {newFilesList.Count} new, {deletedFiles.Count} deleted ({totalChanges} total change(s))");
-    }
 }

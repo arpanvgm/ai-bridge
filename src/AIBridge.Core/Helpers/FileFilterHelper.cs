@@ -57,10 +57,11 @@ public static class FileFilterHelper
         ".DS_Store", "Thumbs.db", ".gitignore", ".dockerignore", ".aiignore", "ai-bridge-index.xml"
     };
 
-    public static (List<string> folders, List<string> files) LoadAiIgnoreRules(string aiIgnorePath)
+    public static (List<string> folders, List<string> files, List<string> rootPaths) LoadAiIgnoreRules(string aiIgnorePath)
     {
         List<string> folders = [];
         List<string> files = [];
+        List<string> rootPaths = [];
 
         if (File.Exists(aiIgnorePath))
         {
@@ -72,31 +73,37 @@ public static class FileFilterHelper
                 bool isFolder = rule.EndsWith("/");
                 if (isFolder) rule = rule.TrimEnd('/');
 
+                bool isRootAnchored = rule.StartsWith("/");
+                if (isRootAnchored) rule = rule.TrimStart('/');
+
                 var regexRule = Regex.Escape(rule).Replace(@"\*", ".*").Replace(@"\?", ".");
-                if (isFolder) folders.Add($@"[\\/]{regexRule}[\\/]");
+                if (isRootAnchored) rootPaths.Add($@"^{regexRule}(/|$)");
+                else if (isFolder) folders.Add($@"[\\/]{regexRule}[\\/]");
                 else files.Add($@"^{regexRule}$");
             }
         }
 
-        return (folders, files);
+        return (folders, files, rootPaths);
     }
 
-    public static bool IsAiIgnored(string relativePath, string fileName, List<string> aiIgnoreExcludeFolders, List<string> aiIgnoreExcludeFilePatterns)
+    public static bool IsAiIgnored(string relativePath, string fileName, List<string> aiIgnoreExcludeFolders, List<string> aiIgnoreExcludeFilePatterns, List<string>? aiIgnoreRootPaths = null)
     {
-        if (aiIgnoreExcludeFolders.Count > 0 || aiIgnoreExcludeFilePatterns.Count > 0)
+        if (aiIgnoreExcludeFolders.Count > 0 || aiIgnoreExcludeFilePatterns.Count > 0 || aiIgnoreRootPaths?.Count > 0)
         {
-            var paddedPath = "/" + relativePath + "/";
+            var normalizedPath = relativePath.Replace("\\", "/");
+            var paddedPath = "/" + normalizedPath + "/";
             if (aiIgnoreExcludeFolders.Any(f => Regex.IsMatch(paddedPath, f, RegexOptions.IgnoreCase))) return true;
             if (aiIgnoreExcludeFilePatterns.Any(p => Regex.IsMatch(fileName, p, RegexOptions.IgnoreCase))) return true;
+            if (aiIgnoreRootPaths?.Any(p => Regex.IsMatch(normalizedPath, p, RegexOptions.IgnoreCase)) == true) return true;
         }
         return false;
     }
 
     /// <summary>
     /// Retrieves a list of source files to include in the AI context.
-    /// It primarily relies on 'git ls-files' to perfectly respect the user's .gitignore 
+    /// It primarily relies on 'git ls-files' to perfectly respect the user's .gitignore
     /// and avoid packing massive ignored folders (like node_modules or bin/).
-    /// If git is not installed or the directory is not a git repository, 
+    /// If git is not installed or the directory is not a git repository,
     /// it falls back to a standard recursive directory search using built-in exclusion rules.
     /// </summary>
     /// <param name="projectRoot">The absolute path to the root of the project.</param>

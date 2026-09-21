@@ -187,13 +187,9 @@ flowchart LR
 |---------|-------------|
 | `ai-bridge init` | Scaffolds the `ai-bridge/` workspace, `.aiignore`, and templates |
 | `ai-bridge pack` | Packs source files into `*-context.txt` for AI consumption |
-| `ai-bridge pack --incremental` | Packs only files changed since the last index update |
 | `ai-bridge apply` | Applies `ai-response.xml` patches from the artifacts folder |
 | `ai-bridge apply --paste` | Reads the AI response directly from clipboard |
 | `ai-bridge apply --watch` | Watches `ai-response.xml` and auto-applies on save |
-| `ai-bridge apply --dry-run` | Shows what would change without writing to disk |
-| `ai-bridge update` | Refreshes `1-SimpleMode/` and `2-AdvancedMode/` templates to match the installed tool version |
-| `ai-bridge index status` | Shows files changed since the last index update |
 
 ---
 
@@ -227,14 +223,6 @@ When you run `ai-bridge pack`, it groups files intelligently based on your ecosy
 
 ---
 
-## 🔄 Updating Templates
-Because the AI prompts are closely tied to the CLI's parsing engine, you may need to update them when you upgrade the `ai-bridge` tool. If the tool detects a version mismatch, simply run:
-```bash
-ai-bridge update
-```
-This will refresh your `1-SimpleMode` and `2-AdvancedMode` folders with the latest prompts.
-
----
 
 ## 🤝 Contributing
 

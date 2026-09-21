@@ -5,12 +5,19 @@ using AIBridge.Core.Helpers;
 
 namespace AIBridge.Core.Services;
 
-public class StateService(string projectRoot, IAIBridgeLogger logger)
+public enum WorkspaceState
+{
+    NotInitialized,
+    Outdated,
+    UpToDate
+}
+
+public class StateService(string projectRoot)
 {
     public static string GetCurrentVersion()
     {
-        var version = Assembly.GetEntryAssembly()?.GetName().Version
-            ?? Assembly.GetExecutingAssembly().GetName().Version;
+        // Always track the version of AIBridge.Core where the templates actually live.
+        var version = typeof(StateService).Assembly.GetName().Version;
         return version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "1.0.0";
     }
 
@@ -58,14 +65,12 @@ public class StateService(string projectRoot, IAIBridgeLogger logger)
         doc.DocumentElement?.SetAttribute(name, value);
     }
 
-    public bool EnsureUpToDate()
+    public WorkspaceState CheckState()
     {
         var stateFile = GetStateFilePath();
         if (!File.Exists(stateFile))
         {
-            logger.Warning("AI Bridge is not initialized in this project.");
-            logger.Info("Please run 'ai-bridge init' first.");
-            return false;
+            return WorkspaceState.NotInitialized;
         }
 
         var stateDoc = LoadOrCreateState();
@@ -74,13 +79,10 @@ public class StateService(string projectRoot, IAIBridgeLogger logger)
 
         if (localVersion != currentVersion)
         {
-            logger.Warning($"Version mismatch! Tool version is {currentVersion}, but local templates are version {localVersion}.");
-            logger.Info("Please run 'ai-bridge update' to sync the templates with the latest tool implementation.");
-            logger.Info("Note: This will overwrite any custom changes in the template directories to ensure compatibility.");
-            return false;
+            return WorkspaceState.Outdated;
         }
 
-        return true;
+        return WorkspaceState.UpToDate;
     }
 
     public void InitState()
@@ -89,5 +91,4 @@ public class StateService(string projectRoot, IAIBridgeLogger logger)
         SetAttribute(doc, "version", GetCurrentVersion());
         SaveState(doc);
     }
-
 }
