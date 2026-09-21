@@ -1,3 +1,4 @@
+﻿
 # AIBridge.Mcp
 
 `AIBridge.Mcp` is an **optional companion** to the [AI Bridge CLI](../../README.md) that runs a local MCP server over Streamable HTTP. Instead of manually copying AI responses and running `ai-bridge apply --paste`, the AI client communicates directly with your codebase through this server — no copy/paste needed.
@@ -9,32 +10,43 @@ It exposes a single MCP tool (`apply_ai_response`) that lets AI clients read fil
 - **[.NET 10 SDK](https://dotnet.microsoft.com/download)** installed on your machine.
 
 > [!NOTE]
-> Load `ai-bridge/skills/ai-mcp-connector.md` (extracted automatically on first run) into your AI system prompt to instruct the AI to route responses through the MCP tool automatically, instead of outputting XML as plain chat text.
+> On first run, the server automatically initializes the `ai-bridge/` workspace in your project directory — creating the index, scaffolding template folders, and extracting skill files. No separate `init` step is needed.
+> Once initialized, load `ai-bridge/skills/ai-mcp-connector.md` into your AI system prompt to instruct the AI to route responses through the MCP tool automatically, instead of outputting XML as plain chat text.
 
 ## Installation
 
 **To install:**
-```bash
+~~~bash
 dotnet tool install --global Tools.AIBridge.Mcp
-```
+~~~
 
 **To update:**
-```bash
+~~~bash
 dotnet tool update --global Tools.AIBridge.Mcp
-```
+~~~
 
 **To uninstall:**
-```bash
+~~~bash
 dotnet tool uninstall --global Tools.AIBridge.Mcp
-```
+~~~
+
+**To migrate after an update:**
+
+After updating the tool, your local `ai-bridge/` workspace may be outdated. The server will detect this on startup and refuse to start, telling you to run:
+
+~~~bash
+ai-bridge-mcp migrate
+~~~
+
+This updates the template folders and skill files to match the newly installed version, preserving your existing `index.xml` purposes and any user-edited files (`.aiignore`, `ai-response.xml`). Once complete, start the server normally.
 
 ## Running the Server
 
 Open a terminal, navigate to your project directory, and run:
 
-```bash
+~~~bash
 ai-bridge-mcp
-```
+~~~
 
 ### Security & OAuth 2.1 Authentication
 
@@ -47,17 +59,17 @@ Because AI Bridge is designed to be opened and closed frequently, **security is 
 **Convenience: Static Credentials**
 Setting a new secret in your AI client every time is a headache. You can pass a consistent secret on startup instead. Because the RSA key still rotates, your local connection remains highly secure—you will simply need to let the AI client reconnect or re-authenticate without having to copy-paste a new secret.
 
-```bash
+~~~bash
 ai-bridge-mcp --OAuth:ClientSecret="my-secure-secret-key"
-```
+~~~
 
 > [!NOTE]
 > **Default Client ID:** The Client ID defaults to `ai-bridge-client` unless you override it. You will need this exact string when setting up your AI connector!
 
-> **Tip:** You can automate this using a VS Code Task that securely prompts you for the secret so it is never saved in your source code. 
-> 
+> **Tip:** You can automate this using a VS Code Task that securely prompts you for the secret so it is never saved in your source code.
+>
 > Add this to any project's `.vscode/tasks.json`:
-> ```json
+> ~~~json
 > {
 >     "version": "2.0.0",
 >     "tasks": [
@@ -83,24 +95,24 @@ ai-bridge-mcp --OAuth:ClientSecret="my-secure-secret-key"
 >         }
 >     ]
 > }
-> ```
+> ~~~
 > Now, whenever you run this task, VS Code will pop up a secure password box for you to paste your secret before launching the server!
 
 ## Port Configuration
 
-By default, ASP.NET Core automatically binds the server to port **`5000`** (`http://localhost:5000`). 
+By default, ASP.NET Core automatically binds the server to port **`5000`** (`http://localhost:5000`).
 
 If port `5000` is already in use, you can override this behavior using the standard ASP.NET Core `--urls` argument:
 
-```bash
+~~~bash
 ai-bridge-mcp --urls "http://localhost:8080"
-```
+~~~
 
 ## Limitations: Multiple Projects
 
-The standard **AI Bridge CLI** (`apply --paste`) is entirely stateless and can be used in dozens of projects simultaneously with zero friction. 
+The standard **AI Bridge CLI** (`apply --paste`) is entirely stateless and can be used in dozens of projects simultaneously with zero friction.
 
-By contrast, the **`ai-bridge-mcp` Server** is designed for one active project at a time. 
+By contrast, the **`ai-bridge-mcp` Server** is designed for one active project at a time.
 
 If you want to connect your AI to multiple projects *simultaneously* via MCP, you must manually manage the networking for each one:
 1. Start each server on a **different port** (e.g., `--urls "http://localhost:5001"`).
@@ -140,31 +152,31 @@ The server automatically detects Cloudflare's `X-Forwarded-*` headers to dynamic
 You can verify the server is running by manually executing the OAuth `client_credentials` flow using `curl`.
 
 **1. Exchange Client Credentials for a Token:**
-```bash
+~~~bash
 TOKEN=$(curl -s -X POST http://localhost:5000/token \
   -d "grant_type=client_credentials" \
   -d "client_id=ai-bridge-client" \
   -d "client_secret=YOUR_SECRET" | jq -r .access_token)
-```
+~~~
 
 **2. Send an MCP Request with the Token:**
-```bash
+~~~bash
 curl -X POST http://localhost:5000/mcp \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}'
-```
+~~~
 If successful, it will return a stream of JSON data containing the schema for the `apply_ai_response` tool.
 
 ## Troubleshooting
 
 ### `mcp_token_exchange_failed` in Claude.ai
-This error means the initial authorization redirect worked, but Claude's backend failed to exchange the authorization code for a token at your `/token` endpoint. 
-- **Check your terminal logs:** The server logs detailed `[OAuth]` events for every token exchange attempt. 
+This error means the initial authorization redirect worked, but Claude's backend failed to exchange the authorization code for a token at your `/token` endpoint.
+- **Check your terminal logs:** The server logs detailed `[OAuth]` events for every token exchange attempt.
 - **Client ID mismatch:** Ensure the Client ID you entered in Claude.ai exactly matches the one you started the server with.
 - **Missing Cloudflare Headers:** If you are using a proxy other than Cloudflare, ensure it forwards the `X-Forwarded-Host` and `X-Forwarded-Proto` headers, as the server uses these to dynamically construct the correct issuer URLs.
 
 ### HTTP 502 Bad Gateway
-If Claude.ai reports a 502 error, your Cloudflare tunnel cannot reach your local server. 
+If Claude.ai reports a 502 error, your Cloudflare tunnel cannot reach your local server.
 - Verify the server is running.
 - If you changed the port (e.g., `--urls "http://localhost:8080"`), ensure you updated your Cloudflare Dashboard route to match `localhost:8080`.
