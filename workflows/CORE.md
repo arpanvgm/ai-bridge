@@ -69,7 +69,7 @@ flowchart TD
     Start --> DeleteFolders["Delete SimpleMode/, AdvancedMode/, AutoIndexMode/\n(removes stale files from old versions)"]
     DeleteFolders --> Enumerate["Enumerate all embedded resources\nunder AIBridge.Core.Templates.*"]
     Enumerate --> Loop["For each resource"]
-    Loop --> Convert["Convert resource name → relative file path\n(un-mangle .NET naming: _1_SimpleMode → 1-SimpleMode)"]
+    Loop --> Convert["Convert resource name → relative file path\n(un-mangle .NET naming: underscores → hyphens in folder names)"]
     Convert --> Write["Create directories and write file\n(always overwrites)"]
     Write --> Loop
     Loop --> Done(("All templates extracted"))
