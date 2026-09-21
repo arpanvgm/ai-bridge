@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ai-bridge-index lastUpdated="2026-09-21T19:05:02.0292428Z">
+<ai-bridge-index lastUpdated="2026-09-21T19:13:05.5526603Z">
   <module name="AIBridge.Core">
     <file path="src/AIBridge.Core/Services/WorkspaceValidator.cs" purpose="Read-only workspace status check. Returns WorkspaceStatus (NotInitialized, VersionMismatch, Valid) by delegating to StateService. No side effects — any consumer (CLI, MCP) calls this to decide whether to proceed." />
     <file path="src/AIBridge.Core/Services/WorkspaceSetupService.cs" purpose="Unconditionally creates or restores the ai-bridge workspace to a correct state: artifacts folder, .gitignore, .dockerignore, .aiignore, templates, and index.xml. Has no version-checking logic — the caller decides when to invoke it." />
