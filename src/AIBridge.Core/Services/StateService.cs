@@ -1,6 +1,5 @@
-using System.Reflection;
-using System.Xml;
-using AIBridge.Core.Abstractions;
+﻿
+using AIBridge.Core.Constants;
 using AIBridge.Core.Helpers;
 
 namespace AIBridge.Core.Services;
@@ -12,83 +11,55 @@ public enum WorkspaceState
     UpToDate
 }
 
+/// <summary>
+/// Tracks whether the templates extracted into ai-bridge/ match the templates embedded in this build.
+/// The stamp is a machine-local, gitignored file holding a hash of the embedded templates, so there is
+/// no version number to bump and a fresh clone (no stamp) is correctly treated as not initialized.
+/// </summary>
 public class StateService(string projectRoot)
 {
-    public static string GetCurrentVersion()
-    {
-        // Always track the version of AIBridge.Core where the templates actually live.
-        var version = typeof(StateService).Assembly.GetName().Version;
-        return version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "1.0.0";
-    }
+    private string GetAiWorkspace() => WorkspaceHelper.GetAiWorkspacePath(projectRoot);
 
-    private string GetStateFilePath()
-    {
-        var aiWorkspace = WorkspaceHelper.GetAiWorkspacePath(projectRoot);
-        return Path.Combine(aiWorkspace, "state.xml");
-    }
-
-    private XmlDocument LoadOrCreateState()
-    {
-        var stateFile = GetStateFilePath();
-        var doc = new XmlDocument();
-
-        if (File.Exists(stateFile))
-        {
-            try
-            {
-                doc.Load(stateFile);
-                if (doc.DocumentElement != null && doc.DocumentElement.Name == "ai-bridge-state")
-                    return doc;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"XML Parse Error: {ex.Message}");
-            }
-        }
-
-        var root = doc.CreateElement("ai-bridge-state");
-        doc.AppendChild(root);
-        return doc;
-    }
-
-    private void SaveState(XmlDocument doc)
-    {
-        var stateFile = GetStateFilePath();
-        var dir = Path.GetDirectoryName(stateFile);
-        if (dir != null && !Directory.Exists(dir))
-            Directory.CreateDirectory(dir);
-        doc.Save(stateFile);
-    }
-
-    private static void SetAttribute(XmlDocument doc, string name, string value)
-    {
-        doc.DocumentElement?.SetAttribute(name, value);
-    }
+    private string GetStampFilePath() => Path.Combine(GetAiWorkspace(), FileNames.TemplateStamp);
 
     public WorkspaceState CheckState()
     {
-        var stateFile = GetStateFilePath();
-        if (!File.Exists(stateFile))
-        {
+        var stampFile = GetStampFilePath();
+        if (!File.Exists(stampFile))
             return WorkspaceState.NotInitialized;
+
+        string stamped;
+        try
+        {
+            stamped = File.ReadAllText(stampFile).Trim();
         }
-
-        var stateDoc = LoadOrCreateState();
-        var localVersion = stateDoc.DocumentElement?.GetAttribute("version") ?? "";
-        var currentVersion = GetCurrentVersion();
-
-        if (localVersion != currentVersion)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             return WorkspaceState.Outdated;
+        }
+
+        // 1. Were the templates extracted by a build whose embedded templates match this one?
+        if (!string.Equals(stamped, TemplateService.ComputeContentHash(), StringComparison.Ordinal))
+            return WorkspaceState.Outdated;
+
+        // 2. Are all expected template files still on disk? (existence only — no content reads)
+        var aiWorkspace = GetAiWorkspace();
+        foreach (var (_, relativePath) in TemplateService.GetEmbeddedTemplates())
+        {
+            if (!File.Exists(Path.Combine(aiWorkspace, relativePath)))
+                return WorkspaceState.Outdated;
         }
 
         return WorkspaceState.UpToDate;
     }
 
+    /// <summary>
+    /// Writes the stamp for the templates embedded in this build. Call only after setup has completed
+    /// successfully, so a failed setup never leaves a stamp vouching for a broken workspace.
+    /// </summary>
     public void InitState()
     {
-        var doc = LoadOrCreateState();
-        SetAttribute(doc, "version", GetCurrentVersion());
-        SaveState(doc);
+        Directory.CreateDirectory(GetAiWorkspace());
+        File.WriteAllText(GetStampFilePath(), TemplateService.ComputeContentHash());
     }
 }

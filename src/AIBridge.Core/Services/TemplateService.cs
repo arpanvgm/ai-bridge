@@ -1,4 +1,6 @@
 ﻿
+using System.Security.Cryptography;
+using System.Text;
 using AIBridge.Core.Abstractions;
 using AIBridge.Core.Constants;
 using AIBridge.Core.Helpers;
@@ -7,6 +9,8 @@ namespace AIBridge.Core.Services;
 
 public class TemplateService(IAIBridgeLogger logger)
 {
+    private const string ResourcePrefix = "AIBridge.Core.Templates.";
+
     /// <summary>
     /// Extracts all embedded templates into the workspace, always overwriting existing files.
     /// Call this during init / migrate where the goal is a guaranteed up-to-date state.
@@ -19,22 +23,55 @@ public class TemplateService(IAIBridgeLogger logger)
         Extract(targetDir, projectPath, overwrite: true);
     }
 
+    /// <summary>
+    /// Lists every embedded template with the path it is extracted to,
+    /// relative to the ai-bridge workspace folder. Memory only — no disk access.
+    /// </summary>
+    internal static List<(string ResourceName, string RelativePath)> GetEmbeddedTemplates()
+    {
+        var assembly = typeof(TemplateService).Assembly;
+
+        return assembly.GetManifestResourceNames()
+            .Where(r => r.StartsWith(ResourcePrefix, StringComparison.Ordinal))
+            .Select(r => (ResourceName: r, RelativePath: ConvertResourceNameToPath(r[ResourcePrefix.Length..])))
+            .ToList();
+    }
+
+    /// <summary>
+    /// SHA-256 over the relative path and content of every embedded template.
+    /// Reads only embedded (in-memory) resources, so its cost does not depend on the user's disk.
+    /// Adding, removing, renaming or editing any template changes the result automatically.
+    /// </summary>
+    internal static string ComputeContentHash()
+    {
+        var assembly = typeof(TemplateService).Assembly;
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var buffer = new byte[8192];
+
+        foreach (var (resourceName, relativePath) in GetEmbeddedTemplates().OrderBy(t => t.RelativePath, StringComparer.Ordinal))
+        {
+            hash.AppendData(Encoding.UTF8.GetBytes(relativePath.Replace('\\', '/') + "\n"));
+
+            using var stream = assembly.GetManifestResourceStream(resourceName)!;
+            int read;
+            while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+                hash.AppendData(buffer, 0, read);
+
+            hash.AppendData([0]);
+        }
+
+        return Convert.ToHexString(hash.GetHashAndReset());
+    }
+
     // ── Private ────────────────────────────────────────────────────
 
     private void Extract(string targetDir, string projectPath, bool overwrite)
     {
         var assembly = typeof(TemplateService).Assembly;
-        const string prefix = "AIBridge.Core.Templates.";
-        var resourceNames = assembly.GetManifestResourceNames()
-            .Where(r => r.StartsWith(prefix))
-            .ToList();
-
         var relativeTargetDir = Path.GetRelativePath(projectPath, targetDir).Replace('\\', '/');
 
-        foreach (var resourceName in resourceNames)
+        foreach (var (resourceName, relPath) in GetEmbeddedTemplates())
         {
-            var relativePart = resourceName[prefix.Length..];
-            var relPath = ConvertResourceNameToPath(relativePart);
             var destFile = Path.Combine(targetDir, relPath);
 
             if (!File.Exists(destFile) || overwrite)

@@ -1,4 +1,5 @@
 ﻿
+
 # AI Bridge — Architecture Overview
 
 This document is the entry point for understanding the AI Bridge ecosystem. Read this first, then go to the relevant workflow file for deeper detail.
@@ -57,9 +58,9 @@ Both consumers operate on an `ai-bridge/` folder that lives inside the project r
 ~~~
 <your-project>/
 ├── ai-bridge/
-│   ├── state.xml                          ← version stamp
+│   ├── .template-stamp                    ← local hash of the extracted templates (gitignored)
 │   ├── index.xml                          ← codebase map (path + purpose per file)
-│   ├── .gitignore                         ← excludes artifacts and templates from git
+│   ├── .gitignore                         ← excludes artifacts, templates and the stamp from git
 │   ├── artifacts/
 │   │   ├── ai-response.xml                ← where AI output is written / read from
 │   │   ├── ai-requested-context.txt       ← files the AI asked for
@@ -72,27 +73,21 @@ Both consumers operate on an `ai-bridge/` folder that lives inside the project r
 
 `.aiignore` is the only file the user is expected to edit. Everything else inside `ai-bridge/` is managed by the tool.
 
+`.template-stamp` is machine-local: it describes the templates extracted on *this* machine, so it is gitignored and never shared through the repo.
+
 ---
 
 ## Workspace States
 
-Every command (except `init` and `migrate`) checks workspace state before doing anything:
+Every command (except `init` and `migrate`) checks workspace state before doing anything. The check is `WorkspaceValidator.Check`, which asks `StateService` whether the templates extracted into `ai-bridge/` still match the templates built into the running tool.
 
-~~~
-┌─────────────────┐     state.xml missing      ┌──────────────────────┐
-│  NotInitialized │ ──────────────────────────► │ CLI: error + exit    │
-│                 │                             │ MCP: auto-initialize │
-└─────────────────┘                             └──────────────────────┘
+| Status | When | CLI | MCP |
+|---|---|---|---|
+| `NotInitialized` | `ai-bridge/.template-stamp` is missing — first run or a fresh clone | Error + exit: run `ai-bridge init` | Auto-initialize, then continue |
+| `VersionMismatch` | The stamp does not match the templates in the running tool, **or** an expected template file is missing from `ai-bridge/` | Error + exit: run `ai-bridge migrate` | Error + exit: run `ai-bridge-mcp migrate` |
+| `Valid` | The stamp matches **and** every expected template file exists | Proceed normally | Proceed normally |
 
-┌─────────────────┐     version mismatch        ┌──────────────────────┐
-│ VersionMismatch │ ──────────────────────────► │ CLI: error + exit    │
-│                 │                             │ MCP: error + exit    │
-└─────────────────┘     (run migrate)           └──────────────────────┘
-
-┌─────────────────┐     version matches         ┌──────────────────────┐
-│      Valid      │ ──────────────────────────► │ proceed normally     │
-└─────────────────┘                             └──────────────────────┘
-~~~
+The stamp is a SHA-256 hash of the templates embedded in the tool — not a version number. Adding, editing, renaming or removing a template changes the hash automatically, so there is no version to bump by hand. See `StateService` in `workflows/CORE.md` for details and limits.
 
 ---
 

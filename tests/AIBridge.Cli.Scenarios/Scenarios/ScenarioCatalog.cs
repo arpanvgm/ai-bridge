@@ -1,4 +1,5 @@
-﻿using System.Xml.Linq;
+﻿
+using System.Xml.Linq;
 
 namespace AIBridge.Cli.Scenarios.Scenarios;
 
@@ -17,6 +18,7 @@ public static class ScenarioCatalog
         new("pack respects aiignore gitignore and binaries", PackRespectsIgnoresAsync),
         new("pack fails when workspace not initialized", PackFailsWhenNotInitializedAsync),
         new("pack fails when workspace version mismatches", PackFailsOnVersionMismatchAsync),
+        new("pack fails when a template file is missing", PackFailsWhenTemplateFileMissingAsync),
         new("apply creates patches deletes and resets response", ApplyCreatePatchDeleteAsync),
         new("apply rejects invalid xml and resets response", ApplyInvalidXmlAsync),
         new("apply blocks file path traversal", ApplyBlocksFileTraversalAsync),
@@ -166,8 +168,9 @@ public static class ScenarioCatalog
 
         ScenarioAssert.Equal(0, result.ExitCode, "Init should succeed.");
         ScenarioAssert.FileExists(workspace.PathFor(".aiignore"));
-        ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/state.xml"));
+        ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/.template-stamp"));
         ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/.gitignore"));
+        ScenarioAssert.Contains(".template-stamp", workspace.ReadText("ai-bridge/.gitignore"), "The local stamp must be gitignored.");
         ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/artifacts/ai-response.xml"));
         ScenarioAssert.DirectoryExists(workspace.PathFor("ai-bridge/AutoIndexMode"));
         ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/index.xml"));
@@ -274,8 +277,8 @@ public static class ScenarioCatalog
             index,
             "Migrate must preserve all existing index purposes.");
 
-        // state.xml must be updated
-        ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/state.xml"));
+        // template stamp must be present after migrate
+        ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/.template-stamp"));
     }
 
     private static async Task MigrateReExtractsTemplatesAsync(ScenarioContext context)
@@ -339,7 +342,7 @@ public static class ScenarioCatalog
         ScenarioAssert.Contains("GreetingService.cs", contextText, "Context should include service file.");
 
         // ai-bridge workspace files must never appear in pack output
-        ScenarioAssert.DoesNotContain("ai-bridge/state.xml", contextText, "Pack must exclude AI Bridge workspace files.");
+        ScenarioAssert.DoesNotContain("ai-bridge/.template-stamp", contextText, "Pack must exclude AI Bridge workspace files.");
         ScenarioAssert.DoesNotContain("ai-bridge/index.xml", contextText, "Pack must exclude index.xml.");
     }
 
@@ -361,14 +364,28 @@ public static class ScenarioCatalog
         await workspace.CreateDotNetDummyProjectAsync();
         await context.Cli.RunAsync(workspace, "init");
 
-        // Simulate a stale version stamp
-        workspace.WriteText("ai-bridge/state.xml", """
-        <ai-bridge-state version="0.0.0" />
-        """);
+        // Simulate a stale template stamp (templates changed since the workspace was set up)
+        workspace.WriteText("ai-bridge/.template-stamp", "stale-stamp");
 
         var result = await context.Cli.RunAsync(workspace, "pack");
 
         ScenarioAssert.NotEqual(0, result.ExitCode, "Pack should fail on version mismatch.");
+        ScenarioAssert.Contains("migrate", result.CombinedOutput, "Pack should tell user to run migrate.");
+    }
+
+    private static async Task PackFailsWhenTemplateFileMissingAsync(ScenarioContext context)
+    {
+        using var workspace = context.CreateWorkspace("pack template missing");
+        await workspace.CreateDotNetDummyProjectAsync();
+        await context.Cli.RunAsync(workspace, "init");
+
+        // Stamp is still valid, but an extracted skill file was deleted
+        ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/skills/ai-tracker-skill.md"));
+        File.Delete(workspace.PathFor("ai-bridge/skills/ai-tracker-skill.md"));
+
+        var result = await context.Cli.RunAsync(workspace, "pack");
+
+        ScenarioAssert.NotEqual(0, result.ExitCode, "Pack should fail when an extracted template file is missing.");
         ScenarioAssert.Contains("migrate", result.CombinedOutput, "Pack should tell user to run migrate.");
     }
 
@@ -393,7 +410,7 @@ public static class ScenarioCatalog
         ScenarioAssert.DoesNotContain("notes.md", contextText, "Pack should exclude aiignored filename.");
         ScenarioAssert.DoesNotContain("ignored-by-git.txt", contextText, "Pack should respect gitignore.");
         ScenarioAssert.DoesNotContain("logo.png", contextText, "Pack should exclude binary file.");
-        ScenarioAssert.DoesNotContain("ai-bridge/state.xml", contextText, "Pack should exclude AI Bridge workspace.");
+        ScenarioAssert.DoesNotContain("ai-bridge/.template-stamp", contextText, "Pack should exclude AI Bridge workspace.");
     }
 
     private static async Task ApplyCreatePatchDeleteAsync(ScenarioContext context)
@@ -452,10 +469,8 @@ public static class ScenarioCatalog
         await workspace.CreateDotNetDummyProjectAsync();
         await context.Cli.RunAsync(workspace, "init");
 
-        // Simulate a stale version stamp
-        workspace.WriteText("ai-bridge/state.xml", """
-        <ai-bridge-state version="0.0.0" />
-        """);
+        // Simulate a stale template stamp (templates changed since the workspace was set up)
+        workspace.WriteText("ai-bridge/.template-stamp", "stale-stamp");
 
         var result = await context.Cli.RunAsync(workspace, "apply");
 

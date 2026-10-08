@@ -1,4 +1,5 @@
 ﻿
+
 # AI Bridge — MCP Server Workflows
 
 The MCP server (`ai-bridge-mcp`) is an always-on HTTP server. Once running, the AI calls it directly via the MCP protocol — no human copy/paste in the loop. It uses the same Core engine as the CLI.
@@ -34,6 +35,12 @@ flowchart TD
     Status -- "Valid" --> StartWeb["app.RunAsync()\nServer is now accepting connections"]
 ~~~
 
+| Status | Meaning |
+|---|---|
+| `NotInitialized` | `ai-bridge/.template-stamp` is missing: first run or a fresh clone |
+| `VersionMismatch` | The stamp does not match the templates built into this version of the tool, or an expected template file is missing from `ai-bridge/` |
+| `Valid` | The stamp matches and every expected template file exists |
+
 **Key difference from CLI:** On `NotInitialized`, the MCP server auto-initializes and continues. On `VersionMismatch`, it exits — same as CLI. There is no `init` subcommand; first run handles it automatically.
 
 ---
@@ -46,13 +53,19 @@ The server acts as its own Authorization Server, implementing RFC 8414 and RFC 9
 flowchart TD
     Client["AI Client (e.g. Claude.ai)"]
     Client --> Discover["GET /.well-known/oauth-authorization-server\nGET /.well-known/oauth-protected-resource\n→ Server returns metadata with token URL, scopes"]
-    Discover --> Authorize["GET /authorize\n(authorization_code flow with PKCE)\n→ Server issues auth code\n→ Redirect back to client"]
-    Authorize --> Token["POST /token\n(exchange code for JWT)\nOR\nclient_credentials grant\n(direct secret exchange)"]
+    Discover --> Authorize["GET /authorize\n(authorization_code flow, PKCE S256 required)\n→ Server issues auth code\n→ Redirect back to client"]
+    Authorize --> Token["POST /token\nClient authentication required for both grants:\nclient_id + client_secret\n(exchange code + code_verifier + redirect_uri for JWT)\nOR\nclient_credentials grant\n(direct secret exchange)"]
     Token --> Verify{"Credentials valid?"}
     Verify -- "No" --> Reject["401 invalid_client\nOR 400 invalid_grant"]
     Verify -- "Yes" --> JWT["Issue signed JWT\n(RSA-SHA256, 1 hour expiry)\nReturn: access_token, token_type, expires_in"]
     JWT --> UseMCP["AI includes Bearer token\nin all /mcp requests"]
 ~~~
+
+**Client authentication:**
+- Both the `authorization_code` and `client_credentials` grants require the client secret. `client_secret_post` and `client_secret_basic` are supported and advertised in the metadata.
+- Client ID and secret are compared in constant time.
+- `/authorize` requires PKCE with `code_challenge_method=S256` and a valid `redirect_uri`; the code is bound to that `redirect_uri` and to the client it was issued to.
+- A blank `OAuth:ClientId` or `OAuth:ClientSecret` is treated as not set: the default client ID (`ai-bridge-client`) is used and a random secret is generated.
 
 **Ephemeral security model:**
 - RSA signing key is generated fresh on every server start — lives in memory only
@@ -96,13 +109,13 @@ flowchart TD
     Start["ai-bridge-mcp migrate"]
     Start --> Services["Instantiate Core services directly\n(no DI container)"]
     Services --> Setup["WorkspaceSetupService.SetupAsync(projectRoot)\n• Restore artifacts folder\n• Update .gitignore\n• Patch .dockerignore\n• Append missing .aiignore rules\n• Delete + re-extract all templates\n• Sync index.xml (preserve purposes)"]
-    Setup --> Stamp["StateService.InitState\nWrite new version to state.xml"]
+    Setup --> Stamp["StateService.InitState\nRewrite .template-stamp with the new template hash"]
     Stamp --> Log["Log: ✅ Migrated\nRe-upload ai-bridge/skills/ to your AI"]
     Log --> Exit(("Exit — server does NOT start"))
 ~~~
 
 **When is this needed?**
-On normal startup, `WorkspaceValidator` detects a version mismatch and refuses to start with: *"run ai-bridge-mcp migrate"*.
+On normal startup, `WorkspaceValidator` detects a mismatch — the templates built into the new version differ from the ones the workspace was set up with, or an expected template file is missing — and refuses to start with: *"run ai-bridge-mcp migrate"*.
 
 ---
 

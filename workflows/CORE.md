@@ -1,4 +1,5 @@
 ﻿
+
 # AI Bridge — Core Library Workflows
 
 `AIBridge.Core` is the shared engine. It has no knowledge of CLI commands or HTTP — it exposes services that any consumer can call. This document covers what each service does internally.
@@ -12,13 +13,15 @@
 ~~~mermaid
 flowchart TD
     Start["WorkspaceValidator.Check(projectRoot)"]
-    Start --> ReadState["Read ai-bridge/state.xml"]
-    ReadState --> Missing{"File exists?"}
-    Missing -- "No" --> NotInit["Return: NotInitialized"]
-    Missing -- "Yes" --> Compare["Compare stamped version\nvs running assembly version"]
-    Compare --> Match{"Versions match?"}
+    Start --> CheckState["StateService.CheckState"]
+    CheckState --> Stamp{"ai-bridge/.template-stamp\nexists?"}
+    Stamp -- "No" --> NotInit["Return: NotInitialized"]
+    Stamp -- "Yes" --> Compare["Compare stamped hash\nvs hash of the embedded templates"]
+    Compare --> Match{"Hashes match?"}
     Match -- "No" --> Mismatch["Return: VersionMismatch"]
-    Match -- "Yes" --> Valid["Return: Valid"]
+    Match -- "Yes" --> Files{"Every expected template\nfile exists on disk?"}
+    Files -- "No" --> Mismatch
+    Files -- "Yes" --> Valid["Return: Valid"]
 ~~~
 
 **Used by:** CLI (`pack`, `apply`), MCP (startup check). Neither consumer acts on the result — they each decide what to do based on the returned status.
@@ -33,29 +36,47 @@ flowchart TD
 flowchart TD
     Start["WorkspaceSetupService.SetupAsync(projectRoot)"]
     Start --> Artifacts["EnsureArtifactsFolderAsync\n• Create ai-bridge/artifacts/\n• Create ai-response.xml if missing"]
-    Artifacts --> Gitignore["EnsureInnerGitignoreAsync\n• Always overwrite ai-bridge/.gitignore\n  (tool-owned, never user-edited)"]
+    Artifacts --> Gitignore["EnsureInnerGitignoreAsync\n• Always overwrite ai-bridge/.gitignore\n  (tool-owned, never user-edited)\n• Ignores artifacts/, AutoIndexMode/, skills/\n  and .template-stamp"]
     Gitignore --> Docker["EnsureDockerignoreAsync\n• Append ai-bridge/ to .dockerignore\n  only if not already present"]
     Docker --> AiIgnore["EnsureAiIgnoreAsync\n• Create .aiignore with default rules if missing\n• If exists: only append missing default rules\n  (never overwrite — user edits here)"]
-    AiIgnore --> Templates["TemplateService.ExtractAll\n• Delete SimpleMode/, AdvancedMode/, AutoIndexMode/\n• Re-extract all embedded templates\n  (stale files from old versions cannot linger)"]
+    AiIgnore --> Templates["TemplateService.ExtractAll\n• Delete SimpleMode/, AdvancedMode/, AutoIndexMode/\n• Re-extract all embedded templates\n  (stale files in AutoIndexMode/ cannot linger)"]
     Templates --> Index["IndexService.GenerateIndexAsync\n• Scan tracked files\n• Add new files with empty purpose\n• Preserve all existing purposes"]
-    Index --> Done(("SetupAsync complete\nCaller stamps state.xml"))
+    Index --> Done(("SetupAsync complete\nCaller stamps .template-stamp"))
 ~~~
 
-**Safe to run repeatedly:** `ai-response.xml` and `.aiignore` are never overwritten. Index purposes are never cleared. Template folders are always wiped and re-extracted (guaranteed up-to-date).
+**Safe to run repeatedly:** `ai-response.xml` and `.aiignore` are never overwritten. Index purposes are never cleared. `AutoIndexMode/` is always wiped and re-extracted; `skills/` files are overwritten in place (guaranteed up-to-date, but files no longer shipped are not removed).
+
+**Does not write the stamp:** `SetupAsync` never touches `.template-stamp`. The caller (CLI `init` / `migrate`, MCP `migrate` or first-run auto-init) calls `StateService.InitState()` only after setup completes, so a failed setup never leaves a stamp vouching for a broken workspace.
 
 ---
 
 ## StateService
 
-**Purpose:** Reads and writes `ai-bridge/state.xml` — the version stamp that tells the tool whether the workspace matches the running binary.
+**Purpose:** Tells the tool whether the templates extracted into `ai-bridge/` match the templates built into the running binary. It reads and writes `ai-bridge/.template-stamp` — a machine-local, gitignored file holding a SHA-256 hash of the embedded templates — and checks that the extracted template files still exist.
 
 | Method | What it does |
 |---|---|
-| `GetCurrentVersion()` | Reads the running `AIBridge.Core` assembly version |
-| `CheckState()` | Reads `state.xml`; returns `NotInitialized`, `Outdated`, or `UpToDate` |
-| `InitState()` | Writes current version into `state.xml` |
+| `CheckState()` | Returns `NotInitialized` if `.template-stamp` is missing; `Outdated` if the stamp differs from the current template hash, cannot be read, or any expected template file is missing; otherwise `UpToDate` |
+| `InitState()` | Writes the current template hash into `.template-stamp` |
 
 `CheckState()` is called only by `WorkspaceValidator`. `InitState()` is called only after `SetupAsync` completes successfully.
+
+**How the check works**
+
+| Check | Question it answers | Cost |
+|---|---|---|
+| Hash comparison | Were the templates extracted by a build whose embedded templates match this one? | One tiny file read, plus a hash computed from in-memory embedded resources |
+| Existence check | Are all the files that should have been extracted still on disk? | One file-exists call per template — file contents are never read |
+
+- **What is hashed:** the relative path and content of every embedded template, in a fixed order. Adding, editing, renaming or removing a template changes the hash automatically — there is no version number to bump by hand.
+- **Expected files:** derived from the embedded resource names, using the same name-to-path mapping that extraction uses. A new template is picked up without maintaining any list.
+- **Cost does not grow with disk work:** the hash is computed from embedded resources only, so the check reads one small file from disk no matter how many templates exist.
+- **Why the stamp is gitignored:** it describes this machine's extracted files. A committed stamp would claim a fresh clone is initialized even though `skills/` and `AutoIndexMode/` (which are gitignored) are missing.
+
+**Known limits**
+
+- A template file that still exists but was hand-edited is not detected. `migrate` overwrites it.
+- Only templates are hashed. Other setup output (`ai-bridge/.gitignore`, the `.dockerignore` patch, default `.aiignore` rules) is not covered, so a release that changes only those will not prompt a `migrate`.
 
 ---
 
@@ -69,13 +90,20 @@ flowchart TD
     Start --> DeleteFolders["Delete SimpleMode/, AdvancedMode/, AutoIndexMode/\n(removes stale files from old versions)"]
     DeleteFolders --> Enumerate["Enumerate all embedded resources\nunder AIBridge.Core.Templates.*"]
     Enumerate --> Loop["For each resource"]
-    Loop --> Convert["Convert resource name → relative file path\n(un-mangle .NET naming: underscores → hyphens in folder names)"]
+    Loop --> Convert["Convert resource name → relative file path\n(last two dot-segments = file name,\neverything before = folder segments)"]
     Convert --> Write["Create directories and write file\n(always overwrites)"]
     Write --> Loop
     Loop --> Done(("All templates extracted"))
 ~~~
 
 **Note:** `ExtractAll` is the only public method. It always overwrites. There is no partial-restore variant — a full re-extraction is always done on setup/migrate to guarantee correctness.
+
+**Internal helpers used by `StateService`** (same assembly, not part of the public surface):
+
+| Helper | What it does |
+|---|---|
+| `GetEmbeddedTemplates()` | Lists every embedded template with the relative path it extracts to. Memory only — no disk access. Extraction and the existence check both use it, so they always agree on file paths |
+| `ComputeContentHash()` | SHA-256 over the relative path and content of every embedded template, in a fixed order. Memory only |
 
 ---
 
@@ -109,7 +137,7 @@ flowchart TD
 ~~~mermaid
 flowchart TD
     Start["ApplyService.ExecuteAsync(rawContent, projectRoot)"]
-    Start --> Strip["Strip markdown fences if present\n(AI sometimes wraps output in ```xml```)"]
+    Start --> Strip["Strip markdown fences if present\n(AI sometimes wraps output in an xml code fence)"]
     Strip --> Parse{"Parse XML"}
     Parse -- "Invalid" --> Abort(("Abort — return failure\nno files touched"))
     Parse -- "Valid" --> Root{"Root element?"}
