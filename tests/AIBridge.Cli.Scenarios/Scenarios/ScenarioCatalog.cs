@@ -32,6 +32,8 @@ public static class ScenarioCatalog
         new("tracker create and update works", TrackerAsync),
         new("apply paste falls back to stdin", PasteFallbackAsync),
         new("apply watch applies saved response", WatchAsync),
+        new("tracker only response resets response file", TrackerOnlyResetsResponseFileAsync),
+        new("tracker pasted from stdin is applied and resets response", TrackerPastedFromStdinAsync),
         new("init creates auto index mode folder", InitCreatesAutoIndexModeFolderAsync),
         new("pack respects root anchored file in aiignore", PackRespectsRootAnchoredFileAsync),
         new("pack respects root anchored folder in aiignore", PackRespectsRootAnchoredFolderAsync),
@@ -724,6 +726,83 @@ public static class ScenarioCatalog
         ScenarioAssert.Contains("status=\"done\"", tracker, "Tracker should mark task done.");
         ScenarioAssert.Contains("<focus>2</focus>", tracker, "Tracker should update focus.");
         ScenarioAssert.Contains("Use process-level scenarios", tracker, "Tracker should add decision.");
+    }
+
+    private static async Task TrackerOnlyResetsResponseFileAsync(ScenarioContext context)
+    {
+        using var workspace = context.CreateWorkspace("tracker resets response");
+        await workspace.CreateDotNetDummyProjectAsync();
+        await context.Cli.RunAsync(workspace, "init");
+
+        workspace.WriteText("ai-bridge/artifacts/ai-response.xml", """
+        <ai-response>
+          <tracker>
+            <scope>Tracker only response</scope>
+            <tasks>
+              <task id="1" status="todo">First task</task>
+            </tasks>
+            <focus>1</focus>
+          </tracker>
+        </ai-response>
+        """);
+
+        var result = await context.Cli.RunAsync(workspace, "apply");
+
+        ScenarioAssert.Equal(0, result.ExitCode, "Tracker-only apply should succeed.");
+        ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/artifacts/tracker.xml"));
+        ScenarioAssert.Contains(
+            "Tracker only response",
+            workspace.ReadText("ai-bridge/artifacts/tracker.xml"),
+            "Tracker content should be saved.");
+        ScenarioAssert.Contains(
+            "Paste the AI response XML here",
+            workspace.ReadText("ai-bridge/artifacts/ai-response.xml"),
+            "Response file should reset after a tracker-only apply.");
+    }
+
+    private static async Task TrackerPastedFromStdinAsync(ScenarioContext context)
+    {
+        using var workspace = context.CreateWorkspace("tracker pasted from stdin");
+        await workspace.CreateDotNetDummyProjectAsync();
+        await context.Cli.RunAsync(workspace, "init");
+
+        var emptyPath = Path.Combine(workspace.RootPath, "empty-path");
+        Directory.CreateDirectory(emptyPath);
+
+        const string stdin = """
+        <ai-response>
+          <tracker>
+            <scope>Tracker pasted from stdin</scope>
+            <decisions>
+              <decision id="1">Pasted decision.</decision>
+            </decisions>
+            <tasks>
+              <task id="1" status="todo">Pasted task</task>
+            </tasks>
+            <focus>1</focus>
+          </tracker>
+        </ai-response>
+        """;
+
+        var result = await context.Cli.RunAsync(
+            workspace.RootPath,
+            stdin,
+            new Dictionary<string, string?> { ["PATH"] = emptyPath },
+            "apply",
+            "--paste");
+
+        ScenarioAssert.Equal(0, result.ExitCode, "Pasting a tracker response through stdin should succeed.");
+        ScenarioAssert.Contains("stdin", result.CombinedOutput, "Output should mention stdin fallback.");
+        ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/artifacts/tracker.xml"));
+
+        var tracker = workspace.ReadText("ai-bridge/artifacts/tracker.xml");
+        ScenarioAssert.Contains("Tracker pasted from stdin", tracker, "Pasted tracker scope should be saved.");
+        ScenarioAssert.Contains("Pasted decision.", tracker, "Pasted tracker decision should be saved.");
+        ScenarioAssert.Contains("Pasted task", tracker, "Pasted tracker task should be saved.");
+        ScenarioAssert.Contains(
+            "Paste the AI response XML here",
+            workspace.ReadText("ai-bridge/artifacts/ai-response.xml"),
+            "Response file should reset after applying a pasted tracker response.");
     }
 
     private static async Task PasteFallbackAsync(ScenarioContext context)
