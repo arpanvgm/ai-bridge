@@ -1,4 +1,5 @@
-# Ignore templates and artifacts to prevent Git conflicts
+# Ignore templates, artifacts and the local template stamp to prevent Git conflicts
 artifacts/
 AutoIndexMode/
 skills/
+.template-stamp
