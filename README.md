@@ -4,7 +4,7 @@
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet)](https://dotnet.microsoft.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> **Pack your code → Paste into any AI chatbot → Apply changes back.** No API keys, no extensions, no lock-in.
+> **Index your project → Chat with any AI chatbot → Apply changes back.** No API keys, no extensions, no lock-in.
 
 **AI Bridge** is a lightweight CLI tool that bridges your local codebase and browser-based AI chatbots (Claude, Gemini, Qwen, ChatGPT). It works with **any language or technology** — .NET, Node.js, Python, React, Go, Rust, or any project with a sensible folder structure.
 
@@ -14,27 +14,21 @@
 
 - **No API keys** — Use the free tiers of Claude, Gemini, Qwen, or ChatGPT directly in your browser.
 - **No vendor lock-in** — Switch AI providers mid-conversation. Your workflow stays the same.
+- **Token-efficient** — The AI works from a lightweight map of your project and only asks for the files it actually needs.
 - **Language-agnostic** — Works with any language or framework, not just the ones your IDE supports.
 - **No extensions or agents** — Just a CLI tool and a browser-based AI chat. Nothing running in the background.
 - **You stay in control** — Every change is explicit: you see it, you paste it, you apply it.
 
 ---
 
-## 🎬 Quick Demo
-
-[![AI Bridge Simple Mode Demo](https://img.youtube.com/vi/9u7JEi7WwUg/maxresdefault.jpg)](https://youtu.be/9u7JEi7WwUg)
-
-> 🎥 [Watch on YouTube →](https://youtu.be/9u7JEi7WwUg)
-
----
-
 ## 🌟 The Big Picture
 
-AI Bridge offers two modes depending on your project size:
-1. **Simple Mode (Quick Start):** Perfect for small projects. You pack your entire codebase, give it to the AI, and get code back.
-2. **Advanced Mode (Index Flow):** Designed for large codebases. You map your project once, and then only upload the specific files the AI requests — saving tokens and reducing noise.
+AI Bridge keeps your workflow simple:
+1. **Index:** `ai-bridge init` creates a lightweight map (`index.xml`) of your project. You don't need to prepare or analyze it first.
+2. **Chat:** The AI reads the map and asks for the specific files it needs — nothing more. You hand them over with one command.
+3. **Apply:** The AI replies with code changes, and one command applies them to your project and keeps the map up to date.
 
-3. **Optional: MCP Server:** A local `.NET` server you can run alongside the CLI to let AI clients (like Claude Desktop) connect directly and apply changes without you having to copy/paste. [Read the MCP Guide here](src/AIBridge.Mcp/README.md).
+**Optional: MCP Server:** A local `.NET` server you can run alongside the CLI to let AI clients (like Claude Desktop) connect directly and apply changes without you having to copy/paste. [Read the MCP Guide here](src/AIBridge.Mcp/README.md).
 
 ---
 
@@ -48,23 +42,22 @@ AI Bridge offers two modes depending on your project size:
 > **Which AI model should I use?** Pick a thinking or reasoning "High" model (e.g., Claude 4.6 Sonnet, Gemini 3.1 Pro, Qwen 3.7 Max/Plus) — they produce significantly better, bug-free code.
 
 Install the tool globally using the .NET CLI:
-```bash
+~~~bash
 dotnet tool install --global Tools.AIBridge
-```
-*(To update later: `dotnet tool update --global Tools.AIBridge`)* — [View on NuGet →](https://www.nuget.org/packages/Tools.AIBridge)
+~~~
+*(To update later: `dotnet tool update --global Tools.AIBridge`, then run `ai-bridge migrate` in your projects — see [Updating AI Bridge](#️-updating-ai-bridge))* — [View on NuGet →](https://www.nuget.org/packages/Tools.AIBridge)
 
 <details>
 <summary><b>⚡ TL;DR — Try it in 60 seconds</b></summary>
 
-```bash
+~~~bash
 dotnet tool install --global Tools.AIBridge
 cd /path/to/your-project
 ai-bridge init
-ai-bridge pack
-# Upload ai-bridge/1-SimpleMode/*.md + ai-bridge/artifacts/*-context.txt to your AI
-# Copy the AI's XML response, then:
+# Upload the 4 files in ai-bridge/AutoIndexMode/ to your AI chat, then ask for a feature or a fix
+# When the AI replies with XML, copy it, then:
 ai-bridge apply --paste
-```
+~~~
 
 </details>
 
@@ -74,110 +67,114 @@ ai-bridge apply --paste
 
 Open your terminal, navigate to your project directory, and run the `init` command.
 
-```bash
+~~~bash
 cd /path/to/your-project
 ai-bridge init
-```
+~~~
 
 **What it does:**
-It scaffolds the following structure in your project:
+It scaffolds the following structure in your project and generates `index.xml`, a map listing every file in your project:
 
-```text
+~~~text
 YourProjectRoot/
 ├── .aiignore                           <-- Custom exclusion rules (Tracked)
 └── ai-bridge/                          <-- The AI Bridge workspace
-    ├── 1-SimpleMode/                   <-- Templates for quick, small tasks
-    ├── 2-AdvancedMode/                 <-- Templates for large project mapping
-    └── artifacts/                      <-- Scratchpad for context and AI responses
-```
+    ├── index.xml                       <-- Project map: every file, plus a short purpose per file
+    ├── AutoIndexMode/                  <-- System prompt and core instructions for your AI
+    ├── skills/                         <-- Optional extra skills (index sync, progress tracker, MCP)
+    └── artifacts/                      <-- Scratchpad for AI responses and requested context
+~~~
+
+Running `init` again is always safe — your `.aiignore` rules and the purposes already stored in `index.xml` are kept.
 
 ### Excluding Files with `.aiignore`
 
-The `.aiignore` file (created by `ai-bridge init`) works like `.gitignore` — add glob patterns to exclude files from being packed into AI context. Use it for test fixtures, generated code, large data files, or anything the AI doesn't need to see.
+The `.aiignore` file (created by `ai-bridge init`) works like `.gitignore` — add glob patterns to hide files from the AI. Everything already in your `.gitignore` is ignored automatically, so use `.aiignore` only for files that are tracked by Git but that the AI doesn't need to see: test fixtures, generated code, large data files, or anything sensitive. Ignored files stay out of the index and are never sent to the AI.
 
 ---
 
-## 🟢 Simple Mode (For Small Projects)
+## 🔄 How It Works
 
-Use this mode if your codebase is small enough to fit comfortably inside a single AI prompt window.
+### 1. Start a Chat with Your AI
 
-```mermaid
-flowchart LR
-    A["🗂️ Codebase"] -- "ai-bridge pack" --> B["📄 *-context.txt"]
-    B -- "Upload + Prompts" --> C["🤖 AI Chatbot"]
-    C -- "Copy XML Response" --> D["ai-bridge apply --paste"]
-    D --> E["✅ Files Updated"]
-```
+Open your AI (Claude, Gemini, Qwen, or ChatGPT) in a fresh chat and upload the instruction files from your project:
 
-### 1. Pack Your Project
-Run the pack command to bundle your codebase into text files.
-```bash
-ai-bridge pack
-```
-This generates `*-context.txt` files inside `ai-bridge/artifacts/`. (It automatically respects `.gitignore`, skips binary files, and applies `.aiignore`).
+**Required — the four files in `ai-bridge/AutoIndexMode/`:**
 
-### 2. Chat with the AI
-1. Open your AI (Claude, Gemini, Qwen, or ChatGPT).
-2. Upload the **System Prompt**: `ai-bridge/1-SimpleMode/ai-system-prompt.md`
-3. Upload the **Protocol Skill**: `ai-bridge/1-SimpleMode/ai-response-skill.md`
-4. Upload your **Context Files**: The `*-context.txt` files from the `artifacts/` folder. *(Skip this step if starting a brand new project!)*
-5. Ask the AI to write your feature or fix a bug.
+| File | What it does |
+|------|--------------|
+| `ai-system-prompt.md` | The system prompt that defines the workflow |
+| `ai-request-skill.md` | Teaches the AI how to ask for the files it needs |
+| `ai-response-skill.md` | Teaches the AI how to write code changes in a format AI Bridge can apply |
+| `ai-update-index-skill.md` | Teaches the AI how to keep the project map up to date |
 
-### 3. Apply the Changes
+**Optional — from `ai-bridge/skills/`:**
 
-**Option 1 — Clipboard:** Copy the AI's XML response and run:
-```bash
-ai-bridge apply --paste
-```
+| File | When to Use |
+|------|-------------|
+| `ai-sync-index-skill.md` | When you want all index purposes filled in at once, or after you've edited files outside of AI Bridge. It reads files in batches and updates their purposes automatically.<br>Ask: *"Please sync the index and fill in all missing purposes."* |
+| `ai-tracker-skill.md` | When working on a multi-step task that might span multiple chat sessions. The AI creates and maintains a `tracker.xml` in `ai-bridge/artifacts/` that records scope, decisions, and task status.<br>Ask: *"[Describe your task]. Create a plan and track progress."*<br>To resume later, start a new chat with the same files plus `tracker.xml`. |
+| `ai-mcp-skill.md` | Only if you use the [MCP Server](src/AIBridge.Mcp/README.md). |
 
-**Option 2 — File:** Save the XML to `ai-bridge/artifacts/ai-response.xml` and run:
-```bash
-ai-bridge apply
-```
-
----
-
-## 🔴 Advanced Mode (For Large Projects)
-
-If you have a large codebase, uploading your entire project every time uses more tokens and can reduce AI response quality. Advanced Mode solves this by creating a lightweight `index.xml` map of your project.
-
-### Phase 1: Create the Index (One-Time Setup)
+You don't have to upload `index.xml` — the AI will request it itself on its first turn. (Uploading it up front just saves one round trip.)
 
 > [!IMPORTANT]
-> **Starting a brand new project?** Skip Phase 1 entirely and jump straight to [Phase 2](#phase-2-the-daily-workflow) — no index needed when there's no existing code to map.
+> **Starting a brand new project?** Because a fresh project contains no source code to index, `index.xml` is not required. Start directly by telling the AI what to build.
 
-Before chatting, the AI needs to map out your existing project.
-1. Run `ai-bridge pack` to gather your full context.
-2. Start a new AI chat and upload:
-   - `ai-bridge/2-AdvancedMode/Phase1-CreateIndex/ai-create-index-system-prompt.md`
-   - All the `*-context.txt` files from `artifacts/`.
-3. The AI will output an XML map of your project. Save this output exactly as **`ai-bridge/index.xml`**.
+### 2. Ask for a Feature
 
-### Phase 2: The Daily Workflow
-Now that you have an index, you never need to upload huge context files again!
-
-```mermaid
+~~~mermaid
 flowchart LR
     A["💬 Ask feature"] -->|AI requests files| B["ai-bridge apply --paste"]
     B -->|Upload context| C["🤖 AI generates code"]
     C -->|Copy response| D["ai-bridge apply --paste"]
     D --> E["✅ Updated"]
-```
-1. Start a fresh AI Chat. 
-2. Upload the System Prompt and your Index:
-   - `ai-bridge/2-AdvancedMode/Phase2-DailyChat/ai-index-system-prompt.md`
-   - `ai-bridge/index.xml` *(Skip uploading this if starting a brand new project)*
-3. Upload the 3 Required Skills (so the AI knows how to communicate):
-   - `ai-bridge/2-AdvancedMode/Phase2-DailyChat/ai-request-skill.md`
-   - `ai-bridge/2-AdvancedMode/Phase2-DailyChat/ai-response-skill.md`
-   - `ai-bridge/2-AdvancedMode/Phase2-DailyChat/ai-update-index-skill.md`
-4. **Ask for a feature.** 
-5. **Fulfill the Request:**
-   - The AI will output an XML request for files (e.g., `<ai-request><file>src/app.js</file></ai-request>`).
+~~~
+
+1. **Ask for a feature or a fix.**
+2. **Fulfill the Request:**
+   - The AI will output an XML request for files (e.g., `<ai-request><file path="src/app.js" /></ai-request>`).
    - Copy the request and run `ai-bridge apply --paste`.
-   - The tool will automatically gather those files and bundle them into **`ai-bridge/artifacts/ai-requested-context.txt`**.
+   - The tool will automatically gather those files, save them to **`ai-bridge/artifacts/ai-requested-context.txt`**, and copy them to your clipboard.
    - Upload or paste that context back into the AI chat.
-6. The AI generates the final code changes. Copy them and run `ai-bridge apply --paste`.
+3. **Apply the Changes:** The AI generates the final code changes. Copy them and run `ai-bridge apply --paste`.
+
+### 3. Apply the Changes
+
+**Option 1 — Clipboard:** Copy the AI's XML response and run:
+~~~bash
+ai-bridge apply --paste
+~~~
+
+**Option 2 — File:** Save the XML to `ai-bridge/artifacts/ai-response.xml` and run:
+~~~bash
+ai-bridge apply
+~~~
+
+> [!TIP]
+> **Prefer hands-free?** Run `ai-bridge apply --watch` instead — it monitors `ai-response.xml` and auto-applies whenever you save a new response to it. Great for rapid back-and-forth sessions.
+
+> [!NOTE]
+> After every run, `ai-response.xml` is reset — even if some changes failed. Changes can't safely be applied twice, so if something fails, ask the AI for a fresh response instead of re-running the old one.
+
+### About the Index.xml
+
+`ai-bridge init` builds `index.xml` for you: every file in your project, listed by path. There's nothing to analyze or set up before you start — the AI can begin working straight away and request any file by its path.
+
+Each entry also has a short one-line `purpose`, which helps the AI decide which files to ask for. These start out empty and fill in gradually: when the AI creates a file or changes a file's role, it records the purpose in the index as part of its response, and `ai-bridge apply` saves it. If you'd rather have all purposes filled in right now — or you've edited files by hand — upload `ai-sync-index-skill.md` and ask the AI to sync the index. It works through your files in batches (20 at a time by default).
+
+---
+
+## ⬆️ Updating AI Bridge
+
+The instruction files in `ai-bridge/` come from the version of the tool you have installed. After updating the tool, refresh them:
+
+~~~bash
+dotnet tool update --global Tools.AIBridge
+ai-bridge migrate
+~~~
+
+Then re-upload the instruction files to your AI chat. Your `index.xml` purposes and `.aiignore` rules are kept. If any command tells you the workspace is outdated, run `ai-bridge migrate`. On a fresh clone of a project that already uses AI Bridge, run `ai-bridge init` — the instruction files are git-ignored, so each machine creates its own.
 
 ---
 
@@ -185,26 +182,27 @@ flowchart LR
 
 | Command | Description |
 |---------|-------------|
-| `ai-bridge init` | Scaffolds the `ai-bridge/` workspace, `.aiignore`, and templates |
-| `ai-bridge pack` | Packs source files into `*-context.txt` for AI consumption |
-| `ai-bridge apply` | Applies `ai-response.xml` patches from the artifacts folder |
+| `ai-bridge init` | Scaffolds the `ai-bridge/` workspace, `.aiignore`, templates, and the project index |
+| `ai-bridge migrate` | Refreshes the workspace templates after updating the tool (keeps your index and `.aiignore`) |
+| `ai-bridge apply` | Applies the XML in `ai-response.xml` from the artifacts folder |
 | `ai-bridge apply --paste` | Reads the AI response directly from clipboard |
 | `ai-bridge apply --watch` | Watches `ai-response.xml` and auto-applies on save |
+| `ai-bridge pack` | Optional. Packs source files into `*-context.txt` bundles in `ai-bridge/artifacts/` |
 
 ---
 
 ## 🛠️ Ecosystem Detection
 
-When you run `ai-bridge pack`, it groups files intelligently based on your ecosystem to keep contexts organized:
+AI Bridge groups files into **modules** based on your ecosystem — in `index.xml`, in the files it gathers for the AI, and in `pack` output (if used) — to keep everything organized:
 
 | Ecosystem | Detected By | Grouping |
 |-----------|-------------|----------|
-| .NET | `.csproj` files | One context file per project |
-| Node.js | `package.json` | One context file per package |
-| Python | `pyproject.toml` | One context file per package |
-| Go | `go.mod` | One context file per module |
-| Rust | `Cargo.toml` | One context file per crate |
-| Other | (fallback) | One context file per top-level folder |
+| .NET | `.csproj` files | One module per project |
+| Node.js | `package.json` | One module per package |
+| Python | `pyproject.toml` | One module per package |
+| Go | `go.mod` | One module per module |
+| Rust | `Cargo.toml` | One module per crate |
+| Other | (fallback) | One module per top-level folder |
 
 ---
 
@@ -222,8 +220,6 @@ When you run `ai-bridge pack`, it groups files intelligently based on your ecosy
 | **Headless / SSH** | stdin fallback | Prompts you to manually paste into terminal. |
 
 ---
-
-
 ## 🤝 Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for build instructions and how to submit a PR.

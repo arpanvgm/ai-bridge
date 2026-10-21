@@ -21,6 +21,11 @@ var projectRoot = WorkspaceHelper.GetProjectRoot(Environment.CurrentDirectory);
 
 var rootCommand = new RootCommand("AI Bridge MCP Server — exposes your local codebase to AI tools via MCP.");
 
+// ASP.NET Core configuration arguments (--OAuth:ClientId, --OAuth:ClientSecret, --urls, ...)
+// are not declared as System.CommandLine options. They are consumed by WebApplication.CreateBuilder(args),
+// so unmatched tokens must not be treated as parse errors.
+rootCommand.TreatUnmatchedTokensAsErrors = false;
+
 // ── migrate subcommand ───────────────────────────────────────────────────────
 
 var migrateCommand = new Command("migrate", "Updates local AI Bridge workspace templates to match the installed tool version.");
@@ -48,12 +53,19 @@ rootCommand.SetHandler(async () =>
     // --- OAuth Configuration ---
     // ClientId and ClientSecret can be supplied via --OAuth:ClientId / --OAuth:ClientSecret,
     // environment variables (OAuth__ClientId, OAuth__ClientSecret), or appsettings.json.
-    // If omitted, a secure ephemeral secret is generated.
+    // If omitted (or blank), a secure ephemeral secret is generated.
     var builder = WebApplication.CreateBuilder(args);
 
-    string clientId     = builder.Configuration["OAuth:ClientId"] ?? "ai-bridge-client";
-    string clientSecret = builder.Configuration["OAuth:ClientSecret"]
-        ?? Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
+    var configuredClientId     = builder.Configuration["OAuth:ClientId"];
+    var configuredClientSecret = builder.Configuration["OAuth:ClientSecret"];
+
+    string clientId = string.IsNullOrWhiteSpace(configuredClientId)
+        ? "ai-bridge-client"
+        : configuredClientId;
+
+    string clientSecret = string.IsNullOrWhiteSpace(configuredClientSecret)
+        ? Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant()
+        : configuredClientSecret;
 
     // Ephemeral RSA key — lives in memory for the server's lifetime.
     // Restarting the server invalidates all previously issued tokens.
@@ -139,7 +151,7 @@ rootCommand.SetHandler(async () =>
             authorization_endpoint                  = $"{issuer}/authorize",
             token_endpoint                          = $"{issuer}/token",
             grant_types_supported                   = new[] { "client_credentials", "authorization_code" },
-            token_endpoint_auth_methods_supported   = new[] { "none", "client_secret_post" },
+            token_endpoint_auth_methods_supported   = new[] { "client_secret_post", "client_secret_basic" },
             scopes_supported                        = new[] { "mcp:tools" },
             response_types_supported                = new[] { "code" },
             code_challenge_methods_supported        = new[] { "S256" },
@@ -149,14 +161,14 @@ rootCommand.SetHandler(async () =>
 #pragma warning restore CA1861
 
     // --- Authorization Codes (PKCE flow) ---
-    var authCodes = new System.Collections.Concurrent.ConcurrentDictionary<string, (string ClientId, string CodeChallenge, DateTime ExpiresAt)>();
+    var authCodes = new System.Collections.Concurrent.ConcurrentDictionary<string, (string ClientId, string CodeChallenge, string RedirectUri, DateTime ExpiresAt)>();
 
     // --- Authorization Endpoint ---
     app.MapGet("/authorize", (
         string response_type,
         string client_id,
         string redirect_uri,
-        string state,
+        string? state,
         string? code_challenge,
         string? code_challenge_method) =>
     {
@@ -166,10 +178,24 @@ rootCommand.SetHandler(async () =>
         if (!string.Equals(client_id, clientId, StringComparison.Ordinal))
             return Results.BadRequest("Invalid client_id.");
 
-        var code = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
-        authCodes[code] = (client_id, code_challenge ?? "", DateTime.UtcNow.AddMinutes(5));
+        if (!Uri.TryCreate(redirect_uri, UriKind.Absolute, out var parsedRedirect) ||
+            (parsedRedirect.Scheme != Uri.UriSchemeHttps && parsedRedirect.Scheme != Uri.UriSchemeHttp))
+            return Results.BadRequest("Invalid redirect_uri.");
 
-        return Results.Redirect($"{redirect_uri}?code={code}&state={state}");
+        // PKCE (S256) is mandatory (OAuth 2.1).
+        if (string.IsNullOrEmpty(code_challenge) ||
+            !string.Equals(code_challenge_method, "S256", StringComparison.Ordinal))
+            return Results.BadRequest("PKCE is required: provide code_challenge with code_challenge_method=S256.");
+
+        var code = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
+        authCodes[code] = (client_id, code_challenge, redirect_uri, DateTime.UtcNow.AddMinutes(5));
+
+        var separator = redirect_uri.Contains('?') ? "&" : "?";
+        var location  = $"{redirect_uri}{separator}code={code}";
+        if (!string.IsNullOrEmpty(state))
+            location += $"&state={Uri.EscapeDataString(state)}";
+
+        return Results.Redirect(location);
     });
 
     // --- Token Endpoint ---
@@ -177,16 +203,17 @@ rootCommand.SetHandler(async () =>
     {
         Console.WriteLine("\n[OAuth] Token exchange requested...");
 
-        string grantType = "", reqClientId = "", reqClientSecret = "", code = "", codeVerifier = "";
+        string grantType = "", reqClientId = "", reqClientSecret = "", code = "", codeVerifier = "", reqRedirectUri = "";
 
         if (context.Request.HasFormContentType)
         {
-            var form      = await context.Request.ReadFormAsync();
-            grantType     = form["grant_type"].ToString();
-            reqClientId   = form["client_id"].ToString();
+            var form        = await context.Request.ReadFormAsync();
+            grantType       = form["grant_type"].ToString();
+            reqClientId     = form["client_id"].ToString();
             reqClientSecret = form["client_secret"].ToString();
-            code          = form["code"].ToString();
-            codeVerifier  = form["code_verifier"].ToString();
+            code            = form["code"].ToString();
+            codeVerifier    = form["code_verifier"].ToString();
+            reqRedirectUri  = form["redirect_uri"].ToString();
         }
         else
         {
@@ -194,7 +221,7 @@ rootCommand.SetHandler(async () =>
             return Results.BadRequest(new { error = "invalid_request", error_description = "Expected application/x-www-form-urlencoded" });
         }
 
-        // Fallback: HTTP Basic Auth
+        // Fallback: HTTP Basic Auth (client_secret_basic)
         if (string.IsNullOrEmpty(reqClientId) &&
             context.Request.Headers.Authorization.ToString().StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
         {
@@ -203,7 +230,11 @@ rootCommand.SetHandler(async () =>
                 var authHeader = context.Request.Headers.Authorization.ToString()["Basic ".Length..].Trim();
                 var decoded    = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(authHeader));
                 var parts      = decoded.Split(':', 2);
-                if (parts.Length == 2) { reqClientId = parts[0]; reqClientSecret = parts[1]; }
+                if (parts.Length == 2)
+                {
+                    reqClientId     = Uri.UnescapeDataString(parts[0]);
+                    reqClientSecret = Uri.UnescapeDataString(parts[1]);
+                }
                 Console.WriteLine("[OAuth] Extracted client credentials from Basic Auth header.");
             }
             catch { /* ignore decode errors */ }
@@ -211,6 +242,17 @@ rootCommand.SetHandler(async () =>
 
         Console.WriteLine($"[OAuth] Grant Type: {grantType}");
         Console.WriteLine($"[OAuth] Client ID provided: {!string.IsNullOrEmpty(reqClientId)}");
+        Console.WriteLine($"[OAuth] Client Secret provided: {!string.IsNullOrEmpty(reqClientSecret)}");
+
+        // Client authentication is required for EVERY grant type.
+        if (grantType is "authorization_code" or "client_credentials" &&
+            !IsValidClient(reqClientId, reqClientSecret, clientId, clientSecret))
+        {
+            Console.WriteLine("[OAuth] Error: Client authentication failed (invalid client_id or client_secret).");
+            return Results.Json(
+                new { error = "invalid_client", error_description = "Invalid client_id or client_secret." },
+                statusCode: 401);
+        }
 
         if (grantType == "authorization_code")
         {
@@ -220,36 +262,35 @@ rootCommand.SetHandler(async () =>
                 return Results.Json(new { error = "invalid_grant", error_description = "Code expired or invalid." }, statusCode: 400);
             }
 
-            if (request.ClientId != reqClientId)
+            if (!string.Equals(request.ClientId, reqClientId, StringComparison.Ordinal))
             {
-                Console.WriteLine($"[OAuth] Error: Client ID mismatch. Expected {request.ClientId}, got {reqClientId}");
-                return Results.Json(new { error = "invalid_client" }, statusCode: 401);
+                Console.WriteLine("[OAuth] Error: Code was issued to a different client.");
+                return Results.Json(new { error = "invalid_grant", error_description = "Code was not issued to this client." }, statusCode: 400);
             }
 
-            if (!string.IsNullOrEmpty(request.CodeChallenge))
+            if (!string.Equals(request.RedirectUri, reqRedirectUri, StringComparison.Ordinal))
             {
-                var challengeBytes    = SHA256.HashData(System.Text.Encoding.ASCII.GetBytes(codeVerifier));
-                var expectedChallenge = Base64UrlEncoder.Encode(challengeBytes);
-                if (expectedChallenge != request.CodeChallenge)
-                {
-                    Console.WriteLine($"[OAuth] Error: PKCE verification failed.");
-                    return Results.Json(new { error = "invalid_grant", error_description = "PKCE verification failed." }, statusCode: 400);
-                }
-                Console.WriteLine("[OAuth] PKCE verification passed.");
+                Console.WriteLine("[OAuth] Error: redirect_uri mismatch.");
+                return Results.Json(new { error = "invalid_grant", error_description = "redirect_uri mismatch." }, statusCode: 400);
             }
-        }
-        else if (grantType == "client_credentials")
-        {
-            if (!string.Equals(reqClientId, clientId, StringComparison.Ordinal) ||
-                !string.Equals(reqClientSecret, clientSecret, StringComparison.Ordinal))
+
+            // PKCE is mandatory — the challenge is always present (enforced at /authorize).
+            if (string.IsNullOrEmpty(codeVerifier))
             {
-                Console.WriteLine("[OAuth] Error: Invalid client_credentials provided.");
-                return Results.Json(
-                    new { error = "invalid_client", error_description = "Invalid client_id or client_secret." },
-                    statusCode: 401);
+                Console.WriteLine("[OAuth] Error: Missing code_verifier.");
+                return Results.Json(new { error = "invalid_grant", error_description = "code_verifier is required." }, statusCode: 400);
             }
+
+            var challengeBytes    = SHA256.HashData(System.Text.Encoding.ASCII.GetBytes(codeVerifier));
+            var expectedChallenge = Base64UrlEncoder.Encode(challengeBytes);
+            if (!SecureEquals(expectedChallenge, request.CodeChallenge))
+            {
+                Console.WriteLine("[OAuth] Error: PKCE verification failed.");
+                return Results.Json(new { error = "invalid_grant", error_description = "PKCE verification failed." }, statusCode: 400);
+            }
+            Console.WriteLine("[OAuth] PKCE verification passed.");
         }
-        else
+        else if (grantType != "client_credentials")
         {
             Console.WriteLine($"[OAuth] Error: Unsupported grant type '{grantType}'.");
             return Results.Json(
@@ -330,4 +371,20 @@ static (string scheme, string host) GetForwardedOrigin(HttpContext context)
     var scheme = context.Request.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? context.Request.Scheme;
     var host   = context.Request.Headers["X-Forwarded-Host"].FirstOrDefault()  ?? context.Request.Host.ToString();
     return (scheme, host);
+}
+
+// Constant-time string comparison (hashes first so differing lengths don't leak timing).
+static bool SecureEquals(string a, string b)
+{
+    var hashA = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(a));
+    var hashB = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(b));
+    return CryptographicOperations.FixedTimeEquals(hashA, hashB);
+}
+
+// Verifies BOTH client_id and client_secret in constant time (no short-circuit).
+static bool IsValidClient(string id, string secret, string expectedId, string expectedSecret)
+{
+    var idOk     = SecureEquals(id, expectedId);
+    var secretOk = SecureEquals(secret, expectedSecret);
+    return idOk & secretOk;
 }

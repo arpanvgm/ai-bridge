@@ -1,4 +1,5 @@
 ﻿
+
 # AI Bridge — CLI Workflows
 
 The CLI (`ai-bridge`) is a .NET global tool driven manually by the developer. This document covers every command, its full internal flow, and its behaviour on repeated runs.
@@ -19,6 +20,12 @@ flowchart TD
     Status -- "Valid" --> Proceed["Return true\n→ continue with command"]
 ~~~
 
+| Status | Meaning |
+|---|---|
+| `NotInitialized` | `ai-bridge/.template-stamp` is missing: first run or a fresh clone |
+| `VersionMismatch` | The stamp does not match the templates built into this version of the tool, or an expected template file is missing from `ai-bridge/` |
+| `Valid` | The stamp matches and every expected template file exists |
+
 ---
 
 ## `ai-bridge init`
@@ -30,12 +37,12 @@ flowchart TD
     Start["ai-bridge init"]
     Start --> Setup["WorkspaceSetupService.SetupAsync(projectRoot)"]
     Setup --> S1["Create ai-bridge/artifacts/\nCreate ai-response.xml if missing"]
-    S1 --> S2["Write ai-bridge/.gitignore\n(always overwritten — tool-owned)"]
+    S1 --> S2["Write ai-bridge/.gitignore\n(always overwritten — tool-owned)\nIgnores artifacts/, AutoIndexMode/, skills/, .template-stamp"]
     S2 --> S3["Append ai-bridge/ to .dockerignore\n(only if not already there)"]
     S3 --> S4["Create .aiignore with defaults if missing\nOR append only missing default rules"]
     S4 --> S5["TemplateService.ExtractAll\n• Delete old SimpleMode/, AdvancedMode/, AutoIndexMode/\n• Re-extract all embedded templates"]
     S5 --> S6["IndexService.GenerateIndexAsync\n• Scan tracked files\n• Add new with purpose=''\n• Preserve existing purposes"]
-    S6 --> Stamp["StateService.InitState\nWrite current version to state.xml"]
+    S6 --> Stamp["StateService.InitState\nWrite template hash to ai-bridge/.template-stamp"]
     Stamp --> Done(("✅ Setup complete\nUpload ai-bridge/skills/ to your AI"))
 
     style S4 fill:#2d4a2d,color:#fff
@@ -52,9 +59,10 @@ flowchart TD
 | `.aiignore` | Only missing default rules appended — never cleared |
 | `index.xml` | Existing purposes preserved — only new files added |
 | `ai-bridge/.gitignore` | Always overwritten (same content, harmless) |
-| `AutoIndexMode/`, `skills/` | Always wiped and re-extracted — guaranteed up to date |
+| `AutoIndexMode/` | Always wiped and re-extracted — guaranteed up to date |
+| `skills/` | Files are overwritten with the current templates (folder is not wiped) |
 | `1-SimpleMode/`, `2-AdvancedMode/` | Deleted if present (legacy cleanup) — never re-extracted |
-| `state.xml` | Always overwritten with current version |
+| `.template-stamp` | Always rewritten with the hash of the current templates |
 
 ---
 
@@ -67,14 +75,14 @@ flowchart TD
     Start["ai-bridge migrate"]
     Start --> Setup["WorkspaceSetupService.SetupAsync(projectRoot)"]
     Setup --> Same["(identical steps to init —\nsee init diagram above)"]
-    Same --> Stamp["StateService.InitState\nOverwrite state.xml with new version"]
+    Same --> Stamp["StateService.InitState\nRewrite .template-stamp with the new template hash"]
     Stamp --> Done(("✅ Migrated\nRe-upload ai-bridge/skills/ to your AI"))
 ~~~
 
 **When is this needed?**
-`pack` and `apply` call `WorkspaceValidator.Check` before running. If the version in `state.xml` doesn't match the running binary, they exit with: *"run ai-bridge migrate"*.
+`pack` and `apply` call `WorkspaceValidator.Check` before running. If the templates built into the running binary differ from the ones the workspace was set up with (the stamp no longer matches), or an expected template file is missing, they exit with: *"run ai-bridge migrate"*.
 
-**Key guarantee:** Stale template files from old versions cannot linger — `ExtractAll` deletes the template folders entirely before re-extracting, so removed or renamed files don't accumulate.
+**Key guarantee:** Stale files from old versions cannot linger in `AutoIndexMode/` — `ExtractAll` deletes that folder entirely before re-extracting, so removed or renamed files don't accumulate. The `skills/` folder is overwritten in place, so a skill file that a newer version no longer ships would remain on disk.
 
 ---
 

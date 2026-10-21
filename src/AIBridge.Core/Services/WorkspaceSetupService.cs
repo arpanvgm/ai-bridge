@@ -8,7 +8,7 @@ namespace AIBridge.Core.Services;
 /// <summary>
 /// Unconditionally creates or restores the ai-bridge workspace to a correct state.
 /// Has no opinion on whether setup is needed — that is the caller's decision.
-/// Never reads or writes state.xml; the caller stamps the version after setup completes.
+/// Never reads or writes the template stamp; the caller stamps it (StateService.InitState) after setup completes.
 /// </summary>
 public class WorkspaceSetupService(IAIBridgeLogger logger, TemplateService templateService, IndexService indexService)
 {
@@ -42,10 +42,11 @@ public class WorkspaceSetupService(IAIBridgeLogger logger, TemplateService templ
     private async Task EnsureInnerGitignoreAsync(string aiWorkspace)
     {
         var path = Path.Combine(aiWorkspace, ".gitignore");
-        var content = $"# Ignore templates and artifacts to prevent Git conflicts\n" +
+        var content = $"# Ignore templates, artifacts and the local template stamp to prevent Git conflicts\n" +
                       $"{FolderNames.Artifacts}/\n" +
                       $"{FolderNames.AutoIndexMode}/\n" +
-                      $"{FolderNames.Skills}/\n";
+                      $"{FolderNames.Skills}/\n" +
+                      $"{FileNames.TemplateStamp}\n";
         // Always overwrite — this file is fully owned by AI Bridge, never edited by users.
         await File.WriteAllTextAsync(path, content);
     }

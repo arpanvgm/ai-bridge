@@ -1,4 +1,5 @@
-﻿using System.Xml.Linq;
+﻿
+using System.Xml.Linq;
 
 namespace AIBridge.Cli.Scenarios.Scenarios;
 
@@ -17,6 +18,7 @@ public static class ScenarioCatalog
         new("pack respects aiignore gitignore and binaries", PackRespectsIgnoresAsync),
         new("pack fails when workspace not initialized", PackFailsWhenNotInitializedAsync),
         new("pack fails when workspace version mismatches", PackFailsOnVersionMismatchAsync),
+        new("pack fails when a template file is missing", PackFailsWhenTemplateFileMissingAsync),
         new("apply creates patches deletes and resets response", ApplyCreatePatchDeleteAsync),
         new("apply rejects invalid xml and resets response", ApplyInvalidXmlAsync),
         new("apply blocks file path traversal", ApplyBlocksFileTraversalAsync),
@@ -30,6 +32,8 @@ public static class ScenarioCatalog
         new("tracker create and update works", TrackerAsync),
         new("apply paste falls back to stdin", PasteFallbackAsync),
         new("apply watch applies saved response", WatchAsync),
+        new("tracker only response resets response file", TrackerOnlyResetsResponseFileAsync),
+        new("tracker pasted from stdin is applied and resets response", TrackerPastedFromStdinAsync),
         new("init creates auto index mode folder", InitCreatesAutoIndexModeFolderAsync),
         new("pack respects root anchored file in aiignore", PackRespectsRootAnchoredFileAsync),
         new("pack respects root anchored folder in aiignore", PackRespectsRootAnchoredFolderAsync),
@@ -166,8 +170,9 @@ public static class ScenarioCatalog
 
         ScenarioAssert.Equal(0, result.ExitCode, "Init should succeed.");
         ScenarioAssert.FileExists(workspace.PathFor(".aiignore"));
-        ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/state.xml"));
+        ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/.template-stamp"));
         ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/.gitignore"));
+        ScenarioAssert.Contains(".template-stamp", workspace.ReadText("ai-bridge/.gitignore"), "The local stamp must be gitignored.");
         ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/artifacts/ai-response.xml"));
         ScenarioAssert.DirectoryExists(workspace.PathFor("ai-bridge/AutoIndexMode"));
         ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/index.xml"));
@@ -274,8 +279,8 @@ public static class ScenarioCatalog
             index,
             "Migrate must preserve all existing index purposes.");
 
-        // state.xml must be updated
-        ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/state.xml"));
+        // template stamp must be present after migrate
+        ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/.template-stamp"));
     }
 
     private static async Task MigrateReExtractsTemplatesAsync(ScenarioContext context)
@@ -339,7 +344,7 @@ public static class ScenarioCatalog
         ScenarioAssert.Contains("GreetingService.cs", contextText, "Context should include service file.");
 
         // ai-bridge workspace files must never appear in pack output
-        ScenarioAssert.DoesNotContain("ai-bridge/state.xml", contextText, "Pack must exclude AI Bridge workspace files.");
+        ScenarioAssert.DoesNotContain("ai-bridge/.template-stamp", contextText, "Pack must exclude AI Bridge workspace files.");
         ScenarioAssert.DoesNotContain("ai-bridge/index.xml", contextText, "Pack must exclude index.xml.");
     }
 
@@ -361,14 +366,28 @@ public static class ScenarioCatalog
         await workspace.CreateDotNetDummyProjectAsync();
         await context.Cli.RunAsync(workspace, "init");
 
-        // Simulate a stale version stamp
-        workspace.WriteText("ai-bridge/state.xml", """
-        <ai-bridge-state version="0.0.0" />
-        """);
+        // Simulate a stale template stamp (templates changed since the workspace was set up)
+        workspace.WriteText("ai-bridge/.template-stamp", "stale-stamp");
 
         var result = await context.Cli.RunAsync(workspace, "pack");
 
         ScenarioAssert.NotEqual(0, result.ExitCode, "Pack should fail on version mismatch.");
+        ScenarioAssert.Contains("migrate", result.CombinedOutput, "Pack should tell user to run migrate.");
+    }
+
+    private static async Task PackFailsWhenTemplateFileMissingAsync(ScenarioContext context)
+    {
+        using var workspace = context.CreateWorkspace("pack template missing");
+        await workspace.CreateDotNetDummyProjectAsync();
+        await context.Cli.RunAsync(workspace, "init");
+
+        // Stamp is still valid, but an extracted skill file was deleted
+        ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/skills/ai-tracker-skill.md"));
+        File.Delete(workspace.PathFor("ai-bridge/skills/ai-tracker-skill.md"));
+
+        var result = await context.Cli.RunAsync(workspace, "pack");
+
+        ScenarioAssert.NotEqual(0, result.ExitCode, "Pack should fail when an extracted template file is missing.");
         ScenarioAssert.Contains("migrate", result.CombinedOutput, "Pack should tell user to run migrate.");
     }
 
@@ -393,7 +412,7 @@ public static class ScenarioCatalog
         ScenarioAssert.DoesNotContain("notes.md", contextText, "Pack should exclude aiignored filename.");
         ScenarioAssert.DoesNotContain("ignored-by-git.txt", contextText, "Pack should respect gitignore.");
         ScenarioAssert.DoesNotContain("logo.png", contextText, "Pack should exclude binary file.");
-        ScenarioAssert.DoesNotContain("ai-bridge/state.xml", contextText, "Pack should exclude AI Bridge workspace.");
+        ScenarioAssert.DoesNotContain("ai-bridge/.template-stamp", contextText, "Pack should exclude AI Bridge workspace.");
     }
 
     private static async Task ApplyCreatePatchDeleteAsync(ScenarioContext context)
@@ -452,10 +471,8 @@ public static class ScenarioCatalog
         await workspace.CreateDotNetDummyProjectAsync();
         await context.Cli.RunAsync(workspace, "init");
 
-        // Simulate a stale version stamp
-        workspace.WriteText("ai-bridge/state.xml", """
-        <ai-bridge-state version="0.0.0" />
-        """);
+        // Simulate a stale template stamp (templates changed since the workspace was set up)
+        workspace.WriteText("ai-bridge/.template-stamp", "stale-stamp");
 
         var result = await context.Cli.RunAsync(workspace, "apply");
 
@@ -709,6 +726,83 @@ public static class ScenarioCatalog
         ScenarioAssert.Contains("status=\"done\"", tracker, "Tracker should mark task done.");
         ScenarioAssert.Contains("<focus>2</focus>", tracker, "Tracker should update focus.");
         ScenarioAssert.Contains("Use process-level scenarios", tracker, "Tracker should add decision.");
+    }
+
+    private static async Task TrackerOnlyResetsResponseFileAsync(ScenarioContext context)
+    {
+        using var workspace = context.CreateWorkspace("tracker resets response");
+        await workspace.CreateDotNetDummyProjectAsync();
+        await context.Cli.RunAsync(workspace, "init");
+
+        workspace.WriteText("ai-bridge/artifacts/ai-response.xml", """
+        <ai-response>
+          <tracker>
+            <scope>Tracker only response</scope>
+            <tasks>
+              <task id="1" status="todo">First task</task>
+            </tasks>
+            <focus>1</focus>
+          </tracker>
+        </ai-response>
+        """);
+
+        var result = await context.Cli.RunAsync(workspace, "apply");
+
+        ScenarioAssert.Equal(0, result.ExitCode, "Tracker-only apply should succeed.");
+        ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/artifacts/tracker.xml"));
+        ScenarioAssert.Contains(
+            "Tracker only response",
+            workspace.ReadText("ai-bridge/artifacts/tracker.xml"),
+            "Tracker content should be saved.");
+        ScenarioAssert.Contains(
+            "Paste the AI response XML here",
+            workspace.ReadText("ai-bridge/artifacts/ai-response.xml"),
+            "Response file should reset after a tracker-only apply.");
+    }
+
+    private static async Task TrackerPastedFromStdinAsync(ScenarioContext context)
+    {
+        using var workspace = context.CreateWorkspace("tracker pasted from stdin");
+        await workspace.CreateDotNetDummyProjectAsync();
+        await context.Cli.RunAsync(workspace, "init");
+
+        var emptyPath = Path.Combine(workspace.RootPath, "empty-path");
+        Directory.CreateDirectory(emptyPath);
+
+        const string stdin = """
+        <ai-response>
+          <tracker>
+            <scope>Tracker pasted from stdin</scope>
+            <decisions>
+              <decision id="1">Pasted decision.</decision>
+            </decisions>
+            <tasks>
+              <task id="1" status="todo">Pasted task</task>
+            </tasks>
+            <focus>1</focus>
+          </tracker>
+        </ai-response>
+        """;
+
+        var result = await context.Cli.RunAsync(
+            workspace.RootPath,
+            stdin,
+            new Dictionary<string, string?> { ["PATH"] = emptyPath },
+            "apply",
+            "--paste");
+
+        ScenarioAssert.Equal(0, result.ExitCode, "Pasting a tracker response through stdin should succeed.");
+        ScenarioAssert.Contains("stdin", result.CombinedOutput, "Output should mention stdin fallback.");
+        ScenarioAssert.FileExists(workspace.PathFor("ai-bridge/artifacts/tracker.xml"));
+
+        var tracker = workspace.ReadText("ai-bridge/artifacts/tracker.xml");
+        ScenarioAssert.Contains("Tracker pasted from stdin", tracker, "Pasted tracker scope should be saved.");
+        ScenarioAssert.Contains("Pasted decision.", tracker, "Pasted tracker decision should be saved.");
+        ScenarioAssert.Contains("Pasted task", tracker, "Pasted tracker task should be saved.");
+        ScenarioAssert.Contains(
+            "Paste the AI response XML here",
+            workspace.ReadText("ai-bridge/artifacts/ai-response.xml"),
+            "Response file should reset after applying a pasted tracker response.");
     }
 
     private static async Task PasteFallbackAsync(ScenarioContext context)
