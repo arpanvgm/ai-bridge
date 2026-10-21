@@ -157,7 +157,7 @@ ai-bridge apply
 > [!NOTE]
 > After every run, `ai-response.xml` is reset — even if some changes failed. Changes can't safely be applied twice, so if something fails, ask the AI for a fresh response instead of re-running the old one.
 
-### About the Index
+### About the Index.xml
 
 `ai-bridge init` builds `index.xml` for you: every file in your project, listed by path. There's nothing to analyze or set up before you start — the AI can begin working straight away and request any file by its path.
 
