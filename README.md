@@ -1,4 +1,3 @@
-﻿
 # AI Bridge
 
 [![NuGet](https://img.shields.io/nuget/v/Tools.AIBridge?label=NuGet&logo=nuget)](https://www.nuget.org/packages/Tools.AIBridge)
@@ -111,16 +110,16 @@ Open your AI (Claude, Gemini, Qwen, or ChatGPT) in a fresh chat and upload the i
 
 **Optional — from `ai-bridge/skills/`:**
 
-| File | What it does |
-|------|--------------|
-| `ai-sync-index-skill.md` | Lets the AI fill in missing index purposes, or catch up after you edit files by hand |
-| `ai-tracker-skill.md` | Tracks progress in `ai-bridge/artifacts/tracker.xml` so you can resume in a new chat |
-| `ai-mcp-skill.md` | Only if you use the [MCP Server](src/AIBridge.Mcp/README.md) |
+| File | When to Use |
+|------|-------------|
+| `ai-sync-index-skill.md` | When you want all index purposes filled in at once, or after you've edited files outside of AI Bridge. It reads files in batches and updates their purposes automatically.<br>Ask: *"Please sync the index and fill in all missing purposes."* |
+| `ai-tracker-skill.md` | When working on a multi-step task that might span multiple chat sessions. The AI creates and maintains a `tracker.xml` in `ai-bridge/artifacts/` that records scope, decisions, and task status.<br>Ask: *"[Describe your task]. Create a plan and track progress."*<br>To resume later, start a new chat with the same files plus `tracker.xml`. |
+| `ai-mcp-skill.md` | Only if you use the [MCP Server](src/AIBridge.Mcp/README.md). |
 
 You don't have to upload `index.xml` — the AI will request it itself on its first turn. (Uploading it up front just saves one round trip.)
 
-> [!TIP]
-> **Starting a brand new project?** Nothing special is needed. Tell the AI what you want to build and it will generate the initial code.
+> [!IMPORTANT]
+> **Starting a brand new project?** Because a fresh project contains no source code to index, `index.xml` is not required. Start directly by telling the AI what to build.
 
 ### 2. Ask for a Feature
 
@@ -152,6 +151,9 @@ ai-bridge apply --paste
 ai-bridge apply
 ~~~
 
+> [!TIP]
+> **Prefer hands-free?** Run `ai-bridge apply --watch` instead — it monitors `ai-response.xml` and auto-applies whenever you save a new response to it. Great for rapid back-and-forth sessions.
+
 > [!NOTE]
 > After every run, `ai-response.xml` is reset — even if some changes failed. Changes can't safely be applied twice, so if something fails, ask the AI for a fresh response instead of re-running the old one.
 
@@ -172,7 +174,7 @@ dotnet tool update --global Tools.AIBridge
 ai-bridge migrate
 ~~~
 
-Then re-upload the instruction files to your AI chat. Your `index.xml` purposes and `.aiignore` rules are kept. If `pack` or `apply` tells you the workspace is outdated, run `ai-bridge migrate`. On a fresh clone of a project that already uses AI Bridge, run `ai-bridge init` — the instruction files are git-ignored, so each machine creates its own.
+Then re-upload the instruction files to your AI chat. Your `index.xml` purposes and `.aiignore` rules are kept. If any command tells you the workspace is outdated, run `ai-bridge migrate`. On a fresh clone of a project that already uses AI Bridge, run `ai-bridge init` — the instruction files are git-ignored, so each machine creates its own.
 
 ---
 
@@ -191,7 +193,7 @@ Then re-upload the instruction files to your AI chat. Your `index.xml` purposes 
 
 ## 🛠️ Ecosystem Detection
 
-AI Bridge groups files into **modules** based on your ecosystem — in `index.xml`, in the files it gathers for the AI, and in `pack` output — to keep everything organized:
+AI Bridge groups files into **modules** based on your ecosystem — in `index.xml`, in the files it gathers for the AI, and in `pack` output (if used) — to keep everything organized:
 
 | Ecosystem | Detected By | Grouping |
 |-----------|-------------|----------|
@@ -218,8 +220,6 @@ AI Bridge groups files into **modules** based on your ecosystem — in `index.xm
 | **Headless / SSH** | stdin fallback | Prompts you to manually paste into terminal. |
 
 ---
-
-
 ## 🤝 Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for build instructions and how to submit a PR.
