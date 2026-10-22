@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<<<<<<< HEAD
 <ai-bridge-index lastUpdated="2026-10-22T12:11:19.0449847Z">
+=======
+<ai-bridge-index lastUpdated="2026-10-22T04:25:26.2134674Z">
+>>>>>>> main
   <module name="ai-bridge">
     <file path=".editorconfig" purpose="" />
     <file path=".github/ISSUE_TEMPLATE/bug_report.yml" purpose="" />
