@@ -27,8 +27,11 @@ jobs:
             os: ubuntu-24.04-arm
             asset_name: ai-bridge-linux-arm64.zip
             binary: ai-bridge
+          # macos-13 runners have been retired (jobs wait forever). Native AOT can
+          # cross-compile between macOS x64 and arm64, so the Intel build runs on
+          # the Apple Silicon runner.
           - rid: osx-x64
-            os: macos-13
+            os: macos-latest
             asset_name: ai-bridge-osx-x64.zip
             binary: ai-bridge
           - rid: osx-arm64
