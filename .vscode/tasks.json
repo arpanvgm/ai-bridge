@@ -73,6 +73,24 @@
             "problemMatcher": []
         },
         {
+            "label": "🔨 build AOT binary (local test)",
+            "type": "shell",
+            "command": "dotnet publish ${workspaceFolder}/src/AIBridge.Cli/AIBridge.Cli.csproj -c Release -r linux-x64 -p:PublishAot=true -p:SelfContained=true -o ${workspaceFolder}/publish/test && echo '' && echo '--- Verifying binary ---' && ${workspaceFolder}/publish/test/ai-bridge --version && ${workspaceFolder}/publish/test/ai-bridge --help",
+            "windows": {
+                "command": "dotnet publish '${workspaceFolder}\\src\\AIBridge.Cli\\AIBridge.Cli.csproj' -c Release -r win-x64 -p:PublishAot=true -p:SelfContained=true -o '${workspaceFolder}\\publish\\test'; Write-Host ''; Write-Host '--- Verifying binary ---'; & '${workspaceFolder}\\publish\\test\\ai-bridge.exe' --version; & '${workspaceFolder}\\publish\\test\\ai-bridge.exe' --help"
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "🔨 build AOT binary (local test)",
+            "type": "shell",
+            "command": "dotnet publish ${workspaceFolder}/src/AIBridge.Cli/AIBridge.Cli.csproj -c Release -r linux-x64 -p:PublishAot=true -p:SelfContained=true -o ${workspaceFolder}/publish/test && echo '' && echo '--- Verifying binary ---' && ${workspaceFolder}/publish/test/ai-bridge --version && ${workspaceFolder}/publish/test/ai-bridge --help",
+            "windows": {
+                "command": "dotnet publish '${workspaceFolder}\\src\\AIBridge.Cli\\AIBridge.Cli.csproj' -c Release -r win-x64 -p:PublishAot=true -p:SelfContained=true -o '${workspaceFolder}\\publish\\test'; Write-Host ''; Write-Host '--- Verifying binary ---'; & '${workspaceFolder}\\publish\\test\\ai-bridge.exe' --version; & '${workspaceFolder}\\publish\\test\\ai-bridge.exe' --help"
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
             "label": "🏷️ release: tag & open GitHub",
             "type": "shell",
             "dependsOn": "🔨 build",
