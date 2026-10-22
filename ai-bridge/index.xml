@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ai-bridge-index lastUpdated="2026-10-22T04:25:26.2134674Z">
+<ai-bridge-index lastUpdated="2026-10-22T09:07:48.7586420Z">
   <module name="ai-bridge">
     <file path=".editorconfig" purpose="" />
     <file path=".github/ISSUE_TEMPLATE/bug_report.yml" purpose="" />
     <file path=".github/ISSUE_TEMPLATE/config.yml" purpose="" />
     <file path=".github/ISSUE_TEMPLATE/feature_request.yml" purpose="" />
     <file path=".github/workflows/build.yml" purpose="" />
-    <file path=".vscode/tasks.json" purpose="" />
+    <file path=".vscode/tasks.json" purpose="VS Code task definitions for build, pack, local test, NuGet publish for CLI and MCP, and release tagging. The release task auto-reads the version from AIBridge.Cli.csproj, creates and pushes the git tag, then opens the GitHub Release creation page in the browser." />
     <file path="ai-bridge.slnx" purpose="" />
     <file path="workflows/ARCHITECTURE.md" purpose="" />
     <file path="workflows/CLI.md" purpose="" />
