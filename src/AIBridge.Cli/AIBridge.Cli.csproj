@@ -7,6 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>AIBridge.Cli</RootNamespace>
+    <AssemblyName>ai-bridge</AssemblyName>
 
     <!-- Native AOT: produces a self-contained native binary with no .NET dependency -->
     <PublishAot>true</PublishAot>

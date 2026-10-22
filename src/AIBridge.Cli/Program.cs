@@ -35,8 +35,8 @@ packCommand.SetAction(async (parseResult, ct) =>
 
 // ── Apply ──
 var applyCommand = new Command("apply", "Applies ai-response.xml patches to the codebase.");
-var watchOption = new Option<bool>("--watch", "Keep running and auto-apply when ai-response.xml is saved.");
-var pasteOption = new Option<bool>("--paste", "Read directly from clipboard.");
+var watchOption = new Option<bool>("--watch") { Description = "Keep running and auto-apply when ai-response.xml is saved." };
+var pasteOption = new Option<bool>("--paste") { Description = "Read directly from clipboard." };
 applyCommand.Options.Add(watchOption);
 applyCommand.Options.Add(pasteOption);
 applyCommand.SetAction(async (parseResult, ct) =>
