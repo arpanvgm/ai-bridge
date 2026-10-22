@@ -109,10 +109,10 @@ migrateCommand.SetAction(async (parseResult, ct) =>
     logger.Success("✅ AI Bridge migrated successfully! Please re-upload the files in the 'ai-bridge/skills' folder to your AI.");
 });
 
-rootCommand.Subcommands.Add(packCommand);
-rootCommand.Subcommands.Add(applyCommand);
 rootCommand.Subcommands.Add(initCommand);
+rootCommand.Subcommands.Add(applyCommand);
 rootCommand.Subcommands.Add(migrateCommand);
+rootCommand.Subcommands.Add(packCommand);
 
 try
 {

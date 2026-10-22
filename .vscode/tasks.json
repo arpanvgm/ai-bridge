@@ -1,4 +1,4 @@
-﻿
+
 {
     "version": "2.0.0",
     "tasks": [
@@ -81,25 +81,7 @@
             },
             "problemMatcher": "$msCompile"
         },
-        {
-            "label": "🔨 build AOT binary (local test)",
-            "type": "shell",
-            "command": "dotnet publish ${workspaceFolder}/src/AIBridge.Cli/AIBridge.Cli.csproj -c Release -r linux-x64 -p:PublishAot=true -p:SelfContained=true -o ${workspaceFolder}/publish/test && echo '' && echo '--- Verifying binary ---' && ${workspaceFolder}/publish/test/ai-bridge --version && ${workspaceFolder}/publish/test/ai-bridge --help",
-            "windows": {
-                "command": "dotnet publish '${workspaceFolder}\\src\\AIBridge.Cli\\AIBridge.Cli.csproj' -c Release -r win-x64 -p:PublishAot=true -p:SelfContained=true -o '${workspaceFolder}\\publish\\test'; Write-Host ''; Write-Host '--- Verifying binary ---'; & '${workspaceFolder}\\publish\\test\\ai-bridge.exe' --version; & '${workspaceFolder}\\publish\\test\\ai-bridge.exe' --help"
-            },
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "🏷️ release: tag & open GitHub",
-            "type": "shell",
-            "dependsOn": "🔨 build",
-            "command": "VERSION=$(grep -oP '(?<=<Version>)[^<]+' ${workspaceFolder}/src/AIBridge.Cli/AIBridge.Cli.csproj) && echo \"📦 Version: $VERSION\" && git -C ${workspaceFolder} tag \"v$VERSION\" && git -C ${workspaceFolder} push origin \"v$VERSION\" && echo \"✅ Tag v$VERSION pushed.\" && xdg-open \"https://github.com/arpanvgm/ai-bridge/releases/new?tag=v$VERSION&title=v$VERSION\" 2>/dev/null || open \"https://github.com/arpanvgm/ai-bridge/releases/new?tag=v$VERSION&title=v$VERSION\" 2>/dev/null || echo \"👉 Open this URL to create the release: https://github.com/arpanvgm/ai-bridge/releases/new?tag=v$VERSION&title=v$VERSION\"",
-            "windows": {
-                "command": "$version = ([xml](Get-Content '${workspaceFolder}\\src\\AIBridge.Cli\\AIBridge.Cli.csproj')).Project.PropertyGroup.Version; Write-Host \"📦 Version: $version\"; git -C '${workspaceFolder}' tag \"v$version\"; git -C '${workspaceFolder}' push origin \"v$version\"; Write-Host \"✅ Tag v$version pushed.\"; Start-Process \"https://github.com/arpanvgm/ai-bridge/releases/new?tag=v$version&title=v$version\""
-            },
-            "problemMatcher": []
-        }
+        
     ],
     "inputs": [
         {
