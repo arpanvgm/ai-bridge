@@ -25,7 +25,7 @@ var rootCommand = new RootCommand("AI Bridge - Connects your local codebase to A
 
 // ── Pack ──
 var packCommand = new Command("pack", "Packs source files into text context for AI.");
-packCommand.SetHandler(async () =>
+packCommand.SetAction(async (parseResult, ct) =>
 {
     if (!AssertWorkspaceValid(workspaceValidator, projectRoot)) return;
     logger.Info("Packing full AI context...");
@@ -37,12 +37,15 @@ packCommand.SetHandler(async () =>
 var applyCommand = new Command("apply", "Applies ai-response.xml patches to the codebase.");
 var watchOption = new Option<bool>("--watch", "Keep running and auto-apply when ai-response.xml is saved.");
 var pasteOption = new Option<bool>("--paste", "Read directly from clipboard.");
-applyCommand.AddOption(watchOption);
-applyCommand.AddOption(pasteOption);
-applyCommand.SetHandler(async (bool watch, bool paste) =>
+applyCommand.Options.Add(watchOption);
+applyCommand.Options.Add(pasteOption);
+applyCommand.SetAction(async (parseResult, ct) =>
 {
     if (!AssertWorkspaceValid(workspaceValidator, projectRoot)) return;
     logger.Info("Applying AI code changes...");
+
+    var watch = parseResult.GetValue(watchOption);
+    var paste = parseResult.GetValue(pasteOption);
 
     if (watch)
     {
@@ -86,11 +89,11 @@ applyCommand.SetHandler(async (bool watch, bool paste) =>
     {
         await RunApplyAsync(paste);
     }
-}, watchOption, pasteOption);
+});
 
 // ── Init ──
 var initCommand = new Command("init", $"Scaffolds {FileNames.AiIgnore}, {FolderNames.AutoIndexMode}/, and {FolderNames.Skills}/ for a new project.");
-initCommand.SetHandler(async () =>
+initCommand.SetAction(async (parseResult, ct) =>
 {
     await workspaceSetupService.SetupAsync(projectRoot);
     stateService.InitState();
@@ -99,21 +102,21 @@ initCommand.SetHandler(async () =>
 
 // ── Migrate ──
 var migrateCommand = new Command("migrate", "Updates local project AI instructions to match the globally installed tool version.");
-migrateCommand.SetHandler(async () =>
+migrateCommand.SetAction(async (parseResult, ct) =>
 {
     await workspaceSetupService.SetupAsync(projectRoot);
     stateService.InitState();
     logger.Success("✅ AI Bridge migrated successfully! Please re-upload the files in the 'ai-bridge/skills' folder to your AI.");
 });
 
-rootCommand.AddCommand(packCommand);
-rootCommand.AddCommand(applyCommand);
-rootCommand.AddCommand(initCommand);
-rootCommand.AddCommand(migrateCommand);
+rootCommand.Subcommands.Add(packCommand);
+rootCommand.Subcommands.Add(applyCommand);
+rootCommand.Subcommands.Add(initCommand);
+rootCommand.Subcommands.Add(migrateCommand);
 
 try
 {
-    var result = await rootCommand.InvokeAsync(args);
+    var result = await rootCommand.Parse(args).InvokeAsync();
     return Environment.ExitCode != 0 ? Environment.ExitCode : result;
 }
 catch (Exception ex) { logger.Error($"Fatal error: {ex.Message}"); return 2; }
@@ -169,8 +172,5 @@ async Task RunApplyAsync(bool paste)
     }
 
     // Always reset the response file after running, regardless of success or failure.
-    // Since patches are not idempotent, if a run partially fails, we want the user
-    // to ask the AI for a NEW response containing only the fixes, rather than
-    // re-running the old file and causing previously successful patches to fail.
     await inputService.ResetInputFileAsync(inputFile);
 }

@@ -1,0 +1,64 @@
+﻿
+name: Publish Native Binaries
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    name: ${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - rid: win-x64
+            os: windows-latest
+            asset_name: ai-bridge-win-x64.zip
+            binary: ai-bridge.exe
+          - rid: linux-x64
+            os: ubuntu-latest
+            asset_name: ai-bridge-linux-x64.zip
+            binary: ai-bridge
+          - rid: osx-x64
+            os: macos-13
+            asset_name: ai-bridge-osx-x64.zip
+            binary: ai-bridge
+          - rid: osx-arm64
+            os: macos-latest
+            asset_name: ai-bridge-osx-arm64.zip
+            binary: ai-bridge
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish Native AOT binary
+        run: >
+          dotnet publish src/AIBridge.Cli/AIBridge.Cli.csproj
+          -c Release
+          -r ${{ matrix.rid }}
+          -p:PublishAot=true
+          -p:SelfContained=true
+          -o publish/${{ matrix.rid }}
+
+      - name: Zip binary (Windows)
+        if: runner.os == 'Windows'
+        run: Compress-Archive -Path publish/${{ matrix.rid }}/${{ matrix.binary }} -DestinationPath ${{ matrix.asset_name }}
+        shell: pwsh
+
+      - name: Zip binary (Unix)
+        if: runner.os != 'Windows'
+        run: zip -j ${{ matrix.asset_name }} publish/${{ matrix.rid }}/${{ matrix.binary }}
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.asset_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
