@@ -1,3 +1,4 @@
+﻿
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
@@ -6,12 +7,17 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>AIBridge.Cli</RootNamespace>
-    <IsAotCompatible>true</IsAotCompatible>
+    <AssemblyName>ai-bridge</AssemblyName>
+
+    <!-- Native AOT: produces a self-contained native binary with no .NET dependency -->
+    <PublishAot>true</PublishAot>
+    <SelfContained>true</SelfContained>
+    <InvariantGlobalization>true</InvariantGlobalization>
 
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>ai-bridge</ToolCommandName>
     <PackageId>Tools.AIBridge</PackageId>
-    <Version>1.0.13</Version>
+    <Version>1.0.14</Version>
     <Authors>Arpan</Authors>
     <Description>A lightweight, language-agnostic CLI tool for packing project source code into AI-readable context and applying AI-generated code changes back to your codebase.</Description>
     <PackageTags>ai;chatgpt;claude;gemini;cli;tool;pack;apply;context</PackageTags>
@@ -29,7 +35,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+    <PackageReference Include="System.CommandLine" Version="2.0.1" />
   </ItemGroup>
 
 </Project>

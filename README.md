@@ -1,7 +1,8 @@
+﻿
 # AI Bridge
 
+[![GitHub Release](https://img.shields.io/github/v/release/arpanvgm/ai-bridge?label=Download&logo=github)](https://github.com/arpanvgm/ai-bridge/releases/latest)
 [![NuGet](https://img.shields.io/nuget/v/Tools.AIBridge?label=NuGet&logo=nuget)](https://www.nuget.org/packages/Tools.AIBridge)
-[![.NET](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet)](https://dotnet.microsoft.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > **Index your project → Chat with any AI chatbot → Apply changes back.** No API keys, no extensions, no lock-in.
@@ -28,30 +29,87 @@ AI Bridge keeps your workflow simple:
 2. **Chat:** The AI reads the map and asks for the specific files it needs — nothing more. You hand them over with one command.
 3. **Apply:** The AI replies with code changes, and one command applies them to your project and keeps the map up to date.
 
-**Optional: MCP Server:** A local `.NET` server you can run alongside the CLI to let AI clients (like Claude Desktop) connect directly and apply changes without you having to copy/paste. [Read the MCP Guide here](src/AIBridge.Mcp/README.md).
+**Optional: MCP Server:** A local MCP server you can run alongside the CLI to let AI clients (like Claude Desktop) connect directly and apply changes without copy/paste. [Read the MCP Guide here](src/AIBridge.Mcp/README.md).
 
 ---
 
-## ⚙️ Prerequisites & Installation
+## ⚙️ Installation
 
-- **[.NET 10 SDK](https://dotnet.microsoft.com/download)** installed on your machine.
-- **Git** installed and on your PATH. AI Bridge uses `git ls-files` to automatically respect your `.gitignore` rules.
-- A browser AI account (Claude, Gemini, Qwen, or ChatGPT).
+The only prerequisite for any installation method is **Git** — AI Bridge uses `git ls-files` to automatically respect your `.gitignore` rules.
 
 > [!TIP]
-> **Which AI model should I use?** Pick a thinking or reasoning "High" model (e.g., Claude 4.6 Sonnet, Gemini 3.1 Pro, Qwen 3.7 Max/Plus) — they produce significantly better, bug-free code.
+> **Which AI model should I use?** Pick a thinking or reasoning model (e.g., Claude Sonnet, Gemini Pro, Qwen Max) — they produce significantly better, bug-free code.
 
-Install the tool globally using the .NET CLI:
+### Option 1 — Native binary (recommended, no .NET required)
+
+A single self-contained executable. No runtime, no SDK, no framework needed.
+
+**macOS and Linux:**
+~~~bash
+curl -fsSL https://raw.githubusercontent.com/arpanvgm/ai-bridge/main/install.sh | bash
+~~~
+
+**Windows (PowerShell):**
+~~~powershell
+irm https://raw.githubusercontent.com/arpanvgm/ai-bridge/main/install.ps1 | iex
+~~~
+
+Both scripts automatically:
+- Detect your OS and CPU architecture
+- Download the correct binary from the [latest GitHub Release](https://github.com/arpanvgm/ai-bridge/releases/latest)
+- Place it in `~/.ai-bridge/bin/` and add it to your `PATH`
+- On macOS: remove the Gatekeeper quarantine attribute
+
+After install, **restart your terminal**, then verify:
+~~~bash
+ai-bridge --version
+~~~
+
+> [!NOTE]
+> To update to a newer version, just re-run the install script. It always downloads the latest release.
+
+#### Manual download
+
+If you prefer not to pipe to bash, download the binary for your platform directly from the [Releases page](https://github.com/arpanvgm/ai-bridge/releases/latest):
+
+| Platform | File |
+|----------|------|
+| Windows (64-bit) | `ai-bridge-win-x64.zip` |
+| macOS (Apple Silicon) | `ai-bridge-osx-arm64.zip` |
+| macOS (Intel) | `ai-bridge-osx-x64.zip` |
+| Linux (64-bit) | `ai-bridge-linux-x64.zip` |
+
+Unzip the archive, place the binary somewhere on your `PATH`, and run `ai-bridge --version` to verify.
+On macOS, you may need to run `xattr -d com.apple.quarantine ./ai-bridge` before first use.
+
+---
+
+### Option 2 — dotnet tool (for .NET developers)
+
+If you already have the [.NET 10 SDK](https://dotnet.microsoft.com/download) installed, you can install AI Bridge as a global dotnet tool:
+
 ~~~bash
 dotnet tool install --global Tools.AIBridge
 ~~~
-*(To update later: `dotnet tool update --global Tools.AIBridge`, then run `ai-bridge migrate` in your projects — see [Updating AI Bridge](#️-updating-ai-bridge))* — [View on NuGet →](https://www.nuget.org/packages/Tools.AIBridge)
+
+[View on NuGet →](https://www.nuget.org/packages/Tools.AIBridge)
+
+To update later:
+~~~bash
+dotnet tool update --global Tools.AIBridge
+ai-bridge migrate
+~~~
+
+---
 
 <details>
 <summary><b>⚡ TL;DR — Try it in 60 seconds</b></summary>
 
 ~~~bash
-dotnet tool install --global Tools.AIBridge
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/arpanvgm/ai-bridge/main/install.sh | bash
+
+# then:
 cd /path/to/your-project
 ai-bridge init
 # Upload the 4 files in ai-bridge/AutoIndexMode/ to your AI chat, then ask for a feature or a fix
@@ -167,14 +225,34 @@ Each entry also has a short one-line `purpose`, which helps the AI decide which 
 
 ## ⬆️ Updating AI Bridge
 
-The instruction files in `ai-bridge/` come from the version of the tool you have installed. After updating the tool, refresh them:
+### Native binary
+
+Re-run the install script — it always fetches the latest release:
+
+~~~bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/arpanvgm/ai-bridge/main/install.sh | bash
+
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/arpanvgm/ai-bridge/main/install.ps1 | iex
+~~~
+
+Then run `ai-bridge migrate` in each of your projects to refresh the AI instruction files:
+~~~bash
+ai-bridge migrate
+~~~
+
+> [!NOTE]
+> If any command tells you the workspace is outdated, run `ai-bridge migrate`.
+
+### dotnet tool
 
 ~~~bash
 dotnet tool update --global Tools.AIBridge
 ai-bridge migrate
 ~~~
 
-Then re-upload the instruction files to your AI chat. Your `index.xml` purposes and `.aiignore` rules are kept. If any command tells you the workspace is outdated, run `ai-bridge migrate`. On a fresh clone of a project that already uses AI Bridge, run `ai-bridge init` — the instruction files are git-ignored, so each machine creates its own.
+Then re-upload the instruction files to your AI chat. Your `index.xml` purposes and `.aiignore` rules are always kept. If any command tells you the workspace is outdated, run `ai-bridge migrate`. On a fresh clone of a project that already uses AI Bridge, run `ai-bridge init` — the instruction files are git-ignored, so each machine needs its own copy.
 
 ---
 
@@ -220,6 +298,7 @@ AI Bridge groups files into **modules** based on your ecosystem — in `index.xm
 | **Headless / SSH** | stdin fallback | Prompts you to manually paste into terminal. |
 
 ---
+
 ## 🤝 Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for build instructions and how to submit a PR.

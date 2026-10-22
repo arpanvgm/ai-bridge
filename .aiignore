@@ -20,3 +20,9 @@ TestResults/
 /LICENSE
 /SECURITY.md
 
+/src/AIBridge.Core/Templates/1-SimpleMode
+/src/AIBridge.Core/Templates/2-AdvancedMode
+
+cloudflared_setup_guide.md
+
+/workflows

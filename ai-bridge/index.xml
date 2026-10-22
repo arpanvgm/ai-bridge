@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ai-bridge-index lastUpdated="2026-10-09T10:50:23.8051923Z">
+<ai-bridge-index lastUpdated="2026-10-22T04:25:26.2134674Z">
   <module name="ai-bridge">
     <file path=".editorconfig" purpose="" />
     <file path=".github/ISSUE_TEMPLATE/bug_report.yml" purpose="" />
@@ -12,11 +12,15 @@
     <file path="workflows/CLI.md" purpose="" />
     <file path="workflows/CORE.md" purpose="" />
     <file path="workflows/MCP.md" purpose="" />
+    <file path=".github/workflows/publish.yml" purpose="GitHub Actions release workflow. Builds Native AOT self-contained binaries for win-x64, linux-x64, linux-arm64, osx-x64, and osx-arm64 on native runners, then attaches them as assets to the GitHub Release." />
+    <file path="install.sh" purpose="Bash installer for macOS and Linux. Detects OS/arch, downloads the correct binary from the latest GitHub Release, installs to ~/.ai-bridge/bin/, updates the user's shell profile, and always cleans up temp files via EXIT trap." />
+    <file path="install.ps1" purpose="PowerShell installer for Windows. Detects ARM64 and exits cleanly, downloads win-x64 binary, installs to %USERPROFILE%\.ai-bridge\bin\, updates both persistent user PATH and current session PATH, and cleans up temp files via try/finally." />
+    <file path="README.md" purpose="Project documentation. Native binary install (curl/irm one-liners) is the primary install path; dotnet tool is the secondary option for existing .NET developers. Covers all commands, workflow, ecosystem detection, and clipboard support." />
   </module>
   <module name="AIBridge.Cli">
     <file path="src/AIBridge.Cli/Abstractions/IInputProvider.cs" purpose="" />
-    <file path="src/AIBridge.Cli/AIBridge.Cli.csproj" purpose="" />
-    <file path="src/AIBridge.Cli/Program.cs" purpose="" />
+    <file path="src/AIBridge.Cli/AIBridge.Cli.csproj" purpose="CLI project file. Targets net10.0, configured for Native AOT self-contained publishing and dotnet tool packaging. References System.CommandLine 2.0.1." />
+    <file path="src/AIBridge.Cli/Program.cs" purpose="CLI entry point. Defines all commands (pack, apply, init, migrate) using the System.CommandLine 2.0.1 stable API (SetAction / ParseResult.GetValue)." />
     <file path="src/AIBridge.Cli/Providers/ConsoleInputProvider.cs" purpose="" />
     <file path="src/AIBridge.Cli/Providers/ConsoleLogger.cs" purpose="" />
     <file path="src/AIBridge.Cli/Services/InputService.cs" purpose="" />
