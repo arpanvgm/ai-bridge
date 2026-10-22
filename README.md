@@ -57,7 +57,7 @@ irm https://raw.githubusercontent.com/arpanvgm/ai-bridge/main/install.ps1 | iex
 Both scripts automatically:
 - Detect your OS and CPU architecture
 - Download the correct binary from the [latest GitHub Release](https://github.com/arpanvgm/ai-bridge/releases/latest)
-- Place it in `~/.ai-bridge/bin/` and add it to your `PATH`
+- Place it in `~/.ai-bridge/bin/` (`%USERPROFILE%\.ai-bridge\bin\` on Windows) and add it to your `PATH`
 - On macOS: remove the Gatekeeper quarantine attribute
 
 After install, **restart your terminal**, then verify:
@@ -78,9 +78,13 @@ If you prefer not to pipe to bash, download the binary for your platform directl
 | macOS (Apple Silicon) | `ai-bridge-osx-arm64.zip` |
 | macOS (Intel) | `ai-bridge-osx-x64.zip` |
 | Linux (64-bit) | `ai-bridge-linux-x64.zip` |
+| Linux (ARM64) | `ai-bridge-linux-arm64.zip` |
 
 Unzip the archive, place the binary somewhere on your `PATH`, and run `ai-bridge --version` to verify.
 On macOS, you may need to run `xattr -d com.apple.quarantine ./ai-bridge` before first use.
+
+> [!NOTE]
+> There is no native Windows ARM64 build yet.
 
 ---
 
@@ -108,6 +112,9 @@ ai-bridge migrate
 ~~~bash
 # macOS / Linux
 curl -fsSL https://raw.githubusercontent.com/arpanvgm/ai-bridge/main/install.sh | bash
+
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/arpanvgm/ai-bridge/main/install.ps1 | iex
 
 # then:
 cd /path/to/your-project
@@ -237,18 +244,17 @@ curl -fsSL https://raw.githubusercontent.com/arpanvgm/ai-bridge/main/install.sh 
 irm https://raw.githubusercontent.com/arpanvgm/ai-bridge/main/install.ps1 | iex
 ~~~
 
-Then run `ai-bridge migrate` in each of your projects to refresh the AI instruction files:
-~~~bash
-ai-bridge migrate
-~~~
-
-> [!NOTE]
-> If any command tells you the workspace is outdated, run `ai-bridge migrate`.
-
 ### dotnet tool
 
 ~~~bash
 dotnet tool update --global Tools.AIBridge
+~~~
+
+### After updating (both methods)
+
+Run `ai-bridge migrate` in each of your projects to refresh the AI instruction files:
+
+~~~bash
 ai-bridge migrate
 ~~~
 
