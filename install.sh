@@ -8,8 +8,17 @@ set -euo pipefail
 REPO="arpanvgm/ai-bridge"
 BIN_NAME="ai-bridge"
 INSTALL_DIR="${HOME}/.ai-bridge/bin"
+TMP_DIR=""
 
-# ── Detect OS and architecture ─────────────────────────────────
+# ── Cleanup trap — always remove temp dir, even on error ──────
+cleanup() {
+  if [ -n "${TMP_DIR}" ] && [ -d "${TMP_DIR}" ]; then
+    rm -rf "${TMP_DIR}"
+  fi
+}
+trap cleanup EXIT
+
+# ── Detect OS and architecture ────────────────────────────────
 OS="$(uname -s)"
 ARCH="$(uname -m)"
 
@@ -25,7 +34,7 @@ case "${OS}" in
     case "${ARCH}" in
       x86_64)  RID="linux-x64"   ;;
       aarch64) RID="linux-arm64" ;;
-      *)        echo "❌ Unsupported Linux architecture: ${ARCH}"; exit 1 ;;
+      *)       echo "❌ Unsupported Linux architecture: ${ARCH}"; exit 1 ;;
     esac
     ;;
   *)
@@ -36,7 +45,7 @@ esac
 
 ASSET_NAME="ai-bridge-${RID}.zip"
 
-# ── Fetch latest release version ──────────────────────────────
+# ── Fetch latest release version ─────────────────────────────
 echo "🔍 Fetching latest AI Bridge release..."
 LATEST_TAG="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" \
   | grep '"tag_name"' \
@@ -49,7 +58,7 @@ fi
 
 echo "📦 Latest version: ${LATEST_TAG}"
 
-# ── Download and extract ───────────────────────────────────────
+# ── Download and extract ──────────────────────────────────────
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${LATEST_TAG}/${ASSET_NAME}"
 TMP_DIR="$(mktemp -d)"
 TMP_ZIP="${TMP_DIR}/${ASSET_NAME}"
@@ -62,46 +71,59 @@ mkdir -p "${INSTALL_DIR}"
 unzip -oq "${TMP_ZIP}" -d "${TMP_DIR}"
 mv "${TMP_DIR}/${BIN_NAME}" "${INSTALL_DIR}/${BIN_NAME}"
 chmod +x "${INSTALL_DIR}/${BIN_NAME}"
-rm -rf "${TMP_DIR}"
 
 # ── Remove macOS quarantine attribute ─────────────────────────
 if [ "${OS}" = "Darwin" ]; then
   xattr -d com.apple.quarantine "${INSTALL_DIR}/${BIN_NAME}" 2>/dev/null || true
 fi
 
-# ── Add to PATH ────────────────────────────────────────────────
+# ── Add to PATH ───────────────────────────────────────────────
+PATH_LINE="export PATH=\"\${HOME}/.ai-bridge/bin:\${PATH}\""
+
 add_to_path() {
   local PROFILE_FILE="$1"
-  local PATH_LINE="export PATH=\"\${HOME}/.ai-bridge/bin:\${PATH}\""
-  if [ -f "${PROFILE_FILE}" ] && grep -q '\.ai-bridge/bin' "${PROFILE_FILE}"; then
-    return 0  # already present
+  if grep -q '\.ai-bridge/bin' "${PROFILE_FILE}" 2>/dev/null; then
+    return 0  # already present — nothing to do
   fi
-  if [ -f "${PROFILE_FILE}" ]; then
-    echo "" >> "${PROFILE_FILE}"
-    echo "# AI Bridge" >> "${PROFILE_FILE}"
-    echo "${PATH_LINE}" >> "${PROFILE_FILE}"
-    echo "✅ Added AI Bridge to PATH in ${PROFILE_FILE}"
-  fi
+  {
+    echo ""
+    echo "# AI Bridge"
+    echo "${PATH_LINE}"
+  } >> "${PROFILE_FILE}"
+  echo "✅ Added AI Bridge to PATH in ${PROFILE_FILE}"
 }
 
-case "${SHELL}" in
-  */zsh)
-    add_to_path "${HOME}/.zshrc"
+SHELL_NAME="$(basename "${SHELL:-sh}")"
+
+case "${SHELL_NAME}" in
+  zsh)
+    ZSHRC="${ZDOTDIR:-${HOME}}/.zshrc"
+    touch "${ZSHRC}"
+    add_to_path "${ZSHRC}"
     ;;
-  */bash)
+  bash)
+    touch "${HOME}/.bashrc"
     add_to_path "${HOME}/.bashrc"
-    add_to_path "${HOME}/.bash_profile"
+    # .bash_profile is only used by macOS login shells
+    if [ "${OS}" = "Darwin" ] && [ -f "${HOME}/.bash_profile" ]; then
+      add_to_path "${HOME}/.bash_profile"
+    fi
     ;;
-  */fish)
-    fish -c "fish_add_path ${INSTALL_DIR}" 2>/dev/null || \
-      echo "⚠️  Add ${INSTALL_DIR} to your fish PATH manually."
+  fish)
+    if command -v fish >/dev/null 2>&1; then
+      fish -c "fish_add_path ${INSTALL_DIR}"
+      echo "✅ Added AI Bridge to PATH in fish."
+    else
+      echo "⚠️  Could not locate fish. Add ${INSTALL_DIR} to your PATH manually."
+    fi
     ;;
   *)
+    touch "${HOME}/.profile"
     add_to_path "${HOME}/.profile"
     ;;
 esac
 
-# ── Done ───────────────────────────────────────────────────────
+# ── Done ──────────────────────────────────────────────────────
 echo ""
 echo "✅ AI Bridge ${LATEST_TAG} installed to ${INSTALL_DIR}/${BIN_NAME}"
 echo ""

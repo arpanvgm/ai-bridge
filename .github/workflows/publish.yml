@@ -20,6 +20,10 @@ jobs:
             os: ubuntu-latest
             asset_name: ai-bridge-linux-x64.zip
             binary: ai-bridge
+          - rid: linux-arm64
+            os: ubuntu-24.04-arm
+            asset_name: ai-bridge-linux-arm64.zip
+            binary: ai-bridge
           - rid: osx-x64
             os: macos-13
             asset_name: ai-bridge-osx-x64.zip
