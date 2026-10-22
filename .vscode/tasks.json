@@ -1,3 +1,4 @@
+﻿
 {
     "version": "2.0.0",
     "tasks": [
@@ -68,6 +69,16 @@
             "command": "dotnet nuget push ${workspaceFolder}/src/AIBridge.Mcp/bin/Release/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${input:nugetKey} --skip-duplicate",
             "windows": {
                 "command": "dotnet nuget push \"${workspaceFolder}\\src\\AIBridge.Mcp\\bin\\Release\\*.nupkg\" --source https://api.nuget.org/v3/index.json --api-key ${input:nugetKey} --skip-duplicate"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "🏷️ release: tag & open GitHub",
+            "type": "shell",
+            "dependsOn": "🔨 build",
+            "command": "VERSION=$(grep -oP '(?<=<Version>)[^<]+' ${workspaceFolder}/src/AIBridge.Cli/AIBridge.Cli.csproj) && echo \"📦 Version: $VERSION\" && git -C ${workspaceFolder} tag \"v$VERSION\" && git -C ${workspaceFolder} push origin \"v$VERSION\" && echo \"✅ Tag v$VERSION pushed.\" && xdg-open \"https://github.com/arpanvgm/ai-bridge/releases/new?tag=v$VERSION&title=v$VERSION\" 2>/dev/null || open \"https://github.com/arpanvgm/ai-bridge/releases/new?tag=v$VERSION&title=v$VERSION\" 2>/dev/null || echo \"👉 Open this URL to create the release: https://github.com/arpanvgm/ai-bridge/releases/new?tag=v$VERSION&title=v$VERSION\"",
+            "windows": {
+                "command": "$version = ([xml](Get-Content '${workspaceFolder}\\src\\AIBridge.Cli\\AIBridge.Cli.csproj')).Project.PropertyGroup.Version; Write-Host \"📦 Version: $version\"; git -C '${workspaceFolder}' tag \"v$version\"; git -C '${workspaceFolder}' push origin \"v$version\"; Write-Host \"✅ Tag v$version pushed.\"; Start-Process \"https://github.com/arpanvgm/ai-bridge/releases/new?tag=v$version&title=v$version\""
             },
             "problemMatcher": []
         }
