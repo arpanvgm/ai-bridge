@@ -42,6 +42,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # The git tag is the only source of the version: tag v1.2.3 builds version 1.2.3.
+      - name: Get version from tag
+        id: version
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if ! [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Release tag '${GITHUB_REF_NAME}' must look like v1.2.3 or v1.2.3-beta.1"
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -54,13 +66,16 @@ jobs:
           -r ${{ matrix.rid }}
           -p:PublishAot=true
           -p:SelfContained=true
+          -p:Version=${{ steps.version.outputs.version }}
           -o publish/${{ matrix.rid }}
 
+      # Windows ships a .zip (PowerShell can extract it natively).
       - name: Package binary (Windows)
         if: runner.os == 'Windows'
         run: Compress-Archive -Path publish/${{ matrix.rid }}/${{ matrix.binary }} -DestinationPath ${{ matrix.asset_name }}
         shell: pwsh
 
+      # Linux and macOS ship a .tar.gz — tar is available everywhere, unzip is not.
       - name: Package binary (Unix)
         if: runner.os != 'Windows'
         run: tar -czf ${{ matrix.asset_name }} -C publish/${{ matrix.rid }} ${{ matrix.binary }}
@@ -71,3 +86,53 @@ jobs:
           files: ${{ matrix.asset_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  nuget:
+    name: NuGet package
+    needs: build
+    # Pre-releases are never published to NuGet.
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # lets this job get a short-lived NuGet key (Trusted Publishing)
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Get version from tag
+        id: version
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if ! [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Release tag '${GITHUB_REF_NAME}' must look like v1.2.3 or v1.2.3-beta.1"
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      # A dotnet tool is a normal framework-dependent package, so AOT is switched off here.
+      - name: Pack dotnet tool
+        run: >
+          dotnet pack src/AIBridge.Cli/AIBridge.Cli.csproj
+          -c Release
+          -p:Version=${{ steps.version.outputs.version }}
+          -p:PublishAot=false
+          -p:SelfContained=false
+          -o nupkg
+
+      # The temporary NuGet key is valid for 1 hour, so log in right before pushing.
+      - name: NuGet login (Trusted Publishing)
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: arpanvgm
+
+      - name: NuGet push
+        run: dotnet nuget push nupkg/*.nupkg --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
