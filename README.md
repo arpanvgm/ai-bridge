@@ -1,4 +1,5 @@
-﻿# AI Bridge
+﻿
+# AI Bridge
 
 [![GitHub Release](https://img.shields.io/github/v/release/arpanvgm/ai-bridge?label=Download&logo=github)](https://github.com/arpanvgm/ai-bridge/releases/latest)
 [![NuGet](https://img.shields.io/nuget/v/Tools.AIBridge?label=NuGet&logo=nuget)](https://www.nuget.org/packages/Tools.AIBridge)
@@ -21,7 +22,7 @@
 
 ---
 
-## 🌟 The Big Picture
+## 🌟 How It Works
 
 AI Bridge keeps your workflow simple:
 1. **Index:** `ai-bridge init` creates a lightweight map (`index.xml`) of your project. You don't need to prepare or analyze it first.
@@ -32,11 +33,11 @@ Here is the whole flow:
 
 ~~~mermaid
 flowchart LR
-    A["ai-bridge init"] --> B["Upload instructions to AI"]
+    A["ai-bridge init"] --> B["Upload instruction files to AI chat"]
     B --> C["Ask for a feature or fix"]
-    C -->|"AI requests files"| D["ai-bridge apply --paste"]
+    C -->|"AI requests files"| D["ai-bridge apply --paste<br/>(gathers the files)"]
     D -->|"Upload the files"| E["AI writes the changes"]
-    E -->|"Copy the reply"| F["ai-bridge apply --paste"]
+    E -->|"Copy the reply"| F["ai-bridge apply --paste<br/>(applies the changes)"]
     F --> G["✅ Project updated"]
 ~~~
 
@@ -46,7 +47,7 @@ flowchart LR
 
 ## ⚙️ Installation
 
-Pick one of the options below. Options 1 and 2 install a single self-contained executable — no .NET, no runtime, no SDK needed.
+Pick one of the options below. Options 1 and 2 install a single self-contained executable — no .NET, no runtime, no SDK needed. Options 2 and 3 are collapsed below Option 1.
 
 ### Option 1 — Install script (recommended)
 
@@ -72,6 +73,9 @@ ai-bridge --version
 ~~~
 
 ---
+
+<details>
+<summary><b>Other ways to install: manual download, dotnet tool</b></summary>
 
 ### Option 2 — Manual download
 
@@ -103,7 +107,11 @@ dotnet tool install --global Tools.AIBridge
 
 [View on NuGet →](https://www.nuget.org/packages/Tools.AIBridge)
 
-To update it later, see [Updating AI Bridge](#️-updating-ai-bridge).
+</details>
+
+---
+
+**Already installed?** To update later, see [Updating AI Bridge](#️-updating-ai-bridge).
 
 ---
 
@@ -132,9 +140,9 @@ ai-bridge apply --paste
 ## 🚀 Getting Started
 
 > [!NOTE]
-> **Git is recommended.** AI Bridge uses `git ls-files` so your `.gitignore` is respected automatically. If Git isn't installed or the folder isn't a Git repository, AI Bridge falls back to built-in exclusion rules (such as `node_modules`, `bin` and `obj`) and shows a warning.
+> **Git is recommended.** AI Bridge uses `git ls-files` so your `.gitignore` is respected automatically. It also lets you review the changes AI Bridge made (`git diff`) before pushing to your repository.
 
-### Step 1 — Initialize your project
+### Step 1 — Initialize AI Bridge in your codebase
 
 Open your terminal, navigate to your project directory, and run the `init` command.
 
@@ -175,6 +183,9 @@ Open your AI (Claude, Gemini, Qwen, or ChatGPT) in a fresh chat and upload the i
 | `ai-response-skill.md` | Teaches the AI how to write code changes in a format AI Bridge can apply |
 | `ai-update-index-skill.md` | Teaches the AI how to keep the project map up to date |
 
+> [!TIP]
+> **Don't want to re-upload these files for every chat?** Most AI chatbots have a project-style feature that keeps files and instructions across chats, for example Claude Projects, ChatGPT Projects, or Notebooks in Gemini (Gemini Notebook, formerly NotebookLM). Add the skill files as project files and paste the contents of `ai-system-prompt.md` into the project's instructions. Every new chat then starts ready to go.
+
 **Optional — from `ai-bridge/skills/`:**
 
 | File | When to Use |
@@ -188,9 +199,6 @@ Open your AI (Claude, Gemini, Qwen, or ChatGPT) in a fresh chat and upload the i
 
 > [!IMPORTANT]
 > **Starting a brand new project?** Because a fresh project contains no source code to index, `index.xml` is not required. Start directly by telling the AI what to build.
-
-> [!TIP]
-> **Don't want to re-upload these files for every chat?** If your AI has a *Projects* feature (for example Claude Projects or ChatGPT Projects), add the skill files as project files and paste the contents of `ai-system-prompt.md` into the project's instructions. Every new chat in that project then starts ready to go. After you run `ai-bridge migrate`, update those files in the project.
 
 ### Step 3 — Ask for a feature or a fix
 
