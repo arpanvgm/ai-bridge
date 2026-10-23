@@ -1,3 +1,4 @@
+﻿
 # AI Bridge
 
 [![GitHub Release](https://img.shields.io/github/v/release/arpanvgm/ai-bridge?label=Download&logo=github)](https://github.com/arpanvgm/ai-bridge/releases/latest)
@@ -21,12 +22,24 @@
 
 ---
 
-## 🌟 The Big Picture
+## 🌟 How It Works
 
 AI Bridge keeps your workflow simple:
 1. **Index:** `ai-bridge init` creates a lightweight map (`index.xml`) of your project. You don't need to prepare or analyze it first.
 2. **Chat:** The AI reads the map and asks for the specific files it needs — nothing more. You hand them over with one command.
 3. **Apply:** The AI replies with code changes, and one command applies them to your project and keeps the map up to date.
+
+Here is the whole flow:
+
+~~~mermaid
+flowchart LR
+    A["ai-bridge init"] --> B["Upload instruction files to AI chat"]
+    B --> C["Ask for a feature or fix"]
+    C -->|"AI requests files"| D["ai-bridge apply --paste<br/>(gathers the files)"]
+    D -->|"Upload the files"| E["AI writes the changes"]
+    E -->|"Copy the reply"| F["ai-bridge apply --paste<br/>(applies the changes)"]
+    F --> G["✅ Project updated"]
+~~~
 
 **Optional: MCP Server:** A local MCP server you can run alongside the CLI to let AI clients (like Claude Desktop) connect directly and apply changes without copy/paste. [Read the MCP Guide here](src/AIBridge.Mcp/README.md).
 
@@ -34,14 +47,9 @@ AI Bridge keeps your workflow simple:
 
 ## ⚙️ Installation
 
-The only prerequisite for any installation method is **Git** — AI Bridge uses `git ls-files` to automatically respect your `.gitignore` rules.
+Pick one of the options below. Options 1 and 2 install a single self-contained executable — no .NET, no runtime, no SDK needed. Options 2 and 3 are collapsed below Option 1.
 
-> [!TIP]
-> **Which AI model should I use?** Pick a thinking or reasoning model (e.g., Claude Sonnet, Gemini Pro, Qwen Max) — they produce significantly better, bug-free code.
-
-### Option 1 — Native binary (recommended, no .NET required)
-
-A single self-contained executable. No runtime, no SDK, no framework needed.
+### Option 1 — Install script (recommended)
 
 **macOS and Linux:**
 ~~~bash
@@ -64,12 +72,14 @@ After install, **restart your terminal**, then verify:
 ai-bridge --version
 ~~~
 
-> [!NOTE]
-> To update to a newer version, just re-run the install script. It always downloads the latest release.
+---
 
-#### Manual download
+<details>
+<summary><b>Other ways to install: Option 2 - manual download, Option 3 - dotnet tool</b></summary>
 
-If you prefer not to pipe to bash, download the binary for your platform directly from the [Releases page](https://github.com/arpanvgm/ai-bridge/releases/latest):
+### Option 2 — Manual download
+
+Prefer not to pipe a script into your shell, or working on a restricted or offline machine? Download the binary for your platform directly from the [Releases page](https://github.com/arpanvgm/ai-bridge/releases/latest):
 
 | Platform | File |
 |----------|------|
@@ -87,7 +97,7 @@ On macOS, you may need to run `xattr -d com.apple.quarantine ./ai-bridge` before
 
 ---
 
-### Option 2 — dotnet tool (for .NET developers)
+### Option 3 — dotnet tool (for .NET developers)
 
 If you already have the [.NET 10 SDK](https://dotnet.microsoft.com/download) installed, you can install AI Bridge as a global dotnet tool:
 
@@ -97,37 +107,20 @@ dotnet tool install --global Tools.AIBridge
 
 [View on NuGet →](https://www.nuget.org/packages/Tools.AIBridge)
 
-To update later:
-~~~bash
-dotnet tool update --global Tools.AIBridge
-ai-bridge migrate
-~~~
-
----
-
-<details>
-<summary><b>⚡ TL;DR — Try it in 60 seconds</b></summary>
-
-~~~bash
-# macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/arpanvgm/ai-bridge/main/install.sh | bash
-
-# Windows (PowerShell)
-irm https://raw.githubusercontent.com/arpanvgm/ai-bridge/main/install.ps1 | iex
-
-# then:
-cd /path/to/your-project
-ai-bridge init
-# Upload the 4 files in ai-bridge/AutoIndexMode/ to your AI chat, then ask for a feature or a fix
-# When the AI replies with XML, copy it, then:
-ai-bridge apply --paste
-~~~
-
 </details>
 
 ---
 
+**Already installed?** To update later, see [Updating AI Bridge](#️-updating-ai-bridge).
+
+---
+
 ## 🚀 Getting Started
+
+> [!NOTE]
+> **Git is recommended.** AI Bridge uses `git ls-files` so your `.gitignore` is respected automatically. It also lets you review the changes AI Bridge made (`git diff`) before pushing to your repository.
+
+### Step 1 — Initialize AI Bridge in your codebase
 
 Open your terminal, navigate to your project directory, and run the `init` command.
 
@@ -151,17 +144,12 @@ YourProjectRoot/
 
 Running `init` again is always safe — your `.aiignore` rules and the purposes already stored in `index.xml` are kept.
 
-### Excluding Files with `.aiignore`
+> [!WARNING]
+> **Check your `.aiignore` before your first chat.** It works like `.gitignore` — add glob patterns to hide files from the AI. Everything already in your `.gitignore` is ignored automatically, so use `.aiignore` only for files that are tracked by Git but that the AI doesn't need to see: test fixtures, generated code, large data files, or anything sensitive. Ignored files stay out of the index and are never sent to the AI.
 
-The `.aiignore` file (created by `ai-bridge init`) works like `.gitignore` — add glob patterns to hide files from the AI. Everything already in your `.gitignore` is ignored automatically, so use `.aiignore` only for files that are tracked by Git but that the AI doesn't need to see: test fixtures, generated code, large data files, or anything sensitive. Ignored files stay out of the index and are never sent to the AI.
+### Step 2 — Upload the instructions to your AI
 
----
-
-## 🔄 How It Works
-
-### 1. Start a Chat with Your AI
-
-Open your AI (Claude, Gemini, Qwen, or ChatGPT) in a fresh chat and upload the instruction files from your project:
+Open your AI (Claude, Gemini, Qwen, or ChatGPT) in a fresh chat and upload the instruction files from your project. There is nothing to ask yet — these files just teach the AI how AI Bridge works.
 
 **Required — the four files in `ai-bridge/AutoIndexMode/`:**
 
@@ -172,6 +160,9 @@ Open your AI (Claude, Gemini, Qwen, or ChatGPT) in a fresh chat and upload the i
 | `ai-response-skill.md` | Teaches the AI how to write code changes in a format AI Bridge can apply |
 | `ai-update-index-skill.md` | Teaches the AI how to keep the project map up to date |
 
+> [!TIP]
+> **Don't want to re-upload these files for every chat?** Most AI chatbots have a project-style feature that keeps files and instructions across chats, for example Claude Projects, ChatGPT Projects, or Notebooks in Gemini (Gemini Notebook, formerly NotebookLM). Add the skill files as project files and paste the contents of `ai-system-prompt.md` into the project's instructions. Every new chat then starts ready to go.
+
 **Optional — from `ai-bridge/skills/`:**
 
 | File | When to Use |
@@ -180,30 +171,26 @@ Open your AI (Claude, Gemini, Qwen, or ChatGPT) in a fresh chat and upload the i
 | `ai-tracker-skill.md` | When working on a multi-step task that might span multiple chat sessions. The AI creates and maintains a `tracker.xml` in `ai-bridge/artifacts/` that records scope, decisions, and task status.<br>Ask: *"[Describe your task]. Create a plan and track progress."*<br>To resume later, start a new chat with the same files plus `tracker.xml`. |
 | `ai-mcp-skill.md` | Only if you use the [MCP Server](src/AIBridge.Mcp/README.md). |
 
-You don't have to upload `index.xml` — the AI will request it itself on its first turn. (Uploading it up front just saves one round trip.)
+> [!NOTE]
+> You don't have to upload `index.xml` — the AI will request it itself on its first turn. Uploading it up front just saves one round trip.
 
 > [!IMPORTANT]
 > **Starting a brand new project?** Because a fresh project contains no source code to index, `index.xml` is not required. Start directly by telling the AI what to build.
 
-### 2. Ask for a Feature
+### Step 3 — Ask for a feature or a fix
 
-~~~mermaid
-flowchart LR
-    A["💬 Ask feature"] -->|AI requests files| B["ai-bridge apply --paste"]
-    B -->|Upload context| C["🤖 AI generates code"]
-    C -->|Copy response| D["ai-bridge apply --paste"]
-    D --> E["✅ Updated"]
-~~~
+> [!TIP]
+> **Which AI model should I use?** Pick a thinking or reasoning model (e.g., Claude Sonnet, Gemini Pro, Qwen Max) — they produce significantly better, bug-free code.
 
-1. **Ask for a feature or a fix.**
-2. **Fulfill the Request:**
-   - The AI will output an XML request for files (e.g., `<ai-request><file path="src/app.js" /></ai-request>`).
-   - Copy the request and run `ai-bridge apply --paste`.
-   - The tool will automatically gather those files, save them to **`ai-bridge/artifacts/ai-requested-context.txt`**, and copy them to your clipboard.
-   - Upload or paste that context back into the AI chat.
-3. **Apply the Changes:** The AI generates the final code changes. Copy them and run `ai-bridge apply --paste`.
+Describe what you want in the chat. The AI replies with an XML request listing the files it needs, e.g. `<ai-request><file path="src/app.js" /></ai-request>`. Hand those files over:
 
-### 3. Apply the Changes
+1. Copy the AI's XML request.
+2. Run `ai-bridge apply --paste`. The tool gathers those files, saves them to **`ai-bridge/artifacts/ai-requested-context.txt`**, and copies them to your clipboard.
+3. Upload or paste that context back into the AI chat.
+
+### Step 4 — Apply the changes
+
+The AI now generates the final code changes.
 
 **Option 1 — Clipboard:** Copy the AI's XML response and run:
 ~~~bash
@@ -221,6 +208,8 @@ ai-bridge apply
 > [!NOTE]
 > After every run, `ai-response.xml` is reset — even if some changes failed. Changes can't safely be applied twice, so if something fails, ask the AI for a fresh response instead of re-running the old one.
 
+---
+
 ### About the Index.xml
 
 `ai-bridge init` builds `index.xml` for you: every file in your project, listed by path. There's nothing to analyze or set up before you start — the AI can begin working straight away and request any file by its path.
@@ -231,9 +220,11 @@ Each entry also has a short one-line `purpose`, which helps the AI decide which 
 
 ## ⬆️ Updating AI Bridge
 
-### Native binary
+### 1. Update the tool
 
-Re-run the install script — it always fetches the latest release:
+Use the method you installed with:
+
+**Install script or manual download:** re-run the install script — it always fetches the latest release. (If you installed manually, download the new file from the [Releases page](https://github.com/arpanvgm/ai-bridge/releases/latest) and replace the binary.)
 
 ~~~bash
 # macOS / Linux
@@ -243,27 +234,30 @@ curl -fsSL https://raw.githubusercontent.com/arpanvgm/ai-bridge/main/install.sh 
 irm https://raw.githubusercontent.com/arpanvgm/ai-bridge/main/install.ps1 | iex
 ~~~
 
-### dotnet tool
+**dotnet tool:**
 
 ~~~bash
 dotnet tool update --global Tools.AIBridge
 ~~~
 
-### After updating (both methods)
+### 2. Refresh each project (all install methods)
 
-Run `ai-bridge migrate` in each of your projects to refresh the AI instruction files:
+Run `ai-bridge migrate` in **each project** that uses AI Bridge to refresh its AI instruction files:
 
 ~~~bash
 ai-bridge migrate
 ~~~
 
-Then re-upload the instruction files to your AI chat. Your `index.xml` purposes and `.aiignore` rules are always kept. If any command tells you the workspace is outdated, run `ai-bridge migrate`. On a fresh clone of a project that already uses AI Bridge, run `ai-bridge init` — the instruction files are git-ignored, so each machine needs its own copy.
+Then re-upload the instruction files to your AI chat (or update the files in your AI project). Your `index.xml` purposes and `.aiignore` rules are always kept. If any command tells you the workspace is outdated, run `ai-bridge migrate`.
+
+> [!NOTE]
+> On a fresh clone of a project that already uses AI Bridge, run `ai-bridge init` — the instruction files are git-ignored, so each machine needs its own copy.
 
 ---
 
 ## 📖 Command Reference
 
-| Command | Description |
+| Command&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Description |
 |---------|-------------|
 | `ai-bridge init` | Scaffolds the `ai-bridge/` workspace, `.aiignore`, templates, and the project index |
 | `ai-bridge migrate` | Refreshes the workspace templates after updating the tool (keeps your index and `.aiignore`) |
