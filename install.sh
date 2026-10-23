@@ -1,4 +1,3 @@
-﻿
 #!/usr/bin/env bash
 # AI Bridge — installer for macOS and Linux
 # Usage: curl -fsSL https://raw.githubusercontent.com/arpanvgm/ai-bridge/main/install.sh | bash

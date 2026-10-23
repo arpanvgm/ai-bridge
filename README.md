@@ -1,4 +1,3 @@
-﻿
 # AI Bridge
 
 [![GitHub Release](https://img.shields.io/github/v/release/arpanvgm/ai-bridge?label=Download&logo=github)](https://github.com/arpanvgm/ai-bridge/releases/latest)
