@@ -75,7 +75,7 @@ ai-bridge --version
 ---
 
 <details>
-<summary><b>Other ways to install: manual download, dotnet tool</b></summary>
+<summary><b>Other ways to install: Option 2 - manual download, Option 3 - dotnet tool</b></summary>
 
 ### Option 2 — Manual download
 
@@ -112,28 +112,6 @@ dotnet tool install --global Tools.AIBridge
 ---
 
 **Already installed?** To update later, see [Updating AI Bridge](#️-updating-ai-bridge).
-
----
-
-<details>
-<summary><b>⚡ TL;DR — Try it in 60 seconds</b></summary>
-
-~~~bash
-# macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/arpanvgm/ai-bridge/main/install.sh | bash
-
-# Windows (PowerShell)
-irm https://raw.githubusercontent.com/arpanvgm/ai-bridge/main/install.ps1 | iex
-
-# then:
-cd /path/to/your-project
-ai-bridge init
-# Upload the 4 files in ai-bridge/AutoIndexMode/ to your AI chat, then ask for a feature or a fix
-# When the AI replies with XML, copy it, then:
-ai-bridge apply --paste
-~~~
-
-</details>
 
 ---
 
@@ -205,12 +183,11 @@ Open your AI (Claude, Gemini, Qwen, or ChatGPT) in a fresh chat and upload the i
 > [!TIP]
 > **Which AI model should I use?** Pick a thinking or reasoning model (e.g., Claude Sonnet, Gemini Pro, Qwen Max) — they produce significantly better, bug-free code.
 
-1. **Ask for a feature or a fix.**
-2. **Fulfill the Request:**
-   - The AI will output an XML request for files (e.g., `<ai-request><file path="src/app.js" /></ai-request>`).
-   - Copy the request and run `ai-bridge apply --paste`.
-   - The tool will automatically gather those files, save them to **`ai-bridge/artifacts/ai-requested-context.txt`**, and copy them to your clipboard.
-   - Upload or paste that context back into the AI chat.
+Describe what you want in the chat. The AI replies with an XML request listing the files it needs, e.g. `<ai-request><file path="src/app.js" /></ai-request>`. Hand those files over:
+
+1. Copy the AI's XML request.
+2. Run `ai-bridge apply --paste`. The tool gathers those files, saves them to **`ai-bridge/artifacts/ai-requested-context.txt`**, and copies them to your clipboard.
+3. Upload or paste that context back into the AI chat.
 
 ### Step 4 — Apply the changes
 
@@ -231,6 +208,8 @@ ai-bridge apply
 
 > [!NOTE]
 > After every run, `ai-response.xml` is reset — even if some changes failed. Changes can't safely be applied twice, so if something fails, ask the AI for a fresh response instead of re-running the old one.
+
+---
 
 ### About the Index.xml
 
