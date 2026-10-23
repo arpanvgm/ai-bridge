@@ -144,9 +144,8 @@ YourProjectRoot/
 
 Running `init` again is always safe — your `.aiignore` rules and the purposes already stored in `index.xml` are kept.
 
-#### Excluding Files with `.aiignore`
-
-The `.aiignore` file (created by `ai-bridge init`) works like `.gitignore` — add glob patterns to hide files from the AI. Everything already in your `.gitignore` is ignored automatically, so use `.aiignore` only for files that are tracked by Git but that the AI doesn't need to see: test fixtures, generated code, large data files, or anything sensitive. Ignored files stay out of the index and are never sent to the AI.
+> [!WARNING]
+> **Check your `.aiignore` before your first chat.** It works like `.gitignore` — add glob patterns to hide files from the AI. Everything already in your `.gitignore` is ignored automatically, so use `.aiignore` only for files that are tracked by Git but that the AI doesn't need to see: test fixtures, generated code, large data files, or anything sensitive. Ignored files stay out of the index and are never sent to the AI.
 
 ### Step 2 — Upload the instructions to your AI
 
