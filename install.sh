@@ -18,6 +18,15 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# ── Check required tools ──────────────────────────────────────
+for cmd in curl tar; do
+  if ! command -v "${cmd}" >/dev/null 2>&1; then
+    echo "❌ '${cmd}' is required but was not found on this system."
+    echo "   Please install it with your package manager and re-run this script."
+    exit 1
+  fi
+done
+
 # ── Detect OS and architecture ────────────────────────────────
 OS="$(uname -s)"
 ARCH="$(uname -m)"
@@ -43,7 +52,7 @@ case "${OS}" in
     ;;
 esac
 
-ASSET_NAME="ai-bridge-${RID}.zip"
+ASSET_NAME="ai-bridge-${RID}.tar.gz"
 
 # ── Fetch latest release version ─────────────────────────────
 echo "🔍 Fetching latest AI Bridge release..."
@@ -61,14 +70,19 @@ echo "📦 Latest version: ${LATEST_TAG}"
 # ── Download and extract ──────────────────────────────────────
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${LATEST_TAG}/${ASSET_NAME}"
 TMP_DIR="$(mktemp -d)"
-TMP_ZIP="${TMP_DIR}/${ASSET_NAME}"
+TMP_ARCHIVE="${TMP_DIR}/${ASSET_NAME}"
 
 echo "⬇️  Downloading ${ASSET_NAME}..."
-curl -fsSL --progress-bar "${DOWNLOAD_URL}" -o "${TMP_ZIP}"
+if ! curl -fsSL --progress-bar "${DOWNLOAD_URL}" -o "${TMP_ARCHIVE}"; then
+  echo "❌ Download failed: ${DOWNLOAD_URL}"
+  echo "   Check your internet connection, or download the file manually from:"
+  echo "   https://github.com/${REPO}/releases/latest"
+  exit 1
+fi
 
 echo "📂 Extracting..."
 mkdir -p "${INSTALL_DIR}"
-unzip -oq "${TMP_ZIP}" -d "${TMP_DIR}"
+tar -xzf "${TMP_ARCHIVE}" -C "${TMP_DIR}"
 mv "${TMP_DIR}/${BIN_NAME}" "${INSTALL_DIR}/${BIN_NAME}"
 chmod +x "${INSTALL_DIR}/${BIN_NAME}"
 

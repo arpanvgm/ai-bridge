@@ -1,4 +1,3 @@
-﻿
 # AI Bridge — installer for Windows (PowerShell)
 # Usage: irm https://raw.githubusercontent.com/arpanvgm/ai-bridge/main/install.ps1 | iex
 

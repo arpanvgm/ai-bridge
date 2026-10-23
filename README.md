@@ -75,12 +75,12 @@ If you prefer not to pipe to bash, download the binary for your platform directl
 | Platform | File |
 |----------|------|
 | Windows (64-bit) | `ai-bridge-win-x64.zip` |
-| macOS (Apple Silicon) | `ai-bridge-osx-arm64.zip` |
-| macOS (Intel) | `ai-bridge-osx-x64.zip` |
-| Linux (64-bit) | `ai-bridge-linux-x64.zip` |
-| Linux (ARM64) | `ai-bridge-linux-arm64.zip` |
+| macOS (Apple Silicon) | `ai-bridge-osx-arm64.tar.gz` |
+| macOS (Intel) | `ai-bridge-osx-x64.tar.gz` |
+| Linux (64-bit) | `ai-bridge-linux-x64.tar.gz` |
+| Linux (ARM64) | `ai-bridge-linux-arm64.tar.gz` |
 
-Unzip the archive, place the binary somewhere on your `PATH`, and run `ai-bridge --version` to verify.
+Extract the archive (Windows: right-click → Extract All, or `Expand-Archive`; macOS and Linux: `tar -xzf <file>`), place the binary somewhere on your `PATH`, and run `ai-bridge --version` to verify.
 On macOS, you may need to run `xattr -d com.apple.quarantine ./ai-bridge` before first use.
 
 > [!NOTE]
