@@ -1,4 +1,4 @@
-name: Build
+﻿name: Build
 
 on:
   push:
@@ -13,6 +13,29 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Check installer scripts
+        run: |
+          # install.sh must be valid bash
+          bash -n install.sh
+
+          # install.sh must start with "#!" (no BOM, no blank first line)
+          if [ "$(head -c 2 install.sh)" != "#!" ]; then
+            echo "::error file=install.sh::install.sh must start with '#!' (found a BOM or a blank first line)"
+            exit 1
+          fi
+
+          # install.sh must use LF line endings
+          if grep -q $'\r' install.sh; then
+            echo "::error file=install.sh::install.sh has CRLF line endings; it must use LF"
+            exit 1
+          fi
+
+          # install.ps1 must not start with a UTF-8 BOM (breaks 'irm | iex')
+          if [ "$(head -c 3 install.ps1 | od -An -tx1 | tr -d ' \n')" = "efbbbf" ]; then
+            echo "::error file=install.ps1::install.ps1 must not start with a UTF-8 BOM"
+            exit 1
+          fi
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4

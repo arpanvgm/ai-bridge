@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ai-bridge-index lastUpdated="2026-10-23T06:27:05.9010462Z">
+<ai-bridge-index lastUpdated="2026-10-23T09:26:01.4788035Z">
   <module name="ai-bridge">
     <file path=".editorconfig" purpose="" />
     <file path=".github/ISSUE_TEMPLATE/bug_report.yml" purpose="" />
     <file path=".github/ISSUE_TEMPLATE/config.yml" purpose="" />
     <file path=".github/ISSUE_TEMPLATE/feature_request.yml" purpose="" />
-    <file path=".github/workflows/build.yml" purpose="" />
+    <file path=".github/workflows/build.yml" purpose="GitHub Actions workflow that validates the installer scripts (install.sh and install.ps1) and then restores and builds the solution on pushes and pull requests to main." />
     <file path=".vscode/tasks.json" purpose="VS Code task definitions for build, pack, local test, NuGet publish for CLI and MCP, and release tagging. The release task auto-reads the version from AIBridge.Cli.csproj, creates and pushes the git tag, then opens the GitHub Release creation page in the browser." />
     <file path="ai-bridge.slnx" purpose="" />
     <file path="workflows/ARCHITECTURE.md" purpose="" />
@@ -16,6 +16,7 @@
     <file path="install.sh" purpose="Bash installer for macOS and Linux. Detects OS/arch, downloads the correct binary from the latest GitHub Release, installs to ~/.ai-bridge/bin/, updates the user's shell profile, and always cleans up temp files via EXIT trap." />
     <file path="install.ps1" purpose="PowerShell installer for Windows. Detects ARM64 and exits cleanly, downloads win-x64 binary, installs to %USERPROFILE%\.ai-bridge\bin\, updates both persistent user PATH and current session PATH, and cleans up temp files via try/finally." />
     <file path="README.md" purpose="Project documentation. Native binary install (curl/irm one-liners) is the primary install path; dotnet tool is the secondary option for existing .NET developers. Covers all commands, workflow, ecosystem detection, and clipboard support." />
+    <file path="Notes/RELEASE.md" purpose="Step-by-step checklist for preparing, tagging, publishing and verifying a release and its installers." />
   </module>
   <module name="AIBridge.Cli">
     <file path="src/AIBridge.Cli/Abstractions/IInputProvider.cs" purpose="" />
